@@ -368,8 +368,7 @@ function afterTribal(s: GameState) {
     if (s.config.swapEnabled && !s.swapped && n <= s.config.swapAt && n > s.config.mergeAt && !tiny) doSwap(s);
     else if (n <= s.config.mergeAt || tiny) doMerge(s);
   }
-  s.phase = n <= s.config.finalSize + 1 ? "final_challenge" : "camp";
-  if (n <= s.config.finalSize + 1) s.phase = "camp";
+  s.phase = "camp";
 }
 
 function doSwap(s: GameState) {
