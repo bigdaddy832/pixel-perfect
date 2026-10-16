@@ -198,6 +198,10 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
             <select className={sel} value={dec.vote ?? ""} onChange={(e) => setDec({ ...dec, vote: e.target.value || undefined })}>
               <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select></label>
+          {!pending.noVote && <label className="flex items-center gap-2">If there's a revote, vote for:
+            <select className={sel} value={dec.revoteVote ?? ""} onChange={(e) => setDec({ ...dec, revoteVote: e.target.value || undefined })}>
+              <option value="">— Same as my vote / instinct —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select></label>}
           {pending.hasIdol && (
             <label className="flex items-center gap-2">🗿 Play idol on:
               <select className={sel} value={dec.idol ?? ""} onChange={(e) => setDec({ ...dec, idol: e.target.value })}>
