@@ -107,7 +107,7 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
     <div className={`rounded-lg border bg-card p-3 ${me ? "border-primary torch-glow" : ""} ${g.immune.includes(c.id) ? "ring-2 ring-idol" : ""}`}>
       <div className="flex items-center justify-between">
         <span className="font-semibold">{c.name}{me && <span className="ml-1 text-xs text-primary">(YOU)</span>}</span>
-        <span className="flex flex-wrap items-center justify-end gap-1 text-sm">{g.immune.includes(c.id) && "🛡️"}{c.idols > 0 && "🗿".repeat(c.idols)}{c.fakeIdol && <span className="text-xs text-muted-foreground">{c.fakeIdol === "own" ? "Fake idol" : "Fake idol (thinks it's real)"}</span>}{c.clue && <span className="text-xs text-idol">Idol clue</span>}{c.bewareTribals > 0 && <span className="text-xs text-destructive">Beware</span>}{c.lostVote && <span className="text-xs text-destructive">No vote</span>}{(c.advantages ?? []).map((a) => <span key={a} className="text-xs text-accent">{ADVANTAGE_LABEL[a]}</span>)}{c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}</span>
+        <span className="flex flex-wrap items-center justify-end gap-1 text-sm">{g.immune.includes(c.id) && "🛡️"}{c.idols > 0 && "🗿".repeat(c.idols)}{c.fakeIdol && <span className="text-xs text-muted-foreground">{c.fakeIdol === "own" ? "Fake idol" : "Fake idol (thinks it's real)"}</span>}{c.clue && <span className="text-xs text-idol">Idol clue</span>}{c.bewareTribals > 0 && <span className="text-xs text-destructive" title={c.bewareTask}>Beware idol (locked)</span>}{c.lostVote && <span className="text-xs text-destructive">No vote</span>}{(c.advantages ?? []).map((a) => <span key={a} className="text-xs text-accent">{ADVANTAGE_LABEL[a]}</span>)}{c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}</span>
       </div>
       <div className="mt-1 h-1.5 overflow-hidden rounded bg-muted" title={`Mood ${c.mood}`}><div className="h-full bg-success" style={{ width: `${c.mood}%` }} /></div>
       <div className="mt-1.5 flex flex-wrap gap-1">{als.map((a) => <span key={a.id} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-accent">{a.name}</span>)}</div>
@@ -196,6 +196,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
                 {Object.entries(TALK_TOPICS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select><span className="text-xs text-muted-foreground">(can work or backfire)</span></>}
             </div>; })}
+          {pending.bewareTask && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.bewareAttempt ?? false} onChange={(e) => setDec({ ...dec, bewareAttempt: e.target.checked })} className="size-4 accent-primary" />Try to unlock your Beware idol: {pending.bewareTask} (getting caught makes your tribe suspicious)</label>}
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={dec.searchIdol ?? false} onChange={(e) => setDec({ ...dec, searchIdol: e.target.checked })} className="size-4 accent-primary" />Search for an idol</label>
             {dec.searchIdol && <label className="flex flex-wrap items-center gap-2">Search location:
