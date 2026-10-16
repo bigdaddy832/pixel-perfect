@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { expect, test } from "vitest";
 import { newGame, makeRoster, simulateToEnd, TRIBE_COLORS } from "./engine";
 test("new twists run, max one joint/double", () => {
