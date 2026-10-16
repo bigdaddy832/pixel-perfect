@@ -21,4 +21,10 @@ describe("social features", () => {
   it("never repeats season titles", () => {
     const used: string[] = []; for (let i = 0; i < 700; i++) { const t = randomSeasonTitle(used); expect(used).not.toContain(t); used.push(t); }
   });
+  it("uses real locations and original themes, never a real Survivor season name", () => {
+    const real = new Set(REAL_SEASON_NAMES.map((n) => n.toLowerCase()));
+    for (const p of [...SEASON_PLACES, ...SEASON_THEMES]) expect(real.has(p.toLowerCase()), `collides with a real Survivor season name: ${p}`).toBe(false);
+    // Places are drawn from a real-world pool (spot-check a few well-known real places).
+    for (const p of ["Bora Bora", "Seychelles", "Sicily", "Antigua"]) expect(SEASON_PLACES).toContain(p);
+  });
 });
