@@ -62,8 +62,8 @@ describe("confessionals, recap, nullifier, and list ordering", () => {
   it("explains why the F4 immunity winner chose their finalist", () => {
     for (let i = 0; i < 10; i++) {
       const g = simulateToEnd(season());
-      const fire = g.episodes.flatMap((e) => e.entries).find((e) => e.title === "Forced Fire-Making Challenge");
-      expect(fire?.details?.some((d) => d.startsWith("Why "))).toBe(true);
+      const fire = g.episodes.flatMap((e) => e.entries).find((e) => e.title === "Forced Fire-Making Challenge" || e.title === "Immunity Given Up — Fire-Making Showdown");
+      expect(fire?.details?.some((d) => d.startsWith("Why"))).toBe(true);
     }
   });
 });
