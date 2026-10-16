@@ -9,7 +9,7 @@ export const SEASON_PLACES = [
   "Mauritius", "Madagascar", "Zanzibar", "São Tomé", "Cape Verde", "Madeira", "Azores", "Canary Islands",
   "Sardinia", "Corsica", "Sicily", "Crete", "Antigua", "Dominica", "Grenada", "St. Lucia",
   "Roatán", "Cozumel", "Grand Cayman", "Aruba", "Curaçao", "Bonaire", "Yasawa Islands", "Taveuni",
-  "Guadalcanal", "Solomon Islands", "New Britain", "Palau Negros"? extends never — placeholder removed,
+  "Guadalcanal", "Solomon Islands", "New Britain", "Palawan Reef", "Bohol", "Siargao", "Ko Lanta", "Bako",
 ];
 export const SEASON_THEMES = [
   "Elimination Island", "Isolation Isle", "Snake Pit", "Judgement Rock", "Skull Cove", "Mutiny Bay",
@@ -27,7 +27,7 @@ export const REAL_SEASON_NAMES = [
   "Caramoan", "Blood vs. Water", "Cagayan", "San Juan del Sur", "Worlds Apart", "Cambodia",
   "Kaôh Rōng", "Millennials vs. Gen X", "Game Changers", "Ghost Island", "David vs. Goliath",
   "Edge of Extinction", "Island of the Idols", "Winners at War", "Heroes vs. Villains",
-  "Fans vs. Favorites", "Exile Island", "New Beginnings", "Hero Duel"? extends never — placeholder removed,
+  "Fans vs. Favorites", "Exile Island", "New Beginnings", "Hero Duel", "Second Chance",
 ];
 export const USED_TITLES_KEY = "survivor-sim-used-season-titles-v1";
 
