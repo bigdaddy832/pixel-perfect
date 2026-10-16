@@ -189,8 +189,10 @@ export function randomStats(): Record<StatKey, number> {
 export function defaultJury(n: number) { return n <= 12 ? 7 : n <= 16 ? 8 : n <= 18 ? 8 : 9; }
 export function defaultMergeAt(n: number, jury: number, final: number) { return Math.min(final + jury + 1, n - 2); }
 
-export function makeRoster(n: number, tribeCount: number, existing?: { name: string; stats: Record<StatKey, number> }[]) {
-  const names = shuffle(NAMES);
+export function makeRoster(n: number, tribeCount: number, existing?: { name: string; stats: Record<StatKey, number> }[], avoid: string[] = []) {
+  // Unique names; names in `avoid` (e.g. the current cast) are used only if the pool runs out.
+  const pool = [...new Set(NAMES)];
+  const names = [...shuffle(pool.filter((x) => !avoid.includes(x))), ...shuffle(pool.filter((x) => avoid.includes(x)))];
   return Array.from({ length: n }, (_, i) => ({
     name: existing?.[i]?.name ?? names[i],
     stats: existing?.[i]?.stats ?? randomStats(),
