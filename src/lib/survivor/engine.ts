@@ -772,11 +772,54 @@ function doTribal(s: GameState, d: Decision) {
   let voters = att.filter((v) => !safe.includes(v.id) && !noVote.includes(v.id));
   if (!voters.length) voters = att.filter((v) => !safe.includes(v.id));
   const nvLog = noVote.map((id) => `${nm(s, id)} has no vote tonight.`);
-  const castFor = (v: Castaway) => (v.id === ctrl && d.vote && cands(v).some((c) => c.id === d.vote) ? d.vote : aiVote(s, v, cands(v), att));
+  // Live tribal: whispering before the vote can flip votes onto a new name.
+  const overrides: Record<string, string> = {}; const liveLog: string[] = [];
+  const canVoteFor = (v: Castaway, id: string) => cands(v).some((c) => c.id === id);
+  if (att.length >= 4) {
+    const counts: Record<string, number> = {};
+    tribalTargets(s).individual.forEach((p) => (counts[p.target] = (counts[p.target] ?? 0) + 1));
+    const hot = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const P = hot ? byId(s, hot) : undefined;
+    if (P && P.id !== ctrl && !P.out && !safe.includes(P.id) && !s.immune.includes(P.id) && r() < 0.22 + P.stats.strategy * 0.03) {
+      const alt = att.filter((c) => c.id !== P.id && !s.immune.includes(c.id) && !safe.includes(c.id)).sort((a, b) => getRel(s, P.id, a.id) - getRel(s, P.id, b.id))[0];
+      if (alt) {
+        const flipped = voters.filter((v) => v.id !== ctrl && v.id !== P.id && v.id !== alt.id && canVoteFor(v, alt.id) && r() < 0.1 + Math.max(0, getRel(s, v.id, P.id)) * 0.01 + P.stats.social * 0.03 - (sharedAlliance(s, v.id, alt.id) ? 0.3 : 0));
+        flipped.forEach((v) => { overrides[v.id] = alt.id; addRel(s, v.id, P.id, 3); });
+        addRel(s, alt.id, P.id, -8);
+        liveLog.push(`Live Tribal! ${P.name} stands up and starts whispering, trying to swing the vote onto ${alt.name}. ${flipped.length ? `${flipped.map((f) => f.name).join(", ")} ${flipped.length === 1 ? "looks" : "look"} convinced.` : "Nobody budges."}`);
+      }
+    }
+  }
+  if (ctrl && d.whisper && att.some((c) => c.id === ctrl)) {
+    const me = byId(s, ctrl); const tg = att.find((c) => c.id === d.whisper);
+    if (tg && canVoteFor(me, tg.id)) {
+      const flipped = voters.filter((v) => v.id !== ctrl && v.id !== tg.id && !overrides[v.id] && canVoteFor(v, tg.id) && r() < 0.1 + Math.max(0, getRel(s, v.id, ctrl)) * 0.012 + me.stats.social * 0.04 - (sharedAlliance(s, v.id, tg.id) ? 0.35 : 0));
+      flipped.forEach((v) => { overrides[v.id] = tg.id; addRel(s, v.id, ctrl, 2); });
+      addRel(s, tg.id, ctrl, -8);
+      liveLog.push(`You start whispering at Tribal, pushing votes onto ${tg.name}. ${flipped.length ? `${flipped.map((f) => f.name).join(", ")} ${flipped.length === 1 ? "nods" : "nod"} along.` : "Nobody seems to bite."}`);
+    }
+  }
+  const castFor = (v: Castaway) => (v.id === ctrl && d.vote && cands(v).some((c) => c.id === d.vote) ? d.vote : overrides[v.id] && canVoteFor(v, overrides[v.id]) ? overrides[v.id] : aiVote(s, v, cands(v), att));
   let votes: Vote[] = voters.filter((v) => !blocked.includes(v.id)).map((v) => ({ voter: v.id, target: castFor(v) }));
   for (const p of plays) if ((p.adv === "extra_vote" || p.adv === "steal_vote") && !safe.includes(p.who.id)) {
     const own = votes.find((v) => v.voter === p.who.id);
     votes.push({ voter: p.who.id, target: own?.target ?? castFor(p.who) });
+  }
+  // Split vote: a big alliance that fears an idol divides its votes between two names.
+  if (att.length >= 6) {
+    const t1 = tally(votes); const ranked = Object.entries(t1).sort((a, b) => b[1] - a[1]);
+    const P = ranked[0] ? byId(s, ranked[0][0]) : undefined;
+    const grp = P ? s.alliances.map((a) => ({ a, vs: votes.filter((v) => v.target === P.id && v.voter !== ctrl && a.members.includes(v.voter)) })).sort((x, y) => y.vs.length - x.vs.length)[0] : undefined;
+    if (P && grp && grp.vs.length >= 4 && r() < (P.idols > 0 || P.clue ? 0.5 : 0.12)) {
+      const k = Math.floor(grp.vs.length / 2);
+      const B = att.filter((c) => c.id !== P.id && !grp.a.members.includes(c.id) && grp.vs.every((v) => canVoteFor(byId(s, v.voter), c.id)))
+        .sort((x, y) => grp.vs.reduce((n, v) => n + getRel(s, v.voter, x.id), 0) - grp.vs.reduce((n, v) => n + getRel(s, v.voter, y.id), 0))[0];
+      const others = B ? Math.max(0, ...ranked.filter(([id]) => id !== P.id && id !== B.id).map(([, n]) => n)) : Infinity;
+      if (B && Math.min(ranked[0][1] - k, (t1[B.id] ?? 0) + k) > others) {
+        grp.vs.slice(0, k).forEach((v) => (v.target = B.id));
+        liveLog.push(`${grp.a.name} splits their votes between ${P.name} and ${B.name} to flush out a possible idol.`);
+      }
+    }
   }
   // idol plays
   const protectedIds: string[] = []; const idolLog: string[] = [];
@@ -876,8 +919,9 @@ function doTribal(s: GameState, d: Decision) {
     kind: "tribal", title: `Tribal Council — ${tname}`,
     text: `${loser.name} has been ${rocks ? "eliminated by drawing the wrong rock" : "voted out"}${loser.juror ? " and becomes a member of the jury" : ""}${loser.edge ? " — and heads to the Edge of Extinction, still fighting for a way back" : ""}. ${blindside ? "A massive blindside — with an idol in their pocket!" : ""} The tribe has spoken.`,
     details: [`Final count: ${vc}`, ...details, ...(loser.betrayedBy.length ? [`${loser.name} feels betrayed by ${[...new Set(loser.betrayedBy)].map((x) => nm(s, x)).join(", ")}.`] : [])],
-    votes, revote,
+    votes, revote, out: loser.id,
   });
+  if (loser.juror && !loser.edge) ponderosa(s, loser);
   s.immune = [];
 }
 
