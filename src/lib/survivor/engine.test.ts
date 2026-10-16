@@ -100,11 +100,15 @@ describe("Survivor decisions and tribes", () => {
     expect(g.tribes).toHaveLength(2);
     for (let i = 0; i < 30 && !g.swapped; i++) g = step(g);
     expect(g.swapped).toBe(true);
-    expect(g.tribes.find((t) => t.id === "swap-third")).toEqual({ ...config.swapTribe, name: "Swap Test 2.0" });
-    expect(g.tribes.filter((t) => t.name.endsWith(" 2.0"))).toHaveLength(3);
-    // A quit or medevac can reduce the cast before the swap; assignment stays balanced.
-    expect(alive(g).filter((c) => c.tribeId === "swap-third")).toHaveLength(Math.floor(alive(g).length / 3));
-    expect(g.hiddenIdols["swap-third"]).toBe(1);
+    if (alive(g).length % 2 === 0) {
+      // Even cast sizes always swap into two equal tribes.
+      expect(new Set(alive(g).map((c) => c.tribeId)).size).toBe(2);
+      expect(g.tribes.find((t) => t.id === "swap-third")).toBeUndefined();
+    } else {
+      expect(g.tribes.find((t) => t.id === "swap-third")).toEqual({ ...config.swapTribe, name: "Swap Test 2.0" });
+      expect(alive(g).filter((c) => c.tribeId === "swap-third")).toHaveLength(Math.floor(alive(g).length / 3));
+      expect(g.hiddenIdols["swap-third"]).toBe(1);
+    }
     g = simulateToEnd(g);
     expect(g.phase).toBe("done");
     expect(g.tribes.find((t) => t.id === "merged")?.color).toBe(config.mergedColor);
@@ -147,6 +151,25 @@ describe("numbered alliance names", () => {
     for (let n = 2; n <= 5; n++) for (let i = 0; i < 200; i++) {
       const name = _an(n, []);
       for (const [w, k] of Object.entries(words)) if (name.includes(w) && !name.includes("Trouble")) expect(k).toBe(n);
+    }
+  });
+});
+describe("swap sizes and exits", () => {
+  it("swaps an even cast into two equal tribes", () => {
+    for (const at of [16, 14]) {
+      let g = newGame({ ...config, swapAt: at }, [0, 1].map((i) => ({ id: `t${i}`, name: `T${i}`, color: "#123456" })), makeRoster(18, 2).map((c, i) => ({ ...c, name: c.name ?? `P${i}` })));
+      for (let i = 0; i < 40 && !g.swapped; i++) g = step(g);
+      const sizes = Object.values(alive(g).reduce((m: Record<string, number>, c) => ((m[c.tribeId] = (m[c.tribeId] ?? 0) + 1), m), {}));
+      if (alive(g).length % 2 === 0) expect(sizes).toEqual([alive(g).length / 2, alive(g).length / 2]);
+    }
+  });
+  it("skips Tribal Council in a round with a quit or medevac", () => {
+    for (let k = 0; k < 40; k++) {
+      const g = simulateToEnd(season());
+      for (const ep of g.episodes) if (ep.entries.some((e) => e.title === "A Castaway Quits" || e.title === "Medical Evacuation")) {
+        const after = ep.entries.slice(ep.entries.findIndex((e) => e.title === "A Castaway Quits" || e.title === "Medical Evacuation"));
+        expect(after.some((e) => e.kind === "tribal")).toBe(false);
+      }
     }
   });
 });

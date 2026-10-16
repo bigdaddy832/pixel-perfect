@@ -56,7 +56,7 @@ export interface GameState {
   pendingRevote?: { seed: number; decision: Decision; options: string[]; votes?: Vote[]; summary?: string[] };
   config: Config; castaways: Castaway[]; tribes: Tribe[]; alliances: Alliance[];
   rel: Record<string, number>; episodes: Episode[]; day: number; phase: Phase;
-  merged: boolean; swapped: boolean; immune: string[]; tribalTribe: string | null;
+  noTribal?: boolean; merged: boolean; swapped: boolean; immune: string[]; tribalTribe: string | null;
   hiddenIdols: Record<string, number>; finalImmune?: string; usedChallenges: string[]; rewardAdvantageGiven: boolean;
   tribalTribes?: string[]; tribalQueue?: string[][]; doubleElim?: boolean; twistsUsed?: string[];
   challengeSearch?: boolean; edgeDone?: boolean; journeysDone?: number;
@@ -321,7 +321,13 @@ export function pendingDecision(s: GameState): Pending {
 export function step(prev: GameState, d: Decision = {}): GameState {
   const s: GameState = structuredClone(prev);
   switch (s.phase) {
-    case "camp": doCamp(s, d); s.phase = alive(s).length <= s.config.finalSize + 1 ? "final_challenge" : "challenge"; break;
+    case "camp": {
+      doCamp(s, d);
+      if (alive(s).length <= s.config.finalSize + 1) { s.phase = "final_challenge"; break; }
+      // A quit or medevac replaces this round's vote: no challenge or Tribal Council.
+      if (s.noTribal) { delete s.noTribal; s.immune = []; log(s, { kind: "twist", title: "No Tribal Council", text: "With someone already gone, Jeff calls off this round's immunity challenge and Tribal Council. Nobody is voted out." }); afterTribal(s); break; }
+      s.phase = "challenge"; break;
+    }
     case "challenge": doChallenge(s); s.phase = "tribal"; break;
     case "tribal": {
       const pr = s.pendingRevote; delete s.pendingRevote;
@@ -447,7 +453,7 @@ function doCamp(s: GameState, d: Decision) {
     const quitter = !med && pool.filter((c) => c.id !== s.config.controlledId && (c.mood < 45 && c.stats.temperament <= 3) || r() < 0.03).find(() => r() < 0.06);
     const gone = med || quitter;
     if (gone) {
-      eliminate(s, gone, med ? "medevac" : "quit");
+      eliminate(s, gone, med ? "medevac" : "quit"); s.noTribal = true;
       log(s, med
         ? { kind: "twist", title: "Medical Evacuation", text: `${gone.name} ${pick(["collapsed from dehydration", "suffered a serious infection in their leg", "dislocated a shoulder during a camp chore", "was struck by severe heat exhaustion"])}. Medical makes the call: ${gone.name} is pulled from the game${gone.juror ? " and joins the jury" : ""}.` }
         : { kind: "drama", title: "A Castaway Quits", text: `Worn down and miserable, ${gone.name} asks for their torch to be snuffed. ${gone.name} has quit the game.` });
@@ -1004,8 +1010,10 @@ function afterTribal(s: GameState) {
 
 function doSwap(s: GameState) {
   s.swapped = true;
-  const tids = [...new Set(alive(s).map((c) => c.tribeId))];
-  if (s.config.swapTribe && tids.length === 2) {
+  let tids = [...new Set(alive(s).map((c) => c.tribeId))];
+  // An even number of castaways always swaps into two equal tribes; only an odd count can use three.
+  if (alive(s).length % 2 === 0) tids = tids.slice(0, 2);
+  else if (s.config.swapTribe && tids.length === 2) {
     const third = { ...s.config.swapTribe };
     s.tribes.push(third);
     tids.push(third.id);
