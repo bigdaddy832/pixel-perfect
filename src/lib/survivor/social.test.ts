@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeRoster, newGame, simulateToEnd, step, TRIBE_COLORS, TRIBE_NAMES } from "./engine";
-import { randomSeasonTitle } from "./season-titles";
+import { randomSeasonTitle, SEASON_PLACES, SEASON_THEMES, REAL_SEASON_NAMES } from "./season-titles";
 const season = () => newGame({ playerCount: 16, tribeCount: 2, jurySize: 7, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 12, mergeAt: 10, mergedName: "M", mergedColor: "#123456", controlledId: "c0" },
   [0, 1].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i] ?? "A", color: TRIBE_COLORS[i] ?? "#123456" })), makeRoster(16, 2).map((c, i) => ({ ...c, name: c.name ?? `P${i}` })));
 describe("social features", () => {
