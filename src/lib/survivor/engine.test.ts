@@ -24,7 +24,9 @@ describe("Survivor decisions and tribes", () => {
       expect(names).not.toContain(name);
     }
     for (const name of ["Tony", "Stephanie", "Rob", "Spark", "Patch", "Skipper"]) expect(names).toContain(name);
-    expect(makeRoster(20, 2, [{ name: "My nickname", stats: season().castaways[0]?.stats ?? {} as never }])[0]?.name).toBe("My nickname");
+    const custom = makeRoster(20, 2)[0];
+    if (!custom) throw new Error("Missing castaway");
+    expect(makeRoster(20, 2, [{ ...custom, name: "My nickname" }])[0]?.name).toBe("My nickname");
   });
 
   it.each([[0.1, "Idol Found!", 1, 0], [0.5, "Advantage Found!", 0, 1], [0.99, "Nothing", 0, 0]])("handles search outcome for roll %s", (roll, title, idols, advantages) => {
