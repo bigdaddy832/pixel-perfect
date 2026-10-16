@@ -16,18 +16,21 @@ export interface Castaway {
   stats: Record<StatKey, number>;
   out: boolean; juror: boolean; idols: number; advantages: AdvantageKey[]; mood: number;
   placement?: number; immunityWins: number; betrayedBy: string[];
+  fakeIdol?: "own" | "planted"; bewareTribals?: number; lostVote?: boolean; edge?: boolean;
+  votesCast?: number; correctVotes?: number; votesAgainst?: number; idolsPlayed?: number; advPlayed?: number;
 }
-export type AdvantageKey = "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier";
-export const ADVANTAGES: AdvantageKey[] = ["extra_vote", "steal_vote", "vote_blocker", "safety", "idol_nullifier"];
-export const ADVANTAGE_LABEL: Record<AdvantageKey, string> = { extra_vote: "Extra Vote", steal_vote: "Steal a Vote", vote_blocker: "Vote Blocker", safety: "Safety Without Power", idol_nullifier: "Idol Nullifier" };
+export type AdvantageKey = "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power";
+export const ADVANTAGES: AdvantageKey[] = ["extra_vote", "steal_vote", "vote_blocker", "safety", "idol_nullifier", "knowledge_is_power"];
+export const ADVANTAGE_LABEL: Record<AdvantageKey, string> = { extra_vote: "Extra Vote", steal_vote: "Steal a Vote", vote_blocker: "Vote Blocker", safety: "Safety Without Power", idol_nullifier: "Idol Nullifier", knowledge_is_power: "Knowledge is Power" };
 export const ADVANTAGE_DESC: Record<AdvantageKey, string> = {
   extra_vote: "Cast a second vote at Tribal Council.",
   steal_vote: "Take someone's vote and cast it yourself.",
   vote_blocker: "Block one person from voting.",
   safety: "Leave Tribal Council safe — but you don't vote.",
   idol_nullifier: "Cancel any idol played for the person you name.",
+  knowledge_is_power: "Ask someone if they have an idol or advantage — if they do, it's yours.",
 };
-export const ADVANTAGE_NEEDS_TARGET: AdvantageKey[] = ["steal_vote", "vote_blocker", "idol_nullifier"];
+export const ADVANTAGE_NEEDS_TARGET: AdvantageKey[] = ["steal_vote", "vote_blocker", "idol_nullifier", "knowledge_is_power"];
 export interface Tribe { id: string; name: string; color: string }
 export interface Alliance { id: string; name: string; members: string[] }
 export interface Config {
