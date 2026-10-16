@@ -424,6 +424,22 @@ function doChallenge(s: GameState) {
     s.tribalTribe = loser.tid; s.tribalTribes = [loser.tid]; s.tribalQueue = [];
     s.twistsUsed ??= [];
     log(s, { kind: "challenge", title: `Immunity Challenge: ${ch.name} (${STAT_LABEL[ch.type]})`, text: `${is.slice(0, -1).map((x) => tribeOf(s, x.tid)!.name).join(" & ")} win immunity! ${tribeOf(s, loser.tid)!.name} will face Tribal Council.`, details: [...is.map((x, i) => `${i + 1}. ${tribeOf(s, x.tid)!.name} — ${x.sc.toFixed(2)} (MVP: ${x.mvp.name})`), `${loser.mvp.name} tried to carry, but it wasn't enough.`] });
+    const big = (tid: string) => (groups(s).get(tid)?.length ?? 0) >= 3;
+    if (is.length >= 2 && s.config.jointTribals !== false && !s.twistsUsed.includes("joint") && r() < 0.14) {
+      const losing = is.length === 2 ? is : is.slice(-2);
+      s.twistsUsed.push("joint"); s.tribalTribes = losing.map((x) => x.tid);
+      const pool = losing.flatMap((x) => groups(s).get(x.tid)!);
+      const champ = pool.map((c) => ({ c, sc: indScore(c, ch.type) })).sort((a, b) => b.sc - a.sc)[0].c;
+      s.immune = [champ.id]; champ.immunityWins++;
+      log(s, { kind: "twist", title: "Joint Tribal Council!", text: `Twist! ${losing.map((x) => tribeOf(s, x.tid)!.name).join(" and ")} will attend Tribal Council together and vote out one person. ${champ.name} earned individual immunity for the best performance.` });
+    } else if (is.length >= 2 && s.config.doubleTribals !== false && !s.twistsUsed.includes("double_pre") && r() < 0.12) {
+      const losing = (is.length === 2 ? is : is.slice(-2)).filter((x) => big(x.tid));
+      if (losing.length === 2) {
+        s.twistsUsed.push("double_pre");
+        s.tribalTribes = [losing[1].tid]; s.tribalQueue = [[losing[0].tid]];
+        log(s, { kind: "twist", title: "Double Tribal Council!", text: `Twist! Both ${tribeOf(s, losing[1].tid)!.name} and ${tribeOf(s, losing[0].tid)!.name} will go to Tribal Council tonight — two people are going home.` });
+      }
+    }
   } else {
     const ms = alive(s);
     const rr = ms.map((c) => ({ c, sc: indScore(c, rew.type) })).sort((a, b) => b.sc - a.sc);
@@ -462,9 +478,22 @@ function aiVote(s: GameState, voter: Castaway, cands: Castaway[], attendees: Cas
 function tally(votes: Vote[]) { const m: Record<string, number> = {}; votes.forEach((v) => !v.nullified && (m[v.target] = (m[v.target] ?? 0) + 1)); return m; }
 
 function doTribal(s: GameState, d: Decision) {
-  const att = alive(s).filter((c) => c.tribeId === s.tribalTribe);
-  const tname = tribeOf(s, s.tribalTribe!)!.name;
+  const att = attendees(s);
+  const tname = tribalGroup(s).map((id) => tribeOf(s, id)?.name ?? "").join(" & ");
   const ctrl = s.config.controlledId;
+  const immLog: string[] = [];
+  // giving up individual immunity
+  const holderId = s.merged ? s.immune[0] : undefined;
+  if (holderId && att.some((c) => c.id === holderId)) {
+    const holder = byId(s, holderId);
+    let to: string | undefined;
+    if (holder.id === ctrl) to = d.giveImmunity && att.some((c) => c.id === d.giveImmunity && c.id !== holder.id) ? d.giveImmunity : undefined;
+    else if (r() < 0.04) to = att.filter((c) => c.id !== holder.id && getRel(s, holder.id, c.id) > 25).sort((a, b) => getRel(s, holder.id, b.id) - getRel(s, holder.id, a.id))[0]?.id;
+    if (to) {
+      s.immune = [to]; addRel(s, holder.id, to, 15);
+      immLog.push(`${holder.name} shocks everyone by giving up individual immunity to ${nm(s, to)}!`);
+    }
+  }
   // advantage plays (before votes are cast)
   const plays: { who: Castaway; adv: AdvantageKey; target?: string }[] = [];
   for (const h of att.filter((c) => (c.advantages ?? []).length)) {
@@ -518,7 +547,7 @@ function doTribal(s: GameState, d: Decision) {
   }
   votes = votes.map((v) => (protectedIds.includes(v.target) ? { ...v, nullified: true } : v));
   let t = tally(votes);
-  const details: string[] = [...advLog, ...idolLog];
+  const details: string[] = [...immLog, ...advLog, ...idolLog];
   let revote: Vote[] | undefined;
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
@@ -526,7 +555,7 @@ function doTribal(s: GameState, d: Decision) {
     t = tally(revote);
   }
   let top = Math.max(...Object.values(t)); let tied = Object.keys(t).filter((k) => t[k] === top);
-  let out: string;
+  let out: string; let rocks = false; const firstTally = t;
   if (tied.length > 1) {
     details.push(`Tie between ${tied.map((x) => nm(s, x)).join(" and ")}. Revote!`);
     revote = voters.filter((v) => !tied.includes(v.id)).map((v) => ({ voter: v.id, target: v.id === ctrl && d.vote && tied.includes(d.vote) ? d.vote : aiVote(s, v, att.filter((c) => tied.includes(c.id)), att) }));
@@ -534,8 +563,13 @@ function doTribal(s: GameState, d: Decision) {
     if (rtied.length === 1) out = rtied[0];
     else {
       const pool = att.filter((c) => !tied.includes(c.id) && !s.immune.includes(c.id) && !safe.includes(c.id) && !protectedIds.includes(c.id));
-      out = pool.length ? pick(pool).id : pick(tied);
-      details.push(`Deadlock! The castaways draw rocks... ${nm(s, out)} draws the odd rock.`);
+      if (!pool.length || r() < 0.3) {
+        out = [...tied].sort((a, b) => voters.reduce((acc, v) => acc + getRel(s, v.id, a), 0) - voters.reduce((acc, v) => acc + getRel(s, v.id, b), 0))[0];
+        details.push(`Deadlock! Rather than draw rocks, the tribe reaches a unanimous decision to send ${nm(s, out)} home.`);
+      } else {
+        out = pick(pool).id; rocks = true;
+        details.push(`Deadlock! Nobody budges, so ${pool.map((c) => c.name).join(", ")} must draw rocks... ${nm(s, out)} draws the purple rock.`);
+      }
     }
   } else out = tied[0];
   const loser = byId(s, out);
@@ -549,11 +583,11 @@ function doTribal(s: GameState, d: Decision) {
   for (const a of against) for (const b of against) if (a < b) addRel(s, a, b, 3);
   const blindside = !allVotes.some((v) => v.voter === out && against.includes(v.target)) && against.length > att.length / 2 && loser.idols > 0;
   eliminate(s, loser, `voted out`);
-  const vcE = Object.entries(tally(revote?.length ? revote : votes)).sort((a, b) => b[1] - a[1]);
-  const vc = `${vcE.map(([, n]) => n).join("-")} (${vcE.map(([k, n]) => `${nm(s, k)}: ${n}`).join(", ")})`;
+  const fmt = (tt: Record<string, number>) => { const e = Object.entries(tt).sort((a, b) => b[1] - a[1]); return `${e.map(([, n]) => n).join("-")} (${e.map(([k, n]) => `${nm(s, k)}: ${n}`).join(", ")})`; };
+  const vc = revote?.length && tied.length > 1 ? `${fmt(firstTally)} · Revote: ${Object.keys(tally(revote)).length ? fmt(tally(revote)) : "deadlocked"}${rocks ? " · Rocks" : ""}` : fmt(t);
   log(s, {
     kind: "tribal", title: `Tribal Council — ${tname}`,
-    text: `${loser.name} has been voted out${loser.juror ? " and becomes a member of the jury" : ""}. ${blindside ? "A massive blindside — with an idol in their pocket!" : ""} The tribe has spoken.`,
+    text: `${loser.name} has been ${rocks ? "eliminated by drawing the wrong rock" : "voted out"}${loser.juror ? " and becomes a member of the jury" : ""}. ${blindside ? "A massive blindside — with an idol in their pocket!" : ""} The tribe has spoken.`,
     details: [`Final count: ${vc}`, ...details, ...(loser.betrayedBy.length ? [`${loser.name} feels betrayed by ${[...new Set(loser.betrayedBy)].map((x) => nm(s, x)).join(", ")}.`] : [])],
     votes, revote,
   });
@@ -571,6 +605,21 @@ function eliminate(s: GameState, c: Castaway, _how: string) {
 }
 
 function afterTribal(s: GameState) {
+  if (s.tribalQueue?.length) {
+    s.tribalTribes = s.tribalQueue.shift(); s.tribalTribe = s.tribalTribes[0];
+    s.phase = "tribal"; return;
+  }
+  if (s.doubleElim) {
+    s.doubleElim = false;
+    const ms = alive(s);
+    if (s.merged && ms.length >= s.config.finalSize + 2) {
+      const ch = pickChallenge(s);
+      const ir = ms.map((c) => ({ c, sc: indScore(c, ch.type) })).sort((a, b) => b.sc - a.sc);
+      ir[0].c.immunityWins++; s.immune = [ir[0].c.id];
+      log(s, { kind: "challenge", title: `Second Immunity: ${ch.name} (${STAT_LABEL[ch.type]})`, text: `No time to breathe — ${ir[0].c.name} wins the second immunity of the night!`, details: ir.map((x, i) => `${i + 1}. ${x.c.name} — ${x.sc.toFixed(2)}`) });
+      s.phase = "tribal"; return;
+    }
+  }
   const n = alive(s).length;
   s.episodes.push({ n: s.episodes.length + 1, title: freshTitle(s), entries: [] });
   if (!s.merged) {
@@ -607,19 +656,25 @@ function doMerge(s: GameState) {
 }
 
 // ---------- finale ----------
-function doFinalChallenge(s: GameState, d: Decision) {
+const isFireFinal = (s: GameState) => s.config.finalSize === 3 && s.config.fireAtF4 && alive(s).length === 4;
+function doFinalChallenge(s: GameState) {
   const ms = alive(s); const ch = pickChallenge(s);
   const ir = ms.map((c) => ({ c, sc: indScore(c, ch.type) + c.stats.endurance * 0.3 })).sort((a, b) => b.sc - a.sc);
   const w = ir[0].c; w.immunityWins++; s.finalImmune = w.id;
   log(s, { kind: "finale", title: `Final Immunity Challenge: ${ch.name}`, text: `${w.name} wins the final immunity challenge and a guaranteed seat at Final Tribal Council!`, details: ir.map((x, i) => `${i + 1}. ${x.c.name} — ${x.sc.toFixed(2)}`) });
+}
+
+function doFinalChoice(s: GameState, d: Decision) {
+  const ms = alive(s); const w = byId(s, s.finalImmune!);
   const others = ms.filter((c) => c.id !== w.id);
+  const mine = w.id === s.config.controlledId && others.some((c) => c.id === d.cut) ? byId(s, d.cut!) : null;
   const pickCut = () => (w.id === s.config.controlledId && d.cut ? byId(s, d.cut) : [...others].sort((a, b) => (threat(b) - getRel(s, w.id, b.id) * 0.1) - (threat(a) - getRel(s, w.id, a.id) * 0.1))[0]);
-  if (s.config.finalSize === 3 && s.config.fireAtF4 && ms.length === 4) {
-    const safe = [...others].sort((a, b) => getRel(s, w.id, b.id) - getRel(s, w.id, a.id))[0];
+  if (isFireFinal(s)) {
+    const safe = mine ?? [...others].sort((a, b) => getRel(s, w.id, b.id) - getRel(s, w.id, a.id))[0];
     const fire = others.filter((c) => c.id !== safe.id);
     const fs = fire.map((c) => ({ c, sc: c.stats.endurance * 0.6 + c.stats.mental * 0.4 + r() * 4 })).sort((a, b) => b.sc - a.sc);
     eliminate(s, fs[1].c, "fire");
-    log(s, { kind: "finale", title: "Fire-Making Challenge", text: `${w.name} takes ${safe.name} to the end. ${fs[0].c.name} and ${fs[1].c.name} battle at fire-making... ${fs[0].c.name}'s flame burns through the rope! ${fs[1].c.name} becomes the final juror.`, details: fs.map((x) => `${x.c.name} — ${x.sc.toFixed(2)}`) });
+    log(s, { kind: "finale", title: "Forced Fire-Making Challenge", text: `${w.name} takes ${safe.name} to the end. ${fs[0].c.name} and ${fs[1].c.name} battle at fire-making... ${fs[0].c.name}'s flame burns through the rope! ${fs[1].c.name} becomes the final juror.`, details: fs.map((x) => `${x.c.name} — ${x.sc.toFixed(2)}`) });
   } else {
     const cut = pickCut();
     eliminate(s, cut, "cut");
