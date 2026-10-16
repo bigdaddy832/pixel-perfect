@@ -27,8 +27,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [swap, setSwap] = useState(true);
   const [swapAt, setSwapAt] = useState(15);
   const [mergeAt, setMergeAt] = useState(defaultMergeAt(18, 8, 3));
-  const [mergeTribe, setMergeTribe] = useState<Tribe>({ id: "merged", name: MERGE_NAMES[0], color: TRIBE_COLORS[2] });
-  const [swapTribe, setSwapTribe] = useState<Tribe>({ id: "swap-third", name: TRIBE_NAMES[2], color: TRIBE_COLORS[2] });
+  const [mergeTribe, setMergeTribe] = useState<Tribe>({ id: "merged", name: names.merge, color: TRIBE_COLORS[2] });
+  const [swapTribe, setSwapTribe] = useState<Tribe>({ id: "swap-third", name: names.swap, color: TRIBE_COLORS[2] });
   const [addSwapTribe, setAddSwapTribe] = useState(true);
   const [joint, setJoint] = useState(true);
   const [double, setDouble] = useState(true);
@@ -36,7 +36,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [journeys, setJourneys] = useState(true);
   const [exile, setExile] = useState(false);
   const [beware, setBeware] = useState(true);
-  const [tribes, setTribes] = useState<Tribe[]>(() => [0, 1, 2].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i], color: TRIBE_COLORS[i] })));
+  const [tribes, setTribes] = useState<Tribe[]>(() => [0, 1, 2].map((i) => ({ id: `t${i}`, name: names.starting[i], color: TRIBE_COLORS[i] })));
   const [roster, setRoster] = useState<Row[]>(() => makeRoster(18, 2));
   const [controlled, setControlled] = useState<number | null>(null);
 
