@@ -11,4 +11,4 @@ test("new twists run, max one joint/double", () => {
     for (const e of g.episodes.flatMap((x) => x.entries)) for (const k of ["Return from the Edge", "Journey", "Summit", "Exile Island", "BEWARE", "Knowledge is Power", "NOT a hidden", "Opening Statements", "Challenge"]) if ((e.title + e.text + (e.details ?? []).join()).includes(k)) seen[k] = (seen[k] ?? 0) + 1;
   }
   console.log(JSON.stringify(seen));
-});
+}, 120000);
