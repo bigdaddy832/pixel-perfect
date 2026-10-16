@@ -15,7 +15,7 @@ export function Game({ game, setGame, onReset, readOnly = false }: { game: GameS
   const [editing, setEditing] = useState(false);
   const [dec, setDec] = useState<Decision>({});
   const pending = pendingDecision(game);
-  const next = () => { setGame(step(game, dec)); setDec({}); };
+  const next = () => { setGame(step(game, { ...dec, pauseOnRevote: true })); setDec({}); };
   const winner = game.winner ? byId(game, game.winner) : null;
   const groups = [...new Set(alive(game).map((c) => c.tribeId))];
   const jury = game.castaways.filter((c) => c.juror);
@@ -157,6 +157,12 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           </label>
         </div>
       )}
+      {pending.kind === "revote" && (
+        <label className="mt-2 flex flex-wrap items-center gap-2 text-sm">The votes are tied — revote! Who do you vote for now?
+          <select className={sel} value={dec.revoteVote ?? ""} onChange={(e) => setDec({ ...dec, revoteVote: e.target.value || undefined })}>
+            <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select></label>
+      )}
       {pending.kind === "camp" && (
         <div className="mt-2 space-y-3">
         <label className="flex flex-wrap items-center gap-2 text-sm">Approach someone to align with (optional):
@@ -198,10 +204,6 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
             <select className={sel} value={dec.vote ?? ""} onChange={(e) => setDec({ ...dec, vote: e.target.value || undefined })}>
               <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select></label>
-          {!pending.noVote && <label className="flex items-center gap-2">If there's a revote, vote for:
-            <select className={sel} value={dec.revoteVote ?? ""} onChange={(e) => setDec({ ...dec, revoteVote: e.target.value || undefined })}>
-              <option value="">— Same as my vote / instinct —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select></label>}
           {pending.hasIdol && (
             <label className="flex items-center gap-2">🗿 Play idol on:
               <select className={sel} value={dec.idol ?? ""} onChange={(e) => setDec({ ...dec, idol: e.target.value })}>
