@@ -40,6 +40,7 @@ export interface Config {
   mergedName: string; mergedColor: string;
   swapTribe?: Tribe;
   jointTribals?: boolean; doubleTribals?: boolean;
+  edgeOfExtinction?: boolean; journeys?: boolean; exileIsland?: boolean; bewareAdvantages?: boolean;
   controlledId: string | null;
 }
 export interface Vote { voter: string; target: string; nullified?: boolean }
@@ -55,10 +56,14 @@ export interface GameState {
   merged: boolean; swapped: boolean; immune: string[]; tribalTribe: string | null;
   hiddenIdols: Record<string, number>; finalImmune?: string; usedChallenges: string[]; rewardAdvantageGiven: boolean;
   tribalTribes?: string[]; tribalQueue?: string[][]; doubleElim?: boolean; twistsUsed?: string[];
+  challengeSearch?: boolean; edgeDone?: boolean; journeysDone?: number;
   winner?: string; finalists?: string[]; juryVotes?: { juror: string; finalist: string; reason: string }[];
 }
 export const SEARCH_SPOTS = ["the tree line", "the water well", "behind the shelter", "the rocky outcrop", "the beach at dawn"];
-export interface Decision { vote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string }
+export interface Decision { vote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean }
+const BIG_TWISTS = ["joint", "double_pre", "double_post"];
+/** Joint tribals and double eliminations share a single once-per-season slot. */
+export const bigTwistUsed = (s: GameState) => (s.twistsUsed ?? []).some((x) => BIG_TWISTS.includes(x));
 
 export const TRIBE_NAMES = [
   "Veylora", "Kelmori", "Zunakai", "Dakal", "Naviti", "Taku", "Ulong", "Pagong", "Tagi", "Kucha",
