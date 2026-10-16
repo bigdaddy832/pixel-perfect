@@ -10,3 +10,8 @@
 - [x] Accounts (email + Google, username) and season history.
 - [x] More varied alliance and challenge names; numbered alliance names match member count.
 - [x] Alliances panel by tribe; tribal targets panel (group + individual, with reasons).
+- [x] Expand evidence-based finalist speeches and allow the controlled juror to vote after reading them.
+- [x] Create separate alliances for new player approaches.
+- [x] Include idol-negated votes in tribal counts and vary logged idol hiding places.
+- [x] Verify season changes with regression tests and the jury-vote screen.
+- [x] Add a final statistics sheet and a fan favorite award eligible only for castaways who reached the merge.
