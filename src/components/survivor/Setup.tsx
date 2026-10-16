@@ -2,7 +2,7 @@
 import { useState } from "react";
 import {
   CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, TRIBE_COLORS, TRIBE_NAMES, MERGE_NAMES,
-  defaultJury, defaultMergeAt, makeRoster, newGame, randomStats, randStat,
+  defaultJury, defaultMergeAt, makeRoster, newGame, randomStats, randomTribeColor, randStat,
   type Config, type GameState, type StatKey, type Tribe,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -85,6 +85,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
         </div>
         <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-2xl text-accent">Tribes & Mode</h2>
+          <Button variant="secondary" size="sm" onClick={randomizeTribeColors} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">🎲 Randomize every tribe color</Button>
           <h3 className="text-lg">Starting tribes</h3>
           <TribeEditor label="Starting tribe" tribes={tribes.slice(0, tribeCount)} onChange={(t) => setTribes((all) => all.map((x) => t.find((y) => y.id === x.id) ?? x))} />
           <h3 className="border-t pt-3 text-lg">Merge tribe</h3>
