@@ -29,17 +29,38 @@ describe("Survivor decisions and tribes", () => {
     expect(makeRoster(20, 2, [{ ...custom, name: "My nickname" }])[0]?.name).toBe("My nickname");
   });
 
-  it.each([[0.1, "Idol Found!", 1, 0], [0.5, "Advantage Found!", 0, 1], [0.99, "Nothing", 0, 0]])("handles search outcome for roll %s", (roll, title, idols, advantages) => {
+  it.each([[0.1, true, "Idol Found!", 1, 0], [0.1, false, "Advantage Found!", 0, 1], [0.5, true, "Nothing", 0, 0], [0.5, false, "Nothing", 0, 0]])("handles search roll %s (idol hidden: %s)", (roll, idolHidden, title, idols, advantages) => {
     const g = season();
-    const me = g.castaways[0];
-    if (!me) throw new Error("Missing player");
+    if (!idolHidden) g.hiddenIdols["t0"] = 0;
     g.castaways.forEach((c) => { c.stats.strategy = 1; });
     vi.spyOn(Math, "random").mockReturnValue(Number(roll));
     const result = step(g, { searchIdol: true, searchSpot: "the water well" });
     expect(result.episodes.flatMap((e) => e.entries).find((e) => e.title === `Your Search: ${title}`)?.text).toContain("the water well");
     expect(result.castaways[0]?.idols).toBe(idols);
-    expect(result.castaways[0]?.extraVotes).toBe(advantages);
-    expect(me.idols).toBe(0);
+    expect(result.castaways[0]?.advantages).toHaveLength(Number(advantages));
+  });
+
+  it("never gives duplicate idols or advantages", () => {
+    for (let k = 0; k < 10; k++) {
+      let g = season();
+      while (g.phase !== "done") {
+        g = step(g, { searchIdol: true });
+        for (const c of g.castaways) { expect(c.idols).toBeLessThanOrEqual(1); expect(new Set(c.advantages).size).toBe(c.advantages.length); }
+      }
+    }
+  });
+
+  it("never repeats challenges, keeps endurance post-merge, and hands out a reward advantage", () => {
+    for (let k = 0; k < 10; k++) {
+      const g = simulateToEnd(season());
+      const titles = g.episodes.flatMap((ep) => ep.entries.map((e) => ({ e, merged: false })));
+      const ch = g.episodes.flatMap((ep) => ep.entries).filter((e) => /Challenge|Immunity:/.test(e.title) && e.kind !== "idol");
+      const names = ch.map((e) => e.title.split(": ")[1]?.replace(/ \(.*\)$/, ""));
+      expect(new Set(names).size).toBe(names.length);
+      for (const e of ch) if (e.title.startsWith("Immunity Challenge") || (e.title.startsWith("Reward Challenge") && e.text.includes("win reward"))) expect(e.title).not.toContain("(Endurance)");
+      expect(g.rewardAdvantageGiven).toBe(true);
+      expect(titles.length).toBeGreaterThan(0);
+    }
   });
 
   it("randomizes an approach within the player's tribe", () => {
@@ -54,14 +75,14 @@ describe("Survivor decisions and tribes", () => {
     g.phase = "tribal"; g.tribalTribe = "t0";
     const me = g.castaways[0];
     if (!me) throw new Error("Missing player");
-    me.extraVotes = 1;
-    expect(pendingDecision(g)).toMatchObject({ hasExtraVote: true });
-    const result = step(g, { extraVote: true });
+    me.advantages = ["extra_vote"];
+    expect(pendingDecision(g)).toMatchObject({ advantages: ["extra_vote"] });
+    const result = step(g, { advantage: "extra_vote" });
     const tribal = result.episodes.flatMap((e) => e.entries).find((e) => e.kind === "tribal");
     const votes = tribal?.votes?.filter((v) => v.voter === "c0");
     expect(votes).toHaveLength(2);
     expect(votes?.[0]?.target).toBe(votes?.[1]?.target);
-    expect(result.castaways[0]?.extraVotes).toBe(0);
+    expect(result.castaways[0]?.advantages).toEqual([]);
   });
 
   it("keeps the player idol unless explicitly played", () => {

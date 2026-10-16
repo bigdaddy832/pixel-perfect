@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, pendingDecision, simulateToEnd, step, tribeOf,
+  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, pendingDecision, simulateToEnd, step, tribeOf,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -91,7 +91,7 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
     <div className={`rounded-lg border bg-card p-3 ${me ? "border-primary torch-glow" : ""} ${g.immune.includes(c.id) ? "ring-2 ring-idol" : ""}`}>
       <div className="flex items-center justify-between">
         <span className="font-semibold">{c.name}{me && <span className="ml-1 text-xs text-primary">(YOU)</span>}</span>
-        <span className="flex flex-wrap items-center justify-end gap-1 text-sm">{g.immune.includes(c.id) && "🛡️"}{c.idols > 0 && "🗿".repeat(c.idols)}{c.extraVotes > 0 && <span className="text-xs text-accent">Extra Vote ×{c.extraVotes}</span>}{c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}</span>
+        <span className="flex flex-wrap items-center justify-end gap-1 text-sm">{g.immune.includes(c.id) && "🛡️"}{c.idols > 0 && "🗿".repeat(c.idols)}{(c.advantages ?? []).map((a) => <span key={a} className="text-xs text-accent">{ADVANTAGE_LABEL[a]}</span>)}{c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}</span>
       </div>
       <div className="mt-1 h-1.5 overflow-hidden rounded bg-muted" title={`Mood ${c.mood}`}><div className="h-full bg-success" style={{ width: `${c.mood}%` }} /></div>
       <div className="mt-1.5 flex flex-wrap gap-1">{als.map((a) => <span key={a.id} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-accent">{a.name}</span>)}</div>
@@ -169,7 +169,19 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
                 <option value="">Keep it</option>{pending.idolTargets.map((o) => <option key={o.id} value={o.id}>{o.id === me.id ? "Myself" : o.name}</option>)}
               </select></label>
           )}
-          {pending.hasExtraVote && <label className="flex items-center gap-2"><input type="checkbox" checked={dec.extraVote ?? false} onChange={(e) => setDec({ ...dec, extraVote: e.target.checked })} className="size-4 accent-primary" />Play Extra Vote ({me.extraVotes} available)</label>}
+          {pending.advantages.length > 0 && (
+            <label className="flex items-center gap-2">Play advantage:
+              <select className={sel} value={dec.advantage ?? ""} onChange={(e) => setDec({ ...dec, advantage: e.target.value || undefined, advantageTarget: undefined })}>
+                <option value="">Keep it</option>{pending.advantages.map((a) => <option key={a} value={a}>{ADVANTAGE_LABEL[a]}</option>)}
+              </select></label>
+          )}
+          {dec.advantage && ADVANTAGE_NEEDS_TARGET.includes(dec.advantage) && (
+            <label className="flex items-center gap-2">On:
+              <select className={sel} value={dec.advantageTarget ?? ""} onChange={(e) => setDec({ ...dec, advantageTarget: e.target.value || undefined })}>
+                <option value="">— Choose —</option>{pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select></label>
+          )}
+          {dec.advantage && <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>}
         </div>
       )}
     </div>
