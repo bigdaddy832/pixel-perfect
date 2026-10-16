@@ -36,6 +36,7 @@ export interface Config {
   swapEnabled: boolean; swapAt: number; mergeAt: number;
   mergedName: string; mergedColor: string;
   swapTribe?: Tribe;
+  jointTribals?: boolean; doubleTribals?: boolean;
   controlledId: string | null;
 }
 export interface Vote { voter: string; target: string; nullified?: boolean }
@@ -44,16 +45,17 @@ export interface LogEntry {
   title: string; text: string; details?: string[]; votes?: Vote[]; revote?: Vote[];
 }
 export interface Episode { n: number; title: string; entries: LogEntry[] }
-export type Phase = "camp" | "challenge" | "tribal" | "final_challenge" | "ftc" | "done";
+export type Phase = "camp" | "challenge" | "tribal" | "final_challenge" | "final_choice" | "ftc" | "done";
 export interface GameState {
   config: Config; castaways: Castaway[]; tribes: Tribe[]; alliances: Alliance[];
   rel: Record<string, number>; episodes: Episode[]; day: number; phase: Phase;
   merged: boolean; swapped: boolean; immune: string[]; tribalTribe: string | null;
   hiddenIdols: Record<string, number>; finalImmune?: string; usedChallenges: string[]; rewardAdvantageGiven: boolean;
+  tribalTribes?: string[]; tribalQueue?: string[][]; doubleElim?: boolean; twistsUsed?: string[];
   winner?: string; finalists?: string[]; juryVotes?: { juror: string; finalist: string; reason: string }[];
 }
 export const SEARCH_SPOTS = ["the tree line", "the water well", "behind the shelter", "the rocky outcrop", "the beach at dawn"];
-export interface Decision { vote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string }
+export interface Decision { vote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string }
 
 export const TRIBE_NAMES = [
   "Veylora", "Kelmori", "Zunakai", "Dakal", "Naviti", "Taku", "Ulong", "Pagong", "Tagi", "Kucha",
@@ -95,6 +97,20 @@ export function randomTribeColor(avoid: string[] = []): string {
   return hslToHex(Math.floor(r() * 360), 72, 52);
 }
 
+const SYL_A = ["Ve", "Ka", "Zu", "Lo", "Ta", "Mi", "Ori", "Sa", "Nu", "Fe", "Ilo", "Ra", "Yu", "Ke", "Pa", "Ama"];
+const SYL_B = ["ly", "mo", "na", "ri", "ve", "ka", "lu", "zo", "te", "si", "wa", "re"];
+const SYL_C = ["ra", "ri", "kai", "lo", "na", "mu", "sa", "tu", "vi", "ko", "ne", "ta"];
+const REAL_TRIBES = ["Pagong", "Tagi", "Kucha", "Ogakor", "Samburu", "Boran", "Rotu", "Maraamu", "Chuay Gahn", "Sook Jai", "Rotu", "Fang", "Kota", "Ulong", "Koror", "Moto", "Ravu", "Casaya", "La Mina", "Bayoneta", "Aitu", "Puka", "Raro", "Manihiki", "Fei Long", "Zhan Hu", "Malakal", "Airai", "Dabu", "Galang", "Tandang", "Kalabaw", "Salani", "Manono", "Nuku", "Vakama", "Yase", "Soka", "Ika", "Baka", "Gata", "Lavo", "Luvu", "Naviti", "Taku", "Dakal"];
+/** An invented tribe name (never a real Survivor tribe) that isn't already in `avoid`. */
+export function randomTribeName(avoid: string[] = []): string {
+  const lower = [...avoid, ...REAL_TRIBES].map((x) => x.toLowerCase());
+  for (let i = 0; i < 50; i++) {
+    const n = pick(SYL_A) + (r() < 0.6 ? pick(SYL_B) : "") + pick(SYL_C);
+    if (!lower.includes(n.toLowerCase())) return n;
+  }
+  return `${pick(SYL_A)}${pick(SYL_C)}${Math.floor(r() * 90 + 10)}`;
+}
+
 const NAMES = [
   "Adrian", "Amara", "Anika", "Brielle", "Callum", "Celia", "Dorian", "Elise", "Emmett", "Esme",
   "Felix", "Freya", "Gideon", "Hugo", "Imogen", "Inez", "Jasper", "Jules", "Kieran", "Leona",
@@ -105,7 +121,7 @@ const NAMES = [
   "Radar", "Skipper", "Sparks", "Pebbles",
 ];
 const ALLIANCE_NAMES = ["The Core", "Four Horsemen", "Rogue Squad", "Black Widow Brigade", "Stealth R Us", "The Rat Pack", "Sanctuary", "Night Owls", "The Underdogs", "Tidal Wave", "The Coconut Crew", "Shadow Council"];
-const EP_TITLES = ["I'm Not Here to Make Friends", "Blindside City", "The Tide Turns", "Snakes in the Grass", "Who Can You Trust?", "Playing With Fire", "Calm Before the Storm", "A Bridge Too Far", "Don't Get Comfortable", "Idol Chatter", "Trust Nobody", "Rice and Paranoia", "Numbers Game", "Out of the Frying Pan", "The Long Con", "Torch Snuffer"];
+const EP_TITLES = ["The Island Has Spoken", "Sand in My Teeth", "Torches at Dusk", "Coconut Diplomacy", "Hold Your Fire", "Buffs and Bruises", "The Snake Pit", "Sunburned Strategies", "Rock Bottom", "Whispers by the Well", "A Storm Is Coming", "Paper Thin Promises", "Double Trouble", "Every Rock Has Two Sides", "Fire in the Belly", "Smoke Signals", "The Jungle Remembers", "Keep Your Enemies Closer", "Tree Mail Tremors", "Hunger Games at Camp", "Cracks in the Shelter", "No Safe Seats", "Chasing Shadows", "Last Light", "The Purple Rock", "Spilled Rice", "Low Tide, High Stakes", "Riding the Wave", "A Vote Is a Vote", "Ticking Time Bomb", "Dead Weight", "Born to Scheme", "The Merge Feast", "Cutthroat Paradise", "Lightning Strikes Twice", "I'm Not Here to Make Friends", "Blindside City", "The Tide Turns", "Snakes in the Grass", "Who Can You Trust?", "Playing With Fire", "Calm Before the Storm", "A Bridge Too Far", "Don't Get Comfortable", "Idol Chatter", "Trust Nobody", "Rice and Paranoia", "Numbers Game", "Out of the Frying Pan", "The Long Con", "Torch Snuffer"];
 
 const r = () => Math.random();
 const pick = <T,>(a: T[]): T => a[Math.floor(r() * a.length)];
@@ -140,7 +156,7 @@ export function newGame(config: Config, tribes: Tribe[], roster: { name: string;
   return {
     config, castaways, tribes, alliances: [], rel, day: 1, phase: "camp", merged: false, swapped: false,
     immune: [], tribalTribe: null, hiddenIdols, usedChallenges: [], rewardAdvantageGiven: false,
-    episodes: [{ n: 1, title: pick(EP_TITLES), entries: [{ kind: "twist", title: "The Adventure Begins", text: `${castaways.length} castaways are marooned and divided into ${tribes.length} tribes: ${tribes.map((t) => t.name).join(", ")}.` }] }],
+    episodes: [{ n: 1, title: pick(EP_TITLES.slice(0, 20)), entries: [{ kind: "twist", title: "The Adventure Begins", text: `${castaways.length} castaways are marooned and divided into ${tribes.length} tribes: ${tribes.map((t) => t.name).join(", ")}.` }] }],
   };
 }
 
@@ -167,17 +183,23 @@ const weakness = (c: Castaway) => 5 - (c.stats.general + c.stats.physical + c.st
 // ---------- decisions needed ----------
 export type Pending =
   | { kind: "camp"; options: Castaway[] }
-  | { kind: "tribal"; options: Castaway[]; hasIdol: boolean; advantages: AdvantageKey[]; idolTargets: Castaway[] }
-  | { kind: "cut"; options: Castaway[] }
+  | { kind: "tribal"; options: Castaway[]; hasIdol: boolean; advantages: AdvantageKey[]; idolTargets: Castaway[]; canGiveImmunity: boolean }
+  | { kind: "cut"; options: Castaway[]; fire: boolean }
   | null;
+
+export const tribalGroup = (s: GameState) => s.tribalTribes?.length ? s.tribalTribes : s.tribalTribe ? [s.tribalTribe] : [];
+export const attendees = (s: GameState) => { const g = tribalGroup(s); return alive(s).filter((c) => g.includes(c.tribeId)); };
 
 export function pendingDecision(s: GameState): Pending {
   const me = s.config.controlledId ? byId(s, s.config.controlledId) : null;
   if (!me || me.out) return null;
   if (s.phase === "camp") return { kind: "camp", options: alive(s).filter((c) => c.tribeId === me.tribeId && c.id !== me.id) };
-  if (s.phase === "tribal" && s.tribalTribe === me.tribeId) {
-    const att = alive(s).filter((c) => c.tribeId === s.tribalTribe);
-    return { kind: "tribal", options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)), hasIdol: me.idols > 0, advantages: [...(me.advantages ?? [])], idolTargets: att.filter((c) => !s.immune.includes(c.id)) };
+  if (s.phase === "tribal" && tribalGroup(s).includes(me.tribeId)) {
+    const att = attendees(s);
+    return { kind: "tribal", options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)), hasIdol: me.idols > 0, advantages: [...(me.advantages ?? [])], idolTargets: att.filter((c) => !s.immune.includes(c.id)), canGiveImmunity: s.merged && s.immune.includes(me.id) };
+  }
+  if (s.phase === "final_choice" && s.finalImmune === me.id) {
+    return { kind: "cut", options: alive(s).filter((c) => c.id !== me.id), fire: isFireFinal(s) };
   }
   return null;
 }
@@ -189,7 +211,8 @@ export function step(prev: GameState, d: Decision = {}): GameState {
     case "camp": doCamp(s, d); s.phase = alive(s).length <= s.config.finalSize + 1 ? "final_challenge" : "challenge"; break;
     case "challenge": doChallenge(s); s.phase = "tribal"; break;
     case "tribal": doTribal(s, d); afterTribal(s); break;
-    case "final_challenge": doFinalChallenge(s, d); s.phase = "ftc"; break;
+    case "final_challenge": doFinalChallenge(s); s.phase = "final_choice"; break;
+    case "final_choice": doFinalChoice(s, d); s.phase = "ftc"; break;
     case "ftc": doFTC(s); s.phase = "done"; break;
   }
   return s;
@@ -265,9 +288,29 @@ function doCamp(s: GameState, d: Decision) {
       const avg = members.reduce((acc, o) => (o.id === m.id ? acc : acc + getRel(s, m.id, o.id)), 0) / Math.max(1, members.length - 1);
       m.mood = clamp(Math.round(m.mood * 0.7 + (60 + avg * 1.5) * 0.3), 5, 100);
     }
+    // random camp events
+    if (r() < 0.65 && members.length) {
+      const ev = pick(CAMP_EVENTS); const a = pick(members); const b = pick(members.filter((x) => x.id !== a.id)) ?? a;
+      ev.fx(s, a, b, members);
+      log(s, { kind: ev.kind, title: `${t.name}: ${ev.title}`, text: ev.text(a.name, b.name) });
+    }
     log(s, { kind: "camp", title: `${t.name}: Life at Camp`, text: `Day ${s.day}. ${pick(["The rain wouldn't stop.", "Spirits are high at camp.", "Hunger is setting in.", "The heat is brutal.", "Paranoia is creeping in."])}`, details: details.length ? details : ["A quiet day at camp."] });
   }
+  // medevacs & quits (rare, at most one per episode)
+  if (alive(s).length > s.config.finalSize + 3) {
+    const pool = alive(s);
+    const med = pool.find(() => r() < 0.0035);
+    const quitter = !med && pool.filter((c) => c.id !== s.config.controlledId && c.mood < 30 && c.stats.temperament <= 3).find(() => r() < 0.06);
+    const gone = med || quitter;
+    if (gone) {
+      eliminate(s, gone, med ? "medevac" : "quit");
+      log(s, med
+        ? { kind: "twist", title: "Medical Evacuation", text: `${gone.name} ${pick(["collapsed from dehydration", "suffered a serious infection in their leg", "dislocated a shoulder during a camp chore", "was struck by severe heat exhaustion"])}. Medical makes the call: ${gone.name} is pulled from the game${gone.juror ? " and joins the jury" : ""}.` }
+        : { kind: "drama", title: "A Castaway Quits", text: `Worn down and miserable, ${gone.name} asks for their torch to be snuffed. ${gone.name} has quit the game.` });
+    }
+  }
   // player approach
+  if (s.config.controlledId && byId(s, s.config.controlledId).out) d = {};
   if (d.allyWith === "__random__" && s.config.controlledId) {
     const meC = byId(s, s.config.controlledId);
     const opts = alive(s).filter((c) => c.tribeId === meC.tribeId && c.id !== meC.id);
@@ -309,6 +352,25 @@ function doCamp(s: GameState, d: Decision) {
   s.day += 1;
 }
 
+type CampEvent = { kind: LogEntry["kind"]; title: string; text: (a: string, b: string) => string; fx: (s: GameState, a: Castaway, b: Castaway, ms: Castaway[]) => void };
+const mood = (c: Castaway, d: number) => (c.mood = clamp(c.mood + d, 0, 100));
+const CAMP_EVENTS: CampEvent[] = [
+  { kind: "camp", title: "Big Catch", text: (a) => `${a} speared a huge fish and fed the whole tribe.`, fx: (s, a, _b, ms) => ms.forEach((m) => { mood(m, 6); addRel(s, a.id, m.id, 3); }) },
+  { kind: "camp", title: "Storm Hits Camp", text: () => "A violent storm ripped through camp overnight and flattened the shelter.", fx: (_s, _a, _b, ms) => ms.forEach((m) => mood(m, -10)) },
+  { kind: "drama", title: "Missing Rice", text: (a) => `Rice is disappearing, and suspicion falls on ${a}.`, fx: (s, a, _b, ms) => ms.forEach((m) => addRel(s, m.id, a.id, -4)) },
+  { kind: "camp", title: "Fire Starter", text: (a) => `${a} finally made fire with flint after hours of trying.`, fx: (s, a, _b, ms) => ms.forEach((m) => addRel(s, a.id, m.id, 2)) },
+  { kind: "camp", title: "Homesick", text: (a) => `${a} broke down crying about missing family back home.`, fx: (_s, a) => mood(a, -12) },
+  { kind: "drama", title: "Caught Scrambling", text: (a, b) => `${b} caught ${a} whispering game talk with the other side of the tribe.`, fx: (s, a, b) => addRel(s, a.id, b.id, -8) },
+  { kind: "camp", title: "Tree Mail", text: () => "Tree mail arrives with cryptic hints about what's coming next.", fx: (_s, _a, _b, ms) => ms.forEach((m) => mood(m, 2)) },
+  { kind: "camp", title: "Late Night Talk", text: (a, b) => `${a} and ${b} stayed up all night trading life stories.`, fx: (s, a, b) => addRel(s, a.id, b.id, 9) },
+  { kind: "camp", title: "Injury Scare", text: (a) => `${a} sliced a foot on coral but insists they're fine.`, fx: (_s, a) => { mood(a, -8); } },
+  { kind: "drama", title: "Lazy Accusations", text: (a) => `The tribe grumbles that ${a} hasn't lifted a finger all day.`, fx: (s, a, _b, ms) => ms.forEach((m) => addRel(s, m.id, a.id, -3)) },
+  { kind: "camp", title: "Crab Feast", text: (a) => `${a} rounded up a bucket of crabs for dinner.`, fx: (_s, _a, _b, ms) => ms.forEach((m) => mood(m, 4)) },
+  { kind: "camp", title: "Fake Idol Crafted", text: (a) => `${a} carved a fake idol out of a coconut and some beads — just in case.`, fx: (_s, a) => mood(a, 3) },
+  { kind: "drama", title: "Fire Goes Out", text: (a) => `${a} was on fire duty and let the flames die overnight.`, fx: (s, a, _b, ms) => ms.forEach((m) => addRel(s, m.id, a.id, -5)) },
+  { kind: "camp", title: "Shark Sighting", text: (a) => `${a} spotted a reef shark near the water hole and nobody wanted to swim for the rest of the day.`, fx: () => {} },
+];
+
 // ---------- challenges ----------
 const CH_TYPES: { type: StatKey; names: string[] }[] = [
   { type: "physical", names: ["Sea Crates", "Battering Ram", "Shipwrecked", "Tug of War Brawl", "Crate Smash", "Log Roll Rumble", "Sumo at Sea", "Barrel Haul", "Cargo Net Climb", "Sled Drag", "Wrecking Crew", "Ball Brawl"] },
@@ -319,6 +381,13 @@ const CH_TYPES: { type: StatKey; names: string[] }[] = [
 const indScore = (c: Castaway, t: StatKey) => c.stats.general * 0.5 + c.stats[t] * 1.2 + r() * 3.5;
 
 // Picks a never-before-used challenge; endurance stays locked until the merge.
+function freshTitle(s: GameState) {
+  const used = s.episodes.map((e) => e.title);
+  const opts = EP_TITLES.filter((t) => !used.includes(t));
+  if (opts.length) return pick(opts);
+  let k = 2; const base = pick(EP_TITLES); while (used.includes(`${base} (Part ${k})`)) k++; return `${base} (Part ${k})`;
+}
+
 function pickChallenge(s: GameState, avoidType?: StatKey) {
   s.usedChallenges ??= [];
   let types = CH_TYPES.filter((t) => (s.merged || t.type !== "endurance") && t.type !== avoidType);
@@ -352,7 +421,8 @@ function doChallenge(s: GameState) {
     // reward winners are worn out from the feast, so the same tribe doesn't sweep every day
     const is = g.map(([tid, ms]) => ({ tid, sc: tscore(ms, ch.type) - (tid === rs[0].tid ? 0.8 : 0), mvp: [...ms].sort((a, b) => indScore(b, ch.type) - indScore(a, ch.type))[0] })).sort((a, b) => b.sc - a.sc);
     const loser = is[is.length - 1];
-    s.tribalTribe = loser.tid;
+    s.tribalTribe = loser.tid; s.tribalTribes = [loser.tid]; s.tribalQueue = [];
+    s.twistsUsed ??= [];
     log(s, { kind: "challenge", title: `Immunity Challenge: ${ch.name} (${STAT_LABEL[ch.type]})`, text: `${is.slice(0, -1).map((x) => tribeOf(s, x.tid)!.name).join(" & ")} win immunity! ${tribeOf(s, loser.tid)!.name} will face Tribal Council.`, details: [...is.map((x, i) => `${i + 1}. ${tribeOf(s, x.tid)!.name} — ${x.sc.toFixed(2)} (MVP: ${x.mvp.name})`), `${loser.mvp.name} tried to carry, but it wasn't enough.`] });
   } else {
     const ms = alive(s);
@@ -364,7 +434,12 @@ function doChallenge(s: GameState) {
     rewardAdvantage(s, [rr[0].c]);
     const ir = ms.map((c) => ({ c, sc: indScore(c, ch.type) - (c.id === rr[0].c.id ? 1.5 : 0) - (buddy && c.id === buddy.id ? 0.7 : 0) })).sort((a, b) => b.sc - a.sc);
     ir[0].c.immunityWins++; s.immune = [ir[0].c.id];
-    s.tribalTribe = ms[0].tribeId;
+    s.tribalTribe = ms[0].tribeId; s.tribalTribes = [ms[0].tribeId]; s.tribalQueue = [];
+    s.twistsUsed ??= [];
+    if (s.config.doubleTribals !== false && !s.twistsUsed.includes("double_post") && ms.length >= s.config.finalSize + 4 && r() < 0.15) {
+      s.twistsUsed.push("double_post"); s.doubleElim = true;
+      log(s, { kind: "twist", title: "Double Elimination!", text: "Jeff drops a bomb: tonight, two people will be voted out. A second immunity challenge follows the first vote." });
+    }
     log(s, { kind: "challenge", title: `Individual Immunity: ${ch.name} (${STAT_LABEL[ch.type]})`, text: `${ir[0].c.name} wins individual immunity and is safe tonight!`, details: ir.map((x, i) => `${i + 1}. ${x.c.name} — ${x.sc.toFixed(2)}`) });
   }
 }
@@ -497,7 +572,7 @@ function eliminate(s: GameState, c: Castaway, _how: string) {
 
 function afterTribal(s: GameState) {
   const n = alive(s).length;
-  s.episodes.push({ n: s.episodes.length + 1, title: pick(EP_TITLES), entries: [] });
+  s.episodes.push({ n: s.episodes.length + 1, title: freshTitle(s), entries: [] });
   if (!s.merged) {
     const g = groups(s);
     const tiny = [...g.values()].some((m) => m.length <= 1) || g.size < 2;
