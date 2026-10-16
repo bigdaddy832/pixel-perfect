@@ -71,7 +71,7 @@ export const IDOL_HIDING_PLACES = [
   "fastened to the underside of a water bucket", "hidden in the fork of a strangler fig",
 ];
 const CHALLENGE_IDOL_PLACES = ["beneath a puzzle table", "inside a hollow course marker", "under the climbing platform", "tied behind a balance-beam support", "inside a rope basket", "beneath the final station's bench"];
-export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string }
+export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; revoteVote?: string }
 const BIG_TWISTS = ["joint", "double_pre", "double_post"];
 /** Joint tribals and double eliminations share a single once-per-season slot. */
 export const bigTwistUsed = (s: GameState) => (s.twistsUsed ?? []).some((x) => BIG_TWISTS.includes(x));
@@ -397,7 +397,7 @@ function doCamp(s: GameState, d: Decision) {
   // medevacs & quits (rare, at most one per episode)
   if (alive(s).length > s.config.finalSize + 3) {
     const pool = alive(s);
-    const med = pool.find(() => r() < 0.0035);
+    const med = pool.filter((c) => c.id !== s.config.controlledId).find(() => r() < 0.0035);
     const quitter = !med && pool.filter((c) => c.id !== s.config.controlledId && (c.mood < 45 && c.stats.temperament <= 3) || r() < 0.03).find(() => r() < 0.06);
     const gone = med || quitter;
     if (gone) {
@@ -760,14 +760,14 @@ function doTribal(s: GameState, d: Decision) {
   let revote: Vote[] | undefined;
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
-    revote = voters.map((v) => ({ voter: v.id, target: aiVote(s, v, cands(v, protectedIds), att) }));
+    revote = voters.map((v) => { const cs = cands(v, protectedIds); return { voter: v.id, target: v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote) ? d.revoteVote : aiVote(s, v, cs, att) }; });
     t = tally(revote);
   }
   let top = Math.max(...Object.values(t)); let tied = Object.keys(t).filter((k) => t[k] === top);
   let out: string; let rocks = false;
   if (tied.length > 1) {
     details.push(`Tie between ${tied.map((x) => nm(s, x)).join(" and ")}. Revote!`);
-    revote = voters.filter((v) => !tied.includes(v.id)).map((v) => ({ voter: v.id, target: v.id === ctrl && d.vote && tied.includes(d.vote) ? d.vote : aiVote(s, v, att.filter((c) => tied.includes(c.id)), att) }));
+    revote = voters.filter((v) => !tied.includes(v.id)).map((v) => ({ voter: v.id, target: v.id === ctrl && d.revoteVote && tied.includes(d.revoteVote) ? d.revoteVote : v.id === ctrl && d.vote && tied.includes(d.vote) ? d.vote : aiVote(s, v, att.filter((c) => tied.includes(c.id)), att) }));
     const rt = tally(revote); const rtop = Math.max(0, ...Object.values(rt)); const rtied = Object.keys(rt).filter((k) => rt[k] === rtop);
     if (rtied.length === 1) out = rtied[0];
     else {
