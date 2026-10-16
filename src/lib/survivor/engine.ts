@@ -52,6 +52,7 @@ export interface LogEntry {
 export interface Episode { n: number; title: string; entries: LogEntry[] }
 export type Phase = "camp" | "challenge" | "tribal" | "final_challenge" | "final_choice" | "ftc" | "done";
 export interface GameState {
+  pendingRevote?: { seed: number; decision: Decision; options: string[] };
   config: Config; castaways: Castaway[]; tribes: Tribe[]; alliances: Alliance[];
   rel: Record<string, number>; episodes: Episode[]; day: number; phase: Phase;
   merged: boolean; swapped: boolean; immune: string[]; tribalTribe: string | null;
@@ -71,7 +72,7 @@ export const IDOL_HIDING_PLACES = [
   "fastened to the underside of a water bucket", "hidden in the fork of a strangler fig",
 ];
 const CHALLENGE_IDOL_PLACES = ["beneath a puzzle table", "inside a hollow course marker", "under the climbing platform", "tied behind a balance-beam support", "inside a rope basket", "beneath the final station's bench"];
-export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; revoteVote?: string }
+export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; revoteVote?: string; pauseOnRevote?: boolean; revoteDecided?: boolean }
 const BIG_TWISTS = ["joint", "double_pre", "double_post"];
 /** Joint tribals and double eliminations share a single once-per-season slot. */
 export const bigTwistUsed = (s: GameState) => (s.twistsUsed ?? []).some((x) => BIG_TWISTS.includes(x));
@@ -173,7 +174,10 @@ export function fixAllianceNames(s: GameState) {
 export { ALL_SIZED };
 const EP_TITLES = ["The Island Has Spoken", "Sand in My Teeth", "Torches at Dusk", "Coconut Diplomacy", "Hold Your Fire", "Buffs and Bruises", "The Snake Pit", "Sunburned Strategies", "Rock Bottom", "Whispers by the Well", "A Storm Is Coming", "Paper Thin Promises", "Double Trouble", "Every Rock Has Two Sides", "Fire in the Belly", "Smoke Signals", "The Jungle Remembers", "Keep Your Enemies Closer", "Tree Mail Tremors", "Hunger Games at Camp", "Cracks in the Shelter", "No Safe Seats", "Chasing Shadows", "Last Light", "The Purple Rock", "Spilled Rice", "Low Tide, High Stakes", "Riding the Wave", "A Vote Is a Vote", "Ticking Time Bomb", "Dead Weight", "Born to Scheme", "The Merge Feast", "Cutthroat Paradise", "Lightning Strikes Twice", "I'm Not Here to Make Friends", "Blindside City", "The Tide Turns", "Snakes in the Grass", "Who Can You Trust?", "Playing With Fire", "Calm Before the Storm", "A Bridge Too Far", "Don't Get Comfortable", "Idol Chatter", "Trust Nobody", "Rice and Paranoia", "Numbers Game", "Out of the Frying Pan", "The Long Con", "Torch Snuffer"];
 
-const r = () => Math.random();
+let rand: () => number = Math.random;
+const r = () => rand();
+const seeded = (seed: number) => () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+class RevotePause { constructor(public options: string[]) {} }
 const pick = <T,>(a: T[]): T => a[Math.floor(r() * a.length)];
 const shuffle = <T,>(a: T[]): T[] => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -265,6 +269,7 @@ export type Pending =
   | { kind: "tribal"; options: Castaway[]; hasIdol: boolean; advantages: AdvantageKey[]; idolTargets: Castaway[]; canGiveImmunity: boolean; noVote: boolean; canPlayAmulet: boolean }
   | { kind: "cut"; options: Castaway[]; fire: boolean }
   | { kind: "jury"; options: Castaway[] }
+  | { kind: "revote"; options: Castaway[] }
   | null;
 
 export const tribalGroup = (s: GameState) => s.tribalTribes?.length ? s.tribalTribes : s.tribalTribe ? [s.tribalTribe] : [];
@@ -274,6 +279,7 @@ export function pendingDecision(s: GameState): Pending {
   const me = s.config.controlledId ? byId(s, s.config.controlledId) : null;
   if (me?.juror && s.phase === "ftc") return { kind: "jury", options: (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id)) };
   if (!me || me.out) return null;
+  if (s.phase === "tribal" && s.pendingRevote) return { kind: "revote", options: s.pendingRevote.options.map((id) => byId(s, id)) };
   if (s.phase === "camp") { const options = alive(s).filter((c) => c.tribeId === me.tribeId && c.id !== me.id); return { kind: "camp", options, canSearchAtChallenge: !s.merged, fakeStatus: me.fakeIdol, plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol) }; }
   if (s.phase === "tribal" && tribalGroup(s).includes(me.tribeId)) {
     const att = attendees(s);
@@ -291,7 +297,19 @@ export function step(prev: GameState, d: Decision = {}): GameState {
   switch (s.phase) {
     case "camp": doCamp(s, d); s.phase = alive(s).length <= s.config.finalSize + 1 ? "final_challenge" : "challenge"; break;
     case "challenge": doChallenge(s); s.phase = "tribal"; break;
-    case "tribal": doTribal(s, d); afterTribal(s); break;
+    case "tribal": {
+      const pr = s.pendingRevote; delete s.pendingRevote;
+      const seed = pr?.seed ?? Math.floor(Math.random() * 2 ** 31);
+      const dd: Decision = pr ? { ...pr.decision, revoteVote: d.revoteVote, revoteDecided: true } : d;
+      rand = seeded(seed);
+      try { doTribal(s, dd); }
+      catch (e) {
+        if (!(e instanceof RevotePause)) throw e;
+        const held = structuredClone(prev); held.pendingRevote = { seed, decision: d, options: e.options };
+        return held;
+      } finally { rand = Math.random; }
+      afterTribal(s); break;
+    }
     case "final_challenge": doFinalChallenge(s); s.phase = "final_choice"; break;
     case "final_choice": doFinalChoice(s, d); s.phase = "ftc"; prepareFTC(s); break;
     case "ftc": prepareFTC(s); doFTC(s, d); s.phase = "done"; break;
@@ -760,6 +778,8 @@ function doTribal(s: GameState, d: Decision) {
   let revote: Vote[] | undefined;
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
+    const ask = (o: string[]) => { if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl)) throw new RevotePause(o); };
+    ask(voters.flatMap((v) => v.id === ctrl ? cands(v, protectedIds).map((c) => c.id) : []));
     revote = voters.map((v) => { const cs = cands(v, protectedIds); return { voter: v.id, target: v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote) ? d.revoteVote : aiVote(s, v, cs, att) }; });
     t = tally(revote);
   }
@@ -767,7 +787,8 @@ function doTribal(s: GameState, d: Decision) {
   let out: string; let rocks = false;
   if (tied.length > 1) {
     details.push(`Tie between ${tied.map((x) => nm(s, x)).join(" and ")}. Revote!`);
-    revote = voters.filter((v) => !tied.includes(v.id)).map((v) => ({ voter: v.id, target: v.id === ctrl && d.revoteVote && tied.includes(d.revoteVote) ? d.revoteVote : v.id === ctrl && d.vote && tied.includes(d.vote) ? d.vote : aiVote(s, v, att.filter((c) => tied.includes(c.id)), att) }));
+    if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl) && !tied.includes(ctrl)) throw new RevotePause(tied);
+    revote = voters.filter((v) => !tied.includes(v.id)).map((v) => ({ voter: v.id, target: v.id === ctrl && d.revoteVote && tied.includes(d.revoteVote) ? d.revoteVote : v.id === ctrl && !d.revoteDecided && d.vote && tied.includes(d.vote) ? d.vote : aiVote(s, v, att.filter((c) => tied.includes(c.id)), att) }));
     const rt = tally(revote); const rtop = Math.max(0, ...Object.values(rt)); const rtied = Object.keys(rt).filter((k) => rt[k] === rtop);
     if (rtied.length === 1) out = rtied[0];
     else {
