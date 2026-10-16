@@ -1109,6 +1109,26 @@ function doFTC(s: GameState, d: Decision) {
     s.fanFavorite = favorite.id;
     log(s, { kind: "finale", title: "Fan Favorite Award", text: `${favorite.name} wins the simulated fan vote! Their personality, bonds, and memorable moments won over the audience.`, details: ["Only castaways who reached the merge were eligible."] });
   }
+  // Season recap: a closing summary of the whole game.
+  const allEntries = s.episodes.flatMap((e) => e.entries);
+  const tribalEntries = allEntries.filter((e) => e.kind === "tribal");
+  const blindsides = tribalEntries.filter((e) => e.text.includes("massive blindside")).length;
+  const idolsPlayedTotal = s.castaways.reduce((n, c) => n + (c.idolsPlayed ?? 0), 0);
+  const advPlayedTotal = s.castaways.reduce((n, c) => n + (c.advPlayed ?? 0), 0);
+  const quits = allEntries.filter((e) => e.title === "A Castaway Quits").length;
+  const medevacs = allEntries.filter((e) => e.title === "Medical Evacuation").length;
+  const rocks = tribalEntries.filter((e) => e.text.includes("drawing the wrong rock")).length;
+  const fireWinners = allEntries.filter((e) => e.title.includes("Fire-Making")).length;
+  const winnerC = byId(s, s.winner!);
+  const details = [
+    `${s.episodes.length} episodes, ${tribalEntries.length} Tribal Councils, ${s.castaways.length} castaways.`,
+    `${idolsPlayedTotal} idol${idolsPlayedTotal === 1 ? "" : "s"} played, ${advPlayedTotal} advantage${advPlayedTotal === 1 ? "" : "s"} used, ${blindsides} blindside${blindsides === 1 ? "" : "s"} with an idol in someone's pocket.`,
+    ...(quits || medevacs ? [`Unusual exits: ${[quits ? `${quits} quit${quits > 1 ? "s" : ""}` : "", medevacs ? `${medevacs} medevac${medevacs > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ")}.`] : []),
+    ...(rocks ? [`${rocks} Tribal Council${rocks > 1 ? "s" : ""} went all the way to rocks.`] : []),
+    ...(fireWinners ? [`The final four was decided by fire-making.`] : []),
+    `${winnerC.name} walked away as Sole Survivor${favorite ? `, and ${favorite.name} took home the Fan Favorite award` : ""}.`,
+  ];
+  log(s, { kind: "finale", title: "Season Recap", text: `That's a wrap on the season! ${winnerC.name} outwit, outplayed and outlasted ${s.castaways.length - 1} others over ${s.day} days.`, details });
 }
 
 function doJourney(s: GameState) {
