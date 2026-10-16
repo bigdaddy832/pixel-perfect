@@ -36,8 +36,17 @@ export function StatPicker({ label, value, onChange, tone }: { label: string; va
 
 export function TribeEditor({ tribes, onChange, label = "Tribe" }: { tribes: Tribe[]; onChange: (t: Tribe[]) => void; label?: string }) {
   const set = (i: number, p: Partial<Tribe>) => onChange(tribes.map((t, j) => (j === i ? { ...t, ...p } : t)));
+  const randomizeAll = () => {
+    const used: string[] = [];
+    onChange(tribes.map((t) => { const color = randomTribeColor(used); used.push(color); return { ...t, color }; }));
+  };
   return (
     <div className="space-y-2">
+      {tribes.length > 1 && (
+        <Button variant="secondary" size="sm" onClick={randomizeAll} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">
+          🎲 Randomize all {label.toLowerCase()} colors
+        </Button>
+      )}
       {tribes.map((t, i) => (
         <div key={t.id} className="space-y-1.5">
           <input aria-label={`${label} ${i + 1} name`} list="tribe-names" value={t.name} onChange={(e) => set(i, { name: e.target.value })} className="w-full min-w-0 rounded-md border border-input bg-secondary px-2 py-1.5 text-sm" />

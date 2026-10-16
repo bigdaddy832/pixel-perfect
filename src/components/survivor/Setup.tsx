@@ -34,6 +34,20 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   };
   const upd = (i: number, f: (r: Row) => Row) => setRoster((rs) => rs.map((r, j) => (j === i ? f(r) : r)));
 
+  const randomizeTribeColors = () => {
+    const used: string[] = [];
+    const pick = () => { const c = randomTribeColor(used); used.push(c); return c; };
+    const colors = tribes.slice(0, tribeCount).map(() => pick());
+    setTribes((all) => all.map((t, i) => (i < tribeCount ? { ...t, color: colors[i] } : t)));
+    const mc = pick();
+    setMergeTribe((t) => ({ ...t, color: mc }));
+    if (swap && tribeCount === 2 && addSwapTribe) {
+      const sc = pick();
+      setSwapTribe((t) => ({ ...t, color: sc }));
+    }
+  };
+
+
   const start = () => {
     const active = tribes.slice(0, tribeCount);
     const cfg: Config = {
