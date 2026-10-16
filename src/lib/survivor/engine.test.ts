@@ -31,7 +31,7 @@ describe("Survivor decisions and tribes", () => {
 
   it.each([[0.1, true, "Idol Found!", 1, 0], [0.1, false, "Advantage Found!", 0, 1], [0.5, true, "Nothing", 0, 0], [0.5, false, "Nothing", 0, 0]])("handles search roll %s (idol hidden: %s)", (roll, idolHidden, title, idols, advantages) => {
     const g = season();
-    if (!idolHidden) g.hiddenIdols.t0 = 0;
+    if (!idolHidden) g.hiddenIdols["t0"] = 0;
     g.castaways.forEach((c) => { c.stats.strategy = 1; });
     vi.spyOn(Math, "random").mockReturnValue(Number(roll));
     const result = step(g, { searchIdol: true, searchSpot: "the water well" });
