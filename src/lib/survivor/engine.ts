@@ -369,7 +369,7 @@ function doTribal(s: GameState, d: Decision) {
   for (const a of against) for (const b of against) if (a < b) addRel(s, a, b, 3);
   const blindside = !allVotes.some((v) => v.voter === out && against.includes(v.target)) && against.length > att.length / 2 && loser.idols > 0;
   eliminate(s, loser, `voted out`);
-  const vcE = Object.entries(tally(revote ?? votes)).sort((a, b) => b[1] - a[1]);
+  const vcE = Object.entries(tally(revote?.length ? revote : votes)).sort((a, b) => b[1] - a[1]);
   const vc = `${vcE.map(([, n]) => n).join("-")} (${vcE.map(([k, n]) => `${nm(s, k)}: ${n}`).join(", ")})`;
   log(s, {
     kind: "tribal", title: `Tribal Council — ${tname}`,

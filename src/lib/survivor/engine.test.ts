@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { alive, makeRoster, newGame, pendingDecision, simulateToEnd, step, TRIBE_COLORS, TRIBE_NAMES, type Config, type GameState } from "./engine";
 
 const config: Config = { playerCount: 18, tribeCount: 2, jurySize: 8, finalSize: 3, fireAtF4: true, swapEnabled: true, swapAt: 15, mergeAt: 12, mergedName: "Merge Test", mergedColor: "#123abc", controlledId: "c0", swapTribe: { id: "swap-third", name: "Swap Test", color: "#ab1234" } };
-function season() { return newGame({ ...config }, [0, 1].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i] ?? "Test", color: TRIBE_COLORS[i] ?? "#123456" })), makeRoster(18, 2)); }
+function season() { return newGame({ ...config }, [0, 1].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i] ?? "Test", color: TRIBE_COLORS[i] ?? "#123456" })), makeRoster(18, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i + 1}` }))); }
 afterEach(() => vi.restoreAllMocks());
 
 describe("Survivor decisions and tribes", () => {
