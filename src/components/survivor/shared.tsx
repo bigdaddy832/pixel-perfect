@@ -1,4 +1,4 @@
-import { TRIBE_COLORS, TRIBE_NAMES, randomTribeColor, type Tribe } from "@/lib/survivor/engine";
+import { TRIBE_COLORS, TRIBE_NAMES, randomTribeColor, randomTribeName, type Tribe } from "@/lib/survivor/engine";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -40,16 +40,24 @@ export function TribeEditor({ tribes, onChange, label = "Tribe" }: { tribes: Tri
     const used: string[] = [];
     onChange(tribes.map((t) => { const color = randomTribeColor(used); used.push(color); return { ...t, color }; }));
   };
+  const randomizeNames = () => {
+    const used: string[] = [];
+    onChange(tribes.map((t) => { const name = randomTribeName(used); used.push(name); return { ...t, name }; }));
+  };
   return (
     <div className="space-y-2">
       {tribes.length > 1 && (
-        <Button variant="secondary" size="sm" onClick={randomizeAll} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">
-          🎲 Randomize all {label.toLowerCase()} colors
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={randomizeNames} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">🎲 Randomize all {label.toLowerCase()} names</Button>
+          <Button variant="secondary" size="sm" onClick={randomizeAll} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">🎲 Randomize all {label.toLowerCase()} colors</Button>
+        </div>
       )}
       {tribes.map((t, i) => (
         <div key={t.id} className="space-y-1.5">
-          <input aria-label={`${label} ${i + 1} name`} list="tribe-names" value={t.name} onChange={(e) => set(i, { name: e.target.value })} className="w-full min-w-0 rounded-md border border-input bg-secondary px-2 py-1.5 text-sm" />
+          <div className="flex gap-2">
+            <input aria-label={`${label} ${i + 1} name`} list="tribe-names" value={t.name} onChange={(e) => set(i, { name: e.target.value })} className="w-full min-w-0 rounded-md border border-input bg-secondary px-2 py-1.5 text-sm" />
+            <Button variant="ghost" onClick={() => set(i, { name: randomTribeName(tribes.map((x) => x.name)) })} aria-label={`${label} ${i + 1} random name`} title="Random name" className="h-8 w-8 shrink-0 rounded-md border border-input bg-secondary p-0 text-sm hover:bg-muted">🎲</Button>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <TribeColorPicker color={t.color} onChange={(color) => set(i, { color })} label={`${label} ${i + 1}`} />
             <div className="flex gap-1">

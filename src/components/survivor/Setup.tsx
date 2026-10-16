@@ -2,7 +2,7 @@
 import { useState } from "react";
 import {
   CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, TRIBE_COLORS, TRIBE_NAMES, MERGE_NAMES,
-  defaultJury, defaultMergeAt, makeRoster, newGame, randomStats, randomTribeColor, randStat,
+  defaultJury, defaultMergeAt, makeRoster, newGame, randomStats, randomTribeColor, randomTribeName, randStat,
   type Config, type GameState, type StatKey, type Tribe,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -22,6 +22,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [mergeTribe, setMergeTribe] = useState<Tribe>({ id: "merged", name: MERGE_NAMES[0], color: TRIBE_COLORS[2] });
   const [swapTribe, setSwapTribe] = useState<Tribe>({ id: "swap-third", name: TRIBE_NAMES[2], color: TRIBE_COLORS[2] });
   const [addSwapTribe, setAddSwapTribe] = useState(true);
+  const [joint, setJoint] = useState(true);
+  const [double, setDouble] = useState(true);
   const [tribes, setTribes] = useState<Tribe[]>(() => [0, 1, 2].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i], color: TRIBE_COLORS[i] })));
   const [roster, setRoster] = useState<Row[]>(() => makeRoster(18, 2));
   const [controlled, setControlled] = useState<number | null>(null);
@@ -48,12 +50,22 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   };
 
 
+  const randomizeTribeNames = () => {
+    const used: string[] = [];
+    const pick = () => { const n = randomTribeName(used); used.push(n); return n; };
+    const names = tribes.map(() => pick());
+    setTribes((all) => all.map((t, i) => (i < tribeCount ? { ...t, name: names[i] } : t)));
+    const mn = pick(); setMergeTribe((t) => ({ ...t, name: mn }));
+    const sn = pick(); setSwapTribe((t) => ({ ...t, name: sn }));
+  };
+
   const start = () => {
     const active = tribes.slice(0, tribeCount);
     const cfg: Config = {
       playerCount: count, tribeCount, jurySize: jury, finalSize, fireAtF4: fire && finalSize === 3,
       swapEnabled: swap, swapAt, mergeAt: Math.min(mergeAt, count - 2), mergedName: mergeTribe.name, mergedColor: mergeTribe.color,
       swapTribe: swap && tribeCount === 2 && addSwapTribe ? { ...swapTribe } : undefined,
+      jointTribals: joint, doubleTribals: double,
       controlledId: controlled === null ? null : `c${controlled}`,
     };
     onStart(newGame(cfg, active, roster.map((r, i) => ({ ...r, tribeIndex: i % tribeCount }))));
@@ -75,17 +87,19 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           <Field label="Starting tribes"><select className={sel} value={tribeCount} onChange={(e) => { setTribeCount(+e.target.value); recount(count, +e.target.value); }}>{[2, 3].map((n) => <option key={n}>{n}</option>)}</select></Field>
           <Field label="Jury size"><input type="number" min={3} max={count - 3} className={`${sel} w-20`} value={jury} onChange={(e) => setJury(+e.target.value)} /></Field>
           <Field label="Final"><select className={sel} value={finalSize} onChange={(e) => { const f = +e.target.value as 2 | 3; setFinalSize(f); setMergeAt(defaultMergeAt(count, jury, f)); }}><option value={3}>Final 3</option><option value={2}>Final 2</option></select></Field>
-          {finalSize === 3 && <Field label="Fire-making at F4"><input type="checkbox" checked={fire} onChange={(e) => setFire(e.target.checked)} className="accent-primary size-4" /></Field>}
+          {finalSize === 3 && <Field label="Forced fire-making at F4"><input type="checkbox" checked={fire} onChange={(e) => setFire(e.target.checked)} className="accent-primary size-4" /></Field>}
         </div>
         <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-2xl text-accent">Twists</h2>
           <Field label="Tribe swap"><input type="checkbox" checked={swap} onChange={(e) => setSwap(e.target.checked)} className="accent-primary size-4" /></Field>
           {swap && <Field label="Swap at (remaining)"><input type="number" className={`${sel} w-20`} value={swapAt} onChange={(e) => setSwapAt(+e.target.value)} /></Field>}
+          <Field label="Joint tribal councils"><input type="checkbox" checked={joint} onChange={(e) => setJoint(e.target.checked)} className="accent-primary size-4" /></Field>
+          <Field label="Double tribals / eliminations"><input type="checkbox" checked={double} onChange={(e) => setDouble(e.target.checked)} className="accent-primary size-4" /></Field>
           <Field label="Merge at (remaining)"><input type="number" className={`${sel} w-20`} value={mergeAt} onChange={(e) => setMergeAt(+e.target.value)} /></Field>
         </div>
         <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-2xl text-accent">Tribes & Mode</h2>
-          <Button variant="secondary" size="sm" onClick={randomizeTribeColors} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">🎲 Randomize every tribe color</Button>
+          <div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={randomizeTribeNames} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">🎲 Randomize every tribe name</Button><Button variant="secondary" size="sm" onClick={randomizeTribeColors} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">🎲 Randomize every tribe color</Button></div>
           <h3 className="text-lg">Starting tribes</h3>
           <TribeEditor label="Starting tribe" tribes={tribes.slice(0, tribeCount)} onChange={(t) => setTribes((all) => all.map((x) => t.find((y) => y.id === x.id) ?? x))} />
           <h3 className="border-t pt-3 text-lg">Merge tribe</h3>
