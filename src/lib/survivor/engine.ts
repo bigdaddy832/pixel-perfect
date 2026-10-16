@@ -415,6 +415,7 @@ function doCamp(s: GameState, d: Decision) {
     }
     log(s, { kind: "camp", title: `${t.name}: Life at Camp`, text: `Day ${s.day}. ${pick(["The rain wouldn't stop.", "Spirits are high at camp.", "Hunger is setting in.", "The heat is brutal.", "Paranoia is creeping in."])}`, details: details.length ? details : ["A quiet day at camp."] });
   }
+  addConfessionals(s);
   // medevacs & quits (rare, at most one per episode)
   if (alive(s).length > s.config.finalSize + 3) {
     const pool = alive(s);
@@ -945,6 +946,35 @@ function doMerge(s: GameState) {
   alive(s).forEach((c) => { c.tribeId = "merged"; c.clue = false; });
   s.hiddenIdols.merged = 1;
   log(s, { kind: "twist", title: `The Merge — ${t.name}`, text: `The ${alive(s).length} remaining castaways merge into a single tribe, ${t.name}. It's now an individual game.`, details: [`Remaining: ${mergeDetails.join(", ")}`, `Jury of ${s.config.jurySize} begins soon.`] });
+}
+
+// ---------- confessionals ----------
+function addConfessionals(s: GameState) {
+  const ms = alive(s);
+  if (ms.length < 3) return;
+  for (const c of shuffle(ms).slice(0, r() < 0.5 ? 1 : 2)) {
+    const others = ms.filter((o) => o.id !== c.id);
+    const best = [...others].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
+    const worst = [...others].sort((a, b) => getRel(s, c.id, a.id) - getRel(s, c.id, b.id))[0];
+    const al = s.alliances.find((a) => a.members.includes(c.id));
+    const lines: string[] = [];
+    if (c.idols > 0) lines.push(`"I have an idol and nobody suspects a thing. That feeling? Pure power."`);
+    if (c.advantages.length) lines.push(`"I'm sitting on a ${ADVANTAGE_LABEL[c.advantages[0]]}. When I play it, this game flips upside down."`);
+    if (al) lines.push(`"${al.name} is my lifeline right now. As long as we stick together, nobody can touch us."`);
+    if (best && getRel(s, c.id, best.id) > 10) lines.push(`"${best.name} is the one person I truly trust out here. I'd go to the end with them."`);
+    if (worst && getRel(s, c.id, worst.id) < -8) lines.push(`"If ${worst.name} is still here tomorrow, something has gone very wrong. They have to go."`);
+    if (c.mood < 35) lines.push(`"I'm exhausted, I'm starving, and honestly... I don't know how much more of this I have in me."`);
+    if (c.mood > 80) lines.push(`"Everything is clicking. The tribe loves me, I'm eating well — this is my game to lose."`);
+    if (c.immunityWins > 0) lines.push(`"Winning immunity feels great, but I know it paints a target on my back."`);
+    if (c.betrayedBy.length) lines.push(`"I haven't forgotten what ${nm(s, c.betrayedBy[0])} did to me. Payback is coming."`);
+    lines.push(
+      `"Day ${s.day}. I'm still here, and that's all that matters."`,
+      `"People underestimate me. Good. Let them."`,
+      `"Every vote from here on out is a chess move, and I'm three steps ahead."`,
+      `"I came here to play, not to make friends. Well... maybe a few friends."`,
+    );
+    log(s, { kind: "confessional", title: `Confessional — ${c.name}`, text: pick(lines) });
+  }
 }
 
 // ---------- finale ----------
