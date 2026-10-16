@@ -62,6 +62,39 @@ export const TRIBE_NAMES = [
 ];
 export const MERGE_NAMES = ["Velunara", "Solarrion", "Orivessa", "Tazumori", "Kelavora", "Zunaveli", "Lumekari", "Veyranoa"];
 export const TRIBE_COLORS = ["#e8662a", "#2f7fd6", "#e3c13b", "#3fae5a", "#c43d3d", "#8b5ad6", "#e45fa1", "#2bb5b0"];
+
+function hslToHex(h: number, s: number, l: number) {
+  const c = (1 - Math.abs(2 * l / 100 - 1)) * (s / 100);
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l / 100 - c / 2;
+  const seg: [number, number, number][] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]];
+  const [rr, gg, bb] = seg[Math.floor(h / 60) % 6];
+  const to2 = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${to2(rr)}${to2(gg)}${to2(bb)}`;
+}
+function hexToHue(hex: string): number | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const r8 = ((n >> 16) & 255) / 255, g8 = ((n >> 8) & 255) / 255, b8 = (n & 255) / 255;
+  const max = Math.max(r8, g8, b8), min = Math.min(r8, g8, b8), d = max - min;
+  if (d === 0) return null;
+  const h = max === r8 ? ((g8 - b8) / d) % 6 : max === g8 ? (b8 - r8) / d + 2 : (r8 - g8) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+const hueGap = (a: number, b: number) => { const d = Math.abs(a - b); return Math.min(d, 360 - d); };
+
+/** A fresh, vivid tribe colour that stays visually distinct from `avoid`. */
+export function randomTribeColor(avoid: string[] = []): string {
+  const hues = avoid.map(hexToHue).filter((h): h is number => h !== null);
+  for (let i = 0; i < 30; i++) {
+    const h = Math.floor(r() * 360);
+    if (hues.some((a) => hueGap(a, h) < 30)) continue;
+    return hslToHex(h, 62 + r() * 26, 46 + r() * 14);
+  }
+  return hslToHex(Math.floor(r() * 360), 72, 52);
+}
+
 const NAMES = [
   "Adrian", "Amara", "Anika", "Brielle", "Callum", "Celia", "Dorian", "Elise", "Emmett", "Esme",
   "Felix", "Freya", "Gideon", "Hugo", "Imogen", "Inez", "Jasper", "Jules", "Kieran", "Leona",

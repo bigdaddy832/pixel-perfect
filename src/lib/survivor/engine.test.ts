@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { alive, makeRoster, MERGE_NAMES, newGame, pendingDecision, simulateToEnd, step, TRIBE_COLORS, TRIBE_NAMES, type Config, type GameState } from "./engine";
+import { alive, makeRoster, MERGE_NAMES, newGame, pendingDecision, randomTribeColor, simulateToEnd, step, TRIBE_COLORS, TRIBE_NAMES, type Config, type GameState } from "./engine";
 
 const config: Config = { playerCount: 18, tribeCount: 2, jurySize: 8, finalSize: 3, fireAtF4: true, swapEnabled: true, swapAt: 15, mergeAt: 12, mergedName: "Merge Test", mergedColor: "#123abc", controlledId: "c0", swapTribe: { id: "swap-third", name: "Swap Test", color: "#ab1234" } };
 function season() { return newGame({ ...config }, [0, 1].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i] ?? "Test", color: TRIBE_COLORS[i] ?? "#123456" })), makeRoster(18, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i + 1}` }))); }
@@ -118,5 +118,23 @@ describe("Survivor decisions and tribes", () => {
         expect(count).toEqual([...(count ?? [])].sort((a, b) => b - a));
       }
     }
+  });
+
+  it("picks random tribe colors that stay valid and distinct from ones already used", () => {
+    for (let i = 0; i < 200; i++) expect(randomTribeColor()).toMatch(/^#[0-9a-f]{6}$/);
+    const rgb = (h: string): [number, number, number] => [
+      parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16),
+    ];
+    const used: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      const c = randomTribeColor(used);
+      for (const u of used) {
+        const [r1, g1, b1] = rgb(c), [r2, g2, b2] = rgb(u);
+        expect(Math.hypot(r1 - r2, g1 - g2, b1 - b2)).toBeGreaterThan(30);
+      }
+      used.push(c);
+    }
+    expect(randomTribeColor(TRIBE_COLORS)).toMatch(/^#[0-9a-f]{6}$/);
+    expect(randomTribeColor(["not-a-color", "#12g456"])).toMatch(/^#[0-9a-f]{6}$/);
   });
 });
