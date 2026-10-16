@@ -275,6 +275,8 @@ export type Pending =
 export const tribalGroup = (s: GameState) => s.tribalTribes?.length ? s.tribalTribes : s.tribalTribe ? [s.tribalTribe] : [];
 export const attendees = (s: GameState) => { const g = tribalGroup(s); return alive(s).filter((c) => g.includes(c.tribeId)); };
 
+const byName = (a: Castaway, b: Castaway) => a.name.localeCompare(b.name);
+
 export function pendingDecision(s: GameState): Pending {
   const me = s.config.controlledId ? byId(s, s.config.controlledId) : null;
   if (me?.juror && s.phase === "ftc") return { kind: "jury", options: (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id)).sort(byName) };
