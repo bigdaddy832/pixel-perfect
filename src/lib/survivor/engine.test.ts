@@ -155,6 +155,6 @@ describe("new random cast", () => {
     const first = makeRoster(20, 2).map((c) => c.name ?? "");
     const next = makeRoster(20, 2, undefined, first).map((c) => c.name);
     expect(new Set(next).size).toBe(20);
-    expect(next.some((n) => first.includes(n))).toBe(false);
+    expect(next.some((n) => first.includes(n ?? ""))).toBe(false);
   });
 });
