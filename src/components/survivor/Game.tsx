@@ -407,7 +407,7 @@ function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone: () =>
         <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{e.title}</p>
         <p className="mt-2 text-sm text-muted-foreground">{n === 0 ? `"I'll read the votes." ${seq.length} parchment${seq.length === 1 ? "" : "s"}.` : last.re ? "Revote" : last.nullified ? "Does not count" : `Vote ${shown.filter((v: any) => !v.re && !v.nullified).length}`}</p>
         <div className="my-6 flex min-h-32 items-center justify-center rounded-lg border bg-secondary/60 p-6">
-          {last ? <span key={n} className={`vote-reveal font-display text-5xl tracking-wide ${last.nullified ? "line-through text-muted-foreground" : "text-primary"}`}>{byId(g, last.target).name}</span> : <span className="text-4xl">📜</span>}
+          {last ? <span key={n} className={`font-display text-5xl tracking-wide ${last.nullified ? "line-through text-muted-foreground" : "text-primary"}`}>{byId(g, last.target).name}</span> : <span className="text-4xl">📜</span>}
         </div>
         <div className="flex flex-wrap justify-center gap-2 text-sm">{Object.entries(counts).map(([k, c]) => <span key={k} className="rounded bg-secondary px-2 py-1">{k.startsWith("R") ? "Revote · " : ""}{byId(g, k.replace(/^R/, "")).name}: <b>{c}</b></span>)}</div>
         {finished && <p className="mt-4 text-sm">{e.text}</p>}
