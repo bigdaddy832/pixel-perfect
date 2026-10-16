@@ -1,4 +1,4 @@
-import { TRIBE_COLORS, TRIBE_NAMES, type Tribe } from "@/lib/survivor/engine";
+import { TRIBE_COLORS, TRIBE_NAMES, randomTribeColor, type Tribe } from "@/lib/survivor/engine";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -14,6 +14,8 @@ export function TribeColorPicker({ color, onChange, label }: { color: string; on
         setHex(next);
         if (/^#[0-9a-f]{6}$/i.test(next)) onChange(next);
       }} onBlur={() => { if (!valid) setHex(color); }} className="w-24 rounded-md border border-input bg-secondary px-2 py-1.5 font-mono text-xs aria-invalid:border-destructive" />
+      <Button variant="ghost" onClick={() => onChange(randomTribeColor([color]))} aria-label={`${label} random color`} title="Random color"
+        className="h-8 w-8 rounded-md border border-input bg-secondary p-0 text-sm hover:bg-muted">🎲</Button>
     </div>
   );
 }
