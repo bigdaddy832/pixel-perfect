@@ -46,7 +46,7 @@ export interface Config {
 }
 export interface Vote { voter: string; target: string; nullified?: boolean }
 export interface LogEntry {
-  kind: "camp" | "drama" | "alliance" | "idol" | "challenge" | "tribal" | "twist" | "finale";
+  kind: "camp" | "drama" | "alliance" | "idol" | "challenge" | "tribal" | "twist" | "finale" | "confessional";
   title: string; text: string; details?: string[]; votes?: Vote[]; revote?: Vote[];
 }
 export interface Episode { n: number; title: string; entries: LogEntry[] }
@@ -277,7 +277,7 @@ export const attendees = (s: GameState) => { const g = tribalGroup(s); return al
 
 export function pendingDecision(s: GameState): Pending {
   const me = s.config.controlledId ? byId(s, s.config.controlledId) : null;
-  if (me?.juror && s.phase === "ftc") return { kind: "jury", options: (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id)) };
+  if (me?.juror && s.phase === "ftc") return { kind: "jury", options: (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id)).sort(byName) };
   if (!me || me.out) return null;
   if (s.phase === "tribal" && s.pendingRevote) return { kind: "revote", options: s.pendingRevote.options.map((id) => byId(s, id)), votes: s.pendingRevote.votes ?? [], summary: s.pendingRevote.summary ?? [] };
   if (s.phase === "camp") { const options = alive(s).filter((c) => c.tribeId === me.tribeId && c.id !== me.id); return { kind: "camp", options, canSearchAtChallenge: !s.merged, fakeStatus: me.fakeIdol, plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol), giveables: [...(me.idols > 0 && !me.bewareTribals ? ["idol"] : []), ...(alive(s).length > 5 ? me.advantages : [])] }; }
