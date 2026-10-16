@@ -858,7 +858,7 @@ function doTribal(s: GameState, d: Decision) {
   }
   votes = votes.map((v) => (protectedIds.includes(v.target) ? { ...v, nullified: true } : v));
   let t = tally(votes);
-  const details: string[] = [...immLog, ...kipLog, ...advLog, ...amuletLog, ...shotLog, ...nvLog, ...idolLog];
+  const details: string[] = [...immLog, ...kipLog, ...advLog, ...amuletLog, ...shotLog, ...nvLog, ...liveLog, ...idolLog];
   let revote: Vote[] | undefined;
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
