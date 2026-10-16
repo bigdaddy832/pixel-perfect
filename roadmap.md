@@ -1,4 +1,5 @@
 # Survivor updates
+- [x] Limit Beware to one per season; add three first-reward amulets with shared play, evolving powers, and nonrepeating stage notes; verify.
 - [x] Save and load named season-settings presets, including four starting tribes; verify persistence and loading.
 - [x] Earlier: alliances, idols, advantages, tribe colors, naming.
 - [x] Fix sim jumping back to start page mid-season (season saved locally).

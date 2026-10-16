@@ -100,9 +100,10 @@ describe("Survivor decisions and tribes", () => {
     expect(g.tribes).toHaveLength(2);
     for (let i = 0; i < 30 && !g.swapped; i++) g = step(g);
     expect(g.swapped).toBe(true);
-    expect(g.tribes.find((t) => t.id === "swap-third")).toEqual({ ...config.swapTribe!, name: "Swap Test 2.0" });
+    expect(g.tribes.find((t) => t.id === "swap-third")).toEqual({ ...config.swapTribe, name: "Swap Test 2.0" });
     expect(g.tribes.filter((t) => t.name.endsWith(" 2.0"))).toHaveLength(3);
-    expect(alive(g).filter((c) => c.tribeId === "swap-third")).toHaveLength(5);
+    // A quit or medevac can reduce the cast before the swap; assignment stays balanced.
+    expect(alive(g).filter((c) => c.tribeId === "swap-third")).toHaveLength(Math.floor(alive(g).length / 3));
     expect(g.hiddenIdols["swap-third"]).toBe(1);
     g = simulateToEnd(g);
     expect(g.phase).toBe("done");
