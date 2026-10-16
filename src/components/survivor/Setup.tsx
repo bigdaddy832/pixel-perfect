@@ -10,7 +10,15 @@ import { Button } from "@/components/ui/button";
 
 type Row = { name: string; stats: Record<StatKey, number>; tribeIndex: number };
 
+/** Invented tribe names picked fresh every time the start page opens. */
+function freshTribeNames() {
+  const used: string[] = [];
+  const pick = () => { const n = randomTribeName(used); used.push(n); return n; };
+  return { starting: [pick(), pick(), pick()], merge: pick(), swap: pick() };
+}
+
 export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
+  const [names] = useState(freshTribeNames);
   const [count, setCount] = useState(18);
   const [tribeCount, setTribeCount] = useState(2);
   const [finalSize, setFinalSize] = useState<2 | 3>(3);
