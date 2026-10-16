@@ -122,13 +122,15 @@ describe("Survivor decisions and tribes", () => {
 
   it("picks random tribe colors that stay valid and distinct from ones already used", () => {
     for (let i = 0; i < 200; i++) expect(randomTribeColor()).toMatch(/^#[0-9a-f]{6}$/);
-    const rgb = (h: string) => [1, 3, 5].map((s) => parseInt(h.slice(s, s + 2), 16));
+    const rgb = (h: string): [number, number, number] => [
+      parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16),
+    ];
     const used: string[] = [];
     for (let i = 0; i < 6; i++) {
       const c = randomTribeColor(used);
       for (const u of used) {
-        const a = rgb(c), b = rgb(u);
-        expect(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])).toBeGreaterThan(30);
+        const [r1, g1, b1] = rgb(c), [r2, g2, b2] = rgb(u);
+        expect(Math.hypot(r1 - r2, g1 - g2, b1 - b2)).toBeGreaterThan(30);
       }
       used.push(c);
     }
