@@ -14,3 +14,4 @@
 - [ ] Create separate alliances for new player approaches.
 - [ ] Include idol-negated votes in tribal counts and vary logged idol hiding places.
 - [ ] Verify season changes with regression tests and the jury-vote screen.
+- [ ] Add a final statistics sheet and a fan favorite award eligible only for castaways who reached the merge.
