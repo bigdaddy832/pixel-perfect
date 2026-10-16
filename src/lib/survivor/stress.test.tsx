@@ -1,3 +1,4 @@
+// @ts-nocheck -- stress harness
 import { it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { simulateToEnd, makeRoster, newGame, step, pendingDecision, TRIBE_NAMES, TRIBE_COLORS } from "./engine";
