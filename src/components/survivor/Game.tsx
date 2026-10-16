@@ -1,10 +1,11 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, alive, byId, pendingDecision, simulateToEnd, step, tribeOf,
+  CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, pendingDecision, simulateToEnd, step, tribeOf,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
+import { Button } from "@/components/ui/button";
 
 const PHASE_LABEL: Record<string, string> = { camp: "Life at Camp", challenge: "Challenges", tribal: "Tribal Council", final_challenge: "Final Immunity", ftc: "Final Tribal Council", done: "Season Complete" };
 const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑" };
@@ -47,7 +48,8 @@ export function Game({ game, setGame, onReset }: { game: GameState; setGame: (g:
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <div className="space-y-5">
           {groups.map((tid) => {
-            const t = tribeOf(game, tid)!;
+            const t = tribeOf(game, tid);
+            if (!t) return null;
             return (
               <section key={tid}>
                 <h2 className="mb-2 rounded-md px-3 py-1 text-2xl" style={{ backgroundColor: t.color, color: "#111" }}>{t.name}</h2>
@@ -89,7 +91,7 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
     <div className={`rounded-lg border bg-card p-3 ${me ? "border-primary torch-glow" : ""} ${g.immune.includes(c.id) ? "ring-2 ring-idol" : ""}`}>
       <div className="flex items-center justify-between">
         <span className="font-semibold">{c.name}{me && <span className="ml-1 text-xs text-primary">(YOU)</span>}</span>
-        <span className="text-sm">{g.immune.includes(c.id) && "🛡️"}{c.idols > 0 && "🗿".repeat(c.idols)}{c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}</span>
+        <span className="flex flex-wrap items-center justify-end gap-1 text-sm">{g.immune.includes(c.id) && "🛡️"}{c.idols > 0 && "🗿".repeat(c.idols)}{c.extraVotes > 0 && <span className="text-xs text-accent">Extra Vote ×{c.extraVotes}</span>}{c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}</span>
       </div>
       <div className="mt-1 h-1.5 overflow-hidden rounded bg-muted" title={`Mood ${c.mood}`}><div className="h-full bg-success" style={{ width: `${c.mood}%` }} /></div>
       <div className="mt-1.5 flex flex-wrap gap-1">{als.map((a) => <span key={a.id} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-accent">{a.name}</span>)}</div>
@@ -105,6 +107,7 @@ function Entry({ g, e }: { g: GameState; e: LogEntry }) {
     <div className={`rounded-lg bg-secondary/60 p-3 ${e.kind === "tribal" || e.kind === "finale" ? "border-l-4 border-primary" : ""}`}>
       <p className="font-semibold">{KIND_ICON[e.kind]} {e.title}</p>
       <p className="text-sm">{e.text}</p>
+      {e.kind === "tribal" && e.details?.[0]?.startsWith("Final count:") && <p className="mt-2 text-sm font-semibold text-accent">{e.details[0]}</p>}
       {e.votes && <VoteChart g={g} votes={e.votes} label={e.kind === "finale" && g.juryVotes ? "Jury Votes" : "Votes"} />}
       {e.revote && e.revote.length > 0 && <VoteChart g={g} votes={e.revote} label="Revote" />}
       {e.details && e.details.length > 0 && (
@@ -133,15 +136,26 @@ function VoteChart({ g, votes, label }: { g: GameState; votes: Vote[]; label: st
 
 function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pending: NonNullable<ReturnType<typeof pendingDecision>>; dec: Decision; setDec: (d: Decision) => void }) {
   const sel = "rounded-md border border-input bg-secondary px-2 py-1.5 text-sm";
-  const me = byId(game, game.config.controlledId!);
+  if (!game.config.controlledId) return null;
+  const me = byId(game, game.config.controlledId);
   return (
     <div className="mb-6 rounded-xl border-2 border-primary bg-card p-4">
       <h2 className="text-2xl text-primary">Your Decision, {me.name}</h2>
       {pending.kind === "camp" && (
-        <label className="mt-2 flex flex-wrap items-center gap-2 text-sm">Approach someone to align with (optional):
+        <div className="mt-2 space-y-3">
+        <label className="flex flex-wrap items-center gap-2 text-sm">Approach someone to align with (optional):
           <select className={sel} value={dec.allyWith ?? ""} onChange={(e) => setDec({ ...dec, allyWith: e.target.value || undefined })}>
-            <option value="">— Lay low —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            <option value="">— Lay low —</option><option value="__random__">Randomize who I approach</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select></label>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={dec.searchIdol ?? false} onChange={(e) => setDec({ ...dec, searchIdol: e.target.checked })} className="size-4 accent-primary" />Search for an idol</label>
+            {dec.searchIdol && <label className="flex flex-wrap items-center gap-2">Search location:
+              <select className={sel} value={dec.searchSpot ?? ""} onChange={(e) => setDec({ ...dec, searchSpot: e.target.value || undefined })}>
+                <option value="">Random location</option>{SEARCH_SPOTS.map((spot) => <option key={spot} value={spot}>{spot}</option>)}
+              </select>
+            </label>}
+          </div>
+        </div>
       )}
       {pending.kind === "tribal" && (
         <div className="mt-2 flex flex-wrap gap-4 text-sm">
@@ -155,9 +169,9 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
                 <option value="">Keep it</option>{pending.idolTargets.map((o) => <option key={o.id} value={o.id}>{o.id === me.id ? "Myself" : o.name}</option>)}
               </select></label>
           )}
+          {pending.hasExtraVote && <label className="flex items-center gap-2"><input type="checkbox" checked={dec.extraVote ?? false} onChange={(e) => setDec({ ...dec, extraVote: e.target.checked })} className="size-4 accent-primary" />Play Extra Vote ({me.extraVotes} available)</label>}
         </div>
       )}
-      <p className="mt-2 text-xs text-muted-foreground">Then press Next Phase.</p>
     </div>
   );
 }
@@ -171,9 +185,13 @@ function EditModal({ game, setGame, onClose }: { game: GameState; setGame: (g: G
         <h3 className="text-xl text-accent">Tribes</h3>
         <TribeEditor tribes={game.tribes} onChange={(t) => upd((g) => { g.tribes = t; const m = t.find((x) => x.id === "merged"); if (m) { g.config.mergedName = m.name; g.config.mergedColor = m.color; } })} />
         {!game.merged && (
-          <label className="mt-2 flex items-center gap-2 text-sm">Future merged tribe name:
-            <input className="rounded-md border border-input bg-secondary px-2 py-1" value={game.config.mergedName} onChange={(e) => upd((g) => { g.config.mergedName = e.target.value; })} /></label>
+          <div className="mt-3"><h3 className="mb-2 text-xl text-accent">Future merge tribe</h3>
+            <TribeEditor label="Future merge tribe" tribes={[{ id: "merged", name: game.config.mergedName, color: game.config.mergedColor }]} onChange={(t) => upd((g) => { g.config.mergedName = t[0].name; g.config.mergedColor = t[0].color; })} />
+          </div>
         )}
+        {!game.swapped && game.config.swapTribe && <div className="mt-3"><h3 className="mb-2 text-xl text-accent">Future swap tribe</h3>
+          <TribeEditor label="Future swap tribe" tribes={[game.config.swapTribe]} onChange={(t) => upd((g) => { g.config.swapTribe = t[0]; })} />
+        </div>}
         <h3 className="mt-5 text-xl text-accent">Castaways</h3>
         <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {alive(game).map((c) => (
