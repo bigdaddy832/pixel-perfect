@@ -777,6 +777,8 @@ function doSwap(s: GameState) {
     tids.push(third.id);
     s.hiddenIdols[third.id] = 1;
   }
+  // Post-swap tribes get "2.0" names.
+  s.tribes = s.tribes.map((t) => tids.includes(t.id) && !t.name.endsWith(" 2.0") ? { ...t, name: `${t.name} 2.0` } : t);
   const prev: Record<string, string> = {}; alive(s).forEach((c) => (prev[c.id] = c.tribeId));
   shuffle(alive(s)).forEach((c, i) => { c.tribeId = tids[i % tids.length]; c.clue = false; });
   const details = tids.map((tid) => `${tribeOf(s, tid)!.name}: ${alive(s).filter((c) => c.tribeId === tid).map((c) => `${c.name} (formerly ${tribeOf(s, prev[c.id])?.name ?? "?"})`).join(", ")}`);
