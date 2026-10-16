@@ -24,6 +24,6 @@ export function randomSeasonTitle(used: string[], rand: () => number = Math.rand
   const all: string[] = [];
   for (const p of SEASON_PLACES) for (const t of SEASON_THEMES) all.push(`Survivor: ${p} — ${t}`);
   const free = all.filter((t) => !usedSet.has(t.toLowerCase()));
-  if (free.length) return free[Math.floor(rand() * free.length)];
+  if (free.length) return free[Math.floor(rand() * free.length)]!;
   for (let n = 2; ; n++) { const t = `${all[Math.floor(rand() * all.length)]} ${n}`; if (!usedSet.has(t.toLowerCase())) return t; }
 }
