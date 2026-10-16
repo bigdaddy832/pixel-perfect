@@ -102,8 +102,9 @@ describe("finale detail and decisions", () => {
       expect(reachedMerge(done, favorite)).toBe(true);
       const entries = done.episodes.flatMap((e) => e.entries);
       expect(entries.at(-1)?.title).toBe("Season Recap");
-      expect(entries.at(-2)?.title).toBe("Fan Favorite Award");
-      expect(entries.at(-3)?.title).toBe("The Reunion — Sole Survivor");
+      expect(entries.at(-2)?.title).toBe("Season Superlatives");
+      expect(entries.at(-3)?.title).toBe("Fan Favorite Award");
+      expect(entries.at(-4)?.title).toBe("The Reunion — Sole Survivor");
     }
   });
 });
