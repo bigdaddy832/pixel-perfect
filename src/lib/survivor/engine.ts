@@ -992,11 +992,24 @@ function doFinalChoice(s: GameState, d: Decision) {
   const mine = w.id === s.config.controlledId && others.some((c) => c.id === d.cut) ? byId(s, d.cut!) : null;
   const pickCut = () => (w.id === s.config.controlledId && d.cut ? byId(s, d.cut) : [...others].sort((a, b) => (threat(b) - getRel(s, w.id, b.id) * 0.1) - (threat(a) - getRel(s, w.id, a.id) * 0.1))[0]);
   if (isFireFinal(s)) {
-    const safe = mine ?? [...others].sort((a, b) => getRel(s, w.id, b.id) - getRel(s, w.id, a.id))[0];
-    const fire = others.filter((c) => c.id !== safe.id);
-    const fs = fire.map((c) => ({ c, sc: c.stats.endurance * 0.6 + c.stats.mental * 0.4 + r() * 4 })).sort((a, b) => b.sc - a.sc);
-    eliminate(s, fs[1].c, "fire");
-    log(s, { kind: "finale", title: "Forced Fire-Making Challenge", text: `${w.name} takes ${safe.name} to the end. ${fs[0].c.name} and ${fs[1].c.name} battle at fire-making... ${fs[0].c.name}'s flame burns through the rope! ${fs[1].c.name} becomes the final juror.`, details: fs.map((x) => `${x.c.name} — ${x.sc.toFixed(2)}`) });
+    // Rare bold move: the immune player gives up the necklace to face the biggest threat at fire themselves.
+    const biggestThreat = [...others].sort((a, b) => threat(b) - threat(a))[0];
+    const givesUp = !mine && w.id !== s.config.controlledId && biggestThreat && threat(biggestThreat) > threat(w) && r() < 0.06 + w.stats.endurance * 0.02;
+    if (givesUp) {
+      const through = others.filter((c) => c.id !== biggestThreat.id);
+      const fs = [w, biggestThreat].map((c) => ({ c, sc: c.stats.endurance * 0.6 + c.stats.mental * 0.4 + r() * 4 })).sort((a, b) => b.sc - a.sc);
+      eliminate(s, fs[1].c, "fire");
+      log(s, { kind: "finale", title: "Immunity Given Up — Fire-Making Showdown", text: `In a stunning move, ${w.name} gives up the immunity necklace and volunteers for fire-making against ${biggestThreat.name}, sending ${through.map((c) => c.name).join(" and ")} straight to the end. "I didn't come here to sneak into the finals — I came to take out the biggest threat myself." ${fs[0].c.name}'s flame burns through the rope! ${fs[1].c.name} becomes the final juror.`, details: [`Why: ${w.name} believed ${biggestThreat.name} was the one player they couldn't beat in front of the jury, and wanted the credit for ending their game.`, ...fs.map((x) => `${x.c.name} — ${x.sc.toFixed(2)}`)] });
+    } else {
+      const safe = mine ?? [...others].sort((a, b) => getRel(s, w.id, b.id) - getRel(s, w.id, a.id))[0];
+      const fire = others.filter((c) => c.id !== safe.id);
+      const fs = fire.map((c) => ({ c, sc: c.stats.endurance * 0.6 + c.stats.mental * 0.4 + r() * 4 })).sort((a, b) => b.sc - a.sc);
+      eliminate(s, fs[1].c, "fire");
+      const bond = getRel(s, w.id, safe.id);
+      const whySafe = mine ? "your call as the immunity winner" : bond > 10 ? `${safe.name} has been their most loyal ally all season — loyalty matters more than jury math` : bond < -5 ? `they want ${safe.name} beside them precisely because the jury dislikes them` : `${safe.name} is the weakest jury threat of the three, the easiest seatmate for Final Tribal`;
+      const whyFire = fire.map((c) => `${c.name}: ${threat(c) > threat(safe) ? "too big a jury threat to hand a free finalist seat" : "no free rides — make them earn it at fire"}`);
+      log(s, { kind: "finale", title: "Forced Fire-Making Challenge", text: `${w.name} takes ${safe.name} to the end. ${fs[0].c.name} and ${fs[1].c.name} battle at fire-making... ${fs[0].c.name}'s flame burns through the rope! ${fs[1].c.name} becomes the final juror.`, details: [`Why ${w.name} saved ${safe.name}: ${whySafe}.`, ...whyFire, ...fs.map((x) => `${x.c.name} — ${x.sc.toFixed(2)}`)] });
+    }
   } else {
     const cut = pickCut();
     eliminate(s, cut, "cut");
