@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees,
+  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, amuletHolders, amuletDescription,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -99,6 +99,7 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
       </div>
       <div className="mt-1 h-1.5 overflow-hidden rounded bg-muted" title={`Mood ${c.mood}`}><div className="h-full bg-success" style={{ width: `${c.mood}%` }} /></div>
       <div className="mt-1.5 flex flex-wrap gap-1">{als.map((a) => <span key={a.id} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-accent">{a.name}</span>)}</div>
+      {c.amulet && <p className="mt-1 text-xs text-idol" title={amuletDescription(g)}>Advantage Amulet · {alive(g).length < 6 ? "Expired" : amuletHolders(g).length === 3 ? "Extra vote" : amuletHolders(g).length === 2 ? "Steal a vote" : "Immunity idol"}</p>}
       <div className="mt-1.5 grid grid-cols-4 gap-1 text-center text-[10px] text-muted-foreground">
         {[...SOCIAL_STATS, ...CHALLENGE_STATS].map((k) => <span key={k} title={STAT_LABEL[k]}>{STAT_LABEL[k].slice(0, 3)} <b className="text-foreground">{c.stats[k]}</b></span>)}
       </div>
@@ -216,6 +217,14 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
               </select></label>
           )}
           {dec.advantage && <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>}
+          {pending.canPlayAmulet && <>
+            <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={dec.playAmulet ?? false} onChange={(e) => setDec({ ...dec, playAmulet: e.target.checked, amuletTarget: undefined })} />Play Advantage Amulet{amuletHolders(game).length > 1 ? " together" : ""}</label>
+            {dec.playAmulet && amuletHolders(game).length < 3 && <label className="flex items-center gap-2">Amulet target:
+              <select className={sel} value={dec.amuletTarget ?? ""} onChange={(e) => setDec({ ...dec, amuletTarget: e.target.value || undefined })}>
+                <option value="">— Choose —</option><option value="__random__">Random person</option>{(amuletHolders(game).length === 1 ? pending.idolTargets : attendees(game).filter((c) => c.id !== me.id && !game.immune.includes(c.id))).map((c) => <option key={c.id} value={c.id}>{c.id === me.id ? "Myself" : c.name}</option>)}
+              </select>
+            </label>}
+          </>}
         </div>
       )}
     </div>

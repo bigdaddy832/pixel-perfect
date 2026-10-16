@@ -18,7 +18,7 @@ export interface Castaway {
   placement?: number; immunityWins: number; betrayedBy: string[];
   fakeIdol?: "own" | "planted"; bewareTribals?: number; lostVote?: boolean; edge?: boolean; clue?: boolean;
   votesCast?: number; correctVotes?: number; votesAgainst?: number; idolsPlayed?: number; advPlayed?: number;
-  madeMerge?: boolean; rewardWins?: number;
+  madeMerge?: boolean; rewardWins?: number; amulet?: boolean;
 }
 export type AdvantageKey = "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power";
 export const ADVANTAGES: AdvantageKey[] = ["extra_vote", "steal_vote", "vote_blocker", "safety", "idol_nullifier", "knowledge_is_power"];
@@ -58,6 +58,7 @@ export interface GameState {
   hiddenIdols: Record<string, number>; finalImmune?: string; usedChallenges: string[]; rewardAdvantageGiven: boolean;
   tribalTribes?: string[]; tribalQueue?: string[][]; doubleElim?: boolean; twistsUsed?: string[];
   challengeSearch?: boolean; edgeDone?: boolean; journeysDone?: number;
+  bewareFound?: boolean; amuletsGiven?: boolean; amuletStages?: number[]; amuletsConsumed?: boolean;
   winner?: string; finalists?: string[]; juryVotes?: { juror: string; finalist: string; reason: string }[]; fanFavorite?: string;
 }
 export const SEARCH_SPOTS = ["the tree line", "the water well", "behind the shelter", "the rocky outcrop", "the beach at dawn"];
@@ -70,7 +71,7 @@ export const IDOL_HIDING_PLACES = [
   "fastened to the underside of a water bucket", "hidden in the fork of a strangler fig",
 ];
 const CHALLENGE_IDOL_PLACES = ["beneath a puzzle table", "inside a hollow course marker", "under the climbing platform", "tied behind a balance-beam support", "inside a rope basket", "beneath the final station's bench"];
-export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean }
+export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string }
 const BIG_TWISTS = ["joint", "double_pre", "double_post"];
 /** Joint tribals and double eliminations share a single once-per-season slot. */
 export const bigTwistUsed = (s: GameState) => (s.twistsUsed ?? []).some((x) => BIG_TWISTS.includes(x));
@@ -227,12 +228,41 @@ const sharedAlliance = (s: GameState, a: string, b: string) => s.alliances.some(
 const threat = (c: Castaway) => (c.stats.strategy + c.stats.social) * 0.6 + (c.stats.general + c.stats.physical + c.stats.endurance + c.stats.mental) * 0.25 + c.immunityWins * 0.8;
 const missingAdv = (c: Castaway) => ADVANTAGES.filter((a) => !(c.advantages ?? []).includes(a));
 const giveAdvantage = (c: Castaway): AdvantageKey | null => { const opts = missingAdv(c); if (!opts.length) return null; const a = pick(opts); c.advantages = [...(c.advantages ?? []), a]; return a; };
+export const amuletHolders = (s: GameState) => alive(s).filter((c) => c.amulet);
+export function amuletDescription(s: GameState): string {
+  const n = amuletHolders(s).length;
+  const power = n === 3 ? "one shared extra vote" : n === 2 ? "one shared steal-a-vote" : "a hidden immunity idol";
+  return `${n} holder${n === 1 ? "" : "s"} remain: ${power}. All remaining amulets must be played together at the same Tribal Council. Valid through the final six.`;
+}
+function noteAmuletStage(s: GameState) {
+  const n = amuletHolders(s).length;
+  if (!s.amuletsGiven || s.amuletsConsumed || !n || (s.amuletStages ?? []).includes(n)) return;
+  s.amuletStages = [...(s.amuletStages ?? []), n];
+  log(s, { kind: "idol", title: `Advantage Amulet: ${n} Holder${n === 1 ? "" : "s"} Remain`, text: amuletDescription(s), details: amuletHolders(s).map((c) => `${c.name} — ${tribeOf(s, c.tribeId)?.name}`) });
+}
+function awardAmulets(s: GameState) {
+  if (s.amuletsGiven || s.episodes.some((e) => e.entries.some((en) => en.title.startsWith("Reward Challenge:")))) return;
+  const pools = shuffle([...groups(s).values()]).map((ms) => shuffle(ms));
+  const volunteers: Castaway[] = [];
+  while (volunteers.length < 3 && pools.some((ms) => ms.length)) {
+    for (const pool of pools) { const c = pool.shift(); if (c && volunteers.length < 3) volunteers.push(c); }
+  }
+  if (volunteers.length !== 3) return;
+  s.amuletsGiven = true;
+  volunteers.forEach((c) => { c.amulet = true; });
+  log(s, { kind: "twist", title: "First Reward: Amulet Volunteers", text: `${volunteers.map((c) => c.name).join(", ")} volunteer during the first reward challenge and each receive an Advantage Amulet.` });
+  noteAmuletStage(s);
+}
+function canFindBeware(s: GameState) {
+  // Older saved seasons may not have the flag, so also inspect their evidence.
+  return s.config.bewareAdvantages && !s.bewareFound && !s.episodes.some((e) => e.entries.some((en) => en.title.includes("Beware Advantage"))) && r() < 0.35;
+}
 const weakness = (c: Castaway) => 5 - (c.stats.general + c.stats.physical + c.stats.endurance + c.stats.mental) / 4;
 
 // ---------- decisions needed ----------
 export type Pending =
   | { kind: "camp"; options: Castaway[]; canSearchAtChallenge: boolean; fakeStatus?: "own" | "planted"; plantTargets: Castaway[] }
-  | { kind: "tribal"; options: Castaway[]; hasIdol: boolean; advantages: AdvantageKey[]; idolTargets: Castaway[]; canGiveImmunity: boolean; noVote: boolean }
+  | { kind: "tribal"; options: Castaway[]; hasIdol: boolean; advantages: AdvantageKey[]; idolTargets: Castaway[]; canGiveImmunity: boolean; noVote: boolean; canPlayAmulet: boolean }
   | { kind: "cut"; options: Castaway[]; fire: boolean }
   | { kind: "jury"; options: Castaway[] }
   | null;
@@ -247,7 +277,7 @@ export function pendingDecision(s: GameState): Pending {
   if (s.phase === "camp") { const options = alive(s).filter((c) => c.tribeId === me.tribeId && c.id !== me.id); return { kind: "camp", options, canSearchAtChallenge: !s.merged, fakeStatus: me.fakeIdol, plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol) }; }
   if (s.phase === "tribal" && tribalGroup(s).includes(me.tribeId)) {
     const att = attendees(s);
-    return { kind: "tribal", options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)), hasIdol: me.idols > 0 && !(me.bewareTribals > 0), noVote: !!me.lostVote || me.bewareTribals > 0, advantages: [...(me.advantages ?? [])], idolTargets: att.filter((c) => !s.immune.includes(c.id)), canGiveImmunity: s.merged && s.immune.includes(me.id) };
+    return { kind: "tribal", options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)), hasIdol: me.idols > 0 && !(me.bewareTribals > 0), noVote: !!me.lostVote || me.bewareTribals > 0, advantages: [...(me.advantages ?? [])], idolTargets: att.filter((c) => !s.immune.includes(c.id)), canGiveImmunity: s.merged && s.immune.includes(me.id), canPlayAmulet: !!me.amulet && alive(s).length >= 6 && amuletHolders(s).every((c) => att.some((a) => a.id === c.id)) };
   }
   if (s.phase === "final_choice" && s.finalImmune === me.id) {
     return { kind: "cut", options: alive(s).filter((c) => c.id !== me.id), fire: isFireFinal(s) };
@@ -325,7 +355,7 @@ function doCamp(s: GameState, d: Decision) {
         if (r() < (a.clue ? 0.25 : 0.01) + a.stats.strategy * 0.015) {
           a.idols++; s.hiddenIdols[tid]--; if (a.clue) a.clue = false;
           const hidingPlace = pick(IDOL_HIDING_PLACES);
-          if (s.config.bewareAdvantages && r() < 0.35) { a.bewareTribals = 2; log(s, { kind: "idol", title: `${t.name}: Beware Advantage!`, text: `${a.name} opened a note reading "BEWARE" ${hidingPlace} — they now hold an idol, but lose their vote and can't play it for the next two Tribal Councils they attend.` }); break; }
+          if (canFindBeware(s)) { s.bewareFound = true; a.bewareTribals = 2; log(s, { kind: "idol", title: `${t.name}: Beware Advantage!`, text: `${a.name} opened a note reading "BEWARE" ${hidingPlace} — they now hold an idol, but lose their vote and can't play it for the next two Tribal Councils they attend.` }); break; }
           log(s, { kind: "idol", title: `${t.name}: Idol Found!`, text: `${a.name} snuck away and found a Hidden Immunity Idol ${hidingPlace}.` });
           break;
         }
@@ -393,7 +423,7 @@ function doCamp(s: GameState, d: Decision) {
     if (idolHere && roll < (meC.clue ? 0.55 : 0.22)) {
       meC.idols = 1; meC.clue = false; s.hiddenIdols[meC.tribeId]--;
       const hidingPlace = pick(IDOL_HIDING_PLACES);
-      if (s.config.bewareAdvantages && r() < 0.35) { meC.bewareTribals = 2; log(s, { kind: "idol", title: "Your Search: Beware Advantage!", text: `At ${spot} you found a note marked "BEWARE" ${hidingPlace}. You now hold an idol, but you lose your vote and can't play it for your next two Tribal Councils.` }); }
+      if (canFindBeware(s)) { s.bewareFound = true; meC.bewareTribals = 2; log(s, { kind: "idol", title: "Your Search: Beware Advantage!", text: `At ${spot} you found a note marked "BEWARE" ${hidingPlace}. You now hold an idol, but you lose your vote and can't play it for your next two Tribal Councils.` }); }
       else log(s, { kind: "idol", title: "Your Search: Idol Found!", text: `You slipped away to search ${spot} — and found a Hidden Immunity Idol ${hidingPlace}!` });
     } else if (!idolHere && roll < 0.18 && (adv = giveAdvantage(meC))) {
       log(s, { kind: "idol", title: "Your Search: Advantage Found!", text: `You searched ${spot} and found a ${ADVANTAGE_LABEL[adv]} advantage. ${ADVANTAGE_DESC[adv]}` });
@@ -496,6 +526,7 @@ function rewardAdvantage(s: GameState, winners: Castaway[]) {
 
 function doChallenge(s: GameState) {
   s.immune = [];
+  awardAmulets(s);
   const rew = pickChallenge(s); const ch = pickChallenge(s, rew.type);
   if (!s.merged) {
     const g = [...groups(s).entries()];
@@ -656,6 +687,24 @@ function doTribal(s: GameState, d: Decision) {
     plays.push({ who: h, adv, target });
   }
   const safe = plays.filter((p) => p.adv === "safety").map((p) => p.who.id);
+  const holders = amuletHolders(s);
+  const amuletLog: string[] = [];
+  let amuletIdolTarget: string | undefined;
+  const amuletUser = holders.find((c) => c.id === ctrl) ?? holders[0];
+  const allPresent = holders.length > 0 && holders.every((c) => att.some((a) => a.id === c.id) && !safe.includes(c.id));
+  if (amuletUser && allPresent && alive(s).length >= 6 && (holders.some((c) => c.id === ctrl) ? d.playAmulet : r() < (alive(s).length === 6 ? 1 : 0.22))) {
+    const options = att.filter((c) => !safe.includes(c.id) && !s.immune.includes(c.id) && (holders.length === 1 || c.id !== amuletUser.id));
+    const target = holders.some((c) => c.id === ctrl)
+      ? d.amuletTarget === "__random__" ? pick(options)?.id : d.amuletTarget
+      : holders.length === 1 ? amuletUser.id : options.sort((a, b) => getRel(s, amuletUser.id, a.id) - getRel(s, amuletUser.id, b.id))[0]?.id;
+    if (holders.length === 3 || options.some((c) => c.id === target)) {
+      holders.forEach((c) => { c.amulet = false; c.advPlayed = (c.advPlayed ?? 0) + 1; });
+      s.amuletsConsumed = true;
+      if (holders.length === 1) amuletIdolTarget = target;
+      else plays.push({ who: amuletUser, adv: holders.length === 3 ? "extra_vote" : "steal_vote", target });
+      amuletLog.push(`${holders.map((c) => c.name).join(" and ")} play all remaining Advantage Amulets together: ${holders.length === 3 ? "one extra vote" : holders.length === 2 ? `steal ${nm(s, target)}'s vote` : `an immunity idol for ${nm(s, target)}`}! The amulets are now spent.`);
+    }
+  }
   const blocked = plays.filter((p) => p.adv === "steal_vote" || p.adv === "vote_blocker").map((p) => p.target!);
   const nullifyFor = plays.filter((p) => p.adv === "idol_nullifier").map((p) => p.target!);
   const advLog = plays.map((p) => p.adv === "safety" ? `${p.who.name} plays Safety Without Power and leaves Tribal Council.` : p.adv === "extra_vote" ? `${p.who.name} plays an Extra Vote advantage and casts a second vote.` : p.adv === "steal_vote" ? `${p.who.name} plays Steal a Vote — ${nm(s, p.target!)} loses their vote.` : p.adv === "vote_blocker" ? `${p.who.name} plays a Vote Blocker on ${nm(s, p.target!)}.` : `${p.who.name} secretly plays an Idol Nullifier on ${nm(s, p.target!)}.`);
@@ -672,6 +721,10 @@ function doTribal(s: GameState, d: Decision) {
   }
   // idol plays
   const protectedIds: string[] = []; const idolLog: string[] = [];
+  if (amuletIdolTarget) {
+    if (nullifyFor.includes(amuletIdolTarget)) amuletLog.push(`The amulet idol for ${nm(s, amuletIdolTarget)} is nullified; their votes still count.`);
+    else protectedIds.push(amuletIdolTarget);
+  }
   const t0 = tally(votes); const max = Math.max(0, ...Object.values(t0));
   for (const h of att.filter((c) => c.fakeIdol === "planted" && c.id !== ctrl)) {
     const mine = t0[h.id] ?? 0;
@@ -703,7 +756,7 @@ function doTribal(s: GameState, d: Decision) {
   }
   votes = votes.map((v) => (protectedIds.includes(v.target) ? { ...v, nullified: true } : v));
   let t = tally(votes);
-  const details: string[] = [...immLog, ...kipLog, ...advLog, ...nvLog, ...idolLog];
+  const details: string[] = [...immLog, ...kipLog, ...advLog, ...amuletLog, ...nvLog, ...idolLog];
   let revote: Vote[] | undefined;
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
@@ -768,6 +821,8 @@ function eliminate(s: GameState, c: Castaway, _how: string) {
   s.alliances = s.alliances.filter((a) => a.members.length >= 2);
   c.idols = 0;
   c.advantages = [];
+  c.amulet = false;
+  noteAmuletStage(s);
 }
 
 function afterTribal(s: GameState) {
