@@ -1,24 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly } from "@tanstack/react-router";
+import { useState } from "react";
+import { Setup } from "@/components/survivor/Setup";
+import { Game } from "@/components/survivor/Game";
+import type { GameState } from "@/lib/survivor/engine";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Survivor Simulator — Outwit, Outplay, Outlast" },
+      { name: "description", content: "Build a cast, set twists, and simulate a full Survivor season with alliances, idols, tribal councils and a jury vote." },
+      { property: "og:title", content: "Survivor Simulator" },
+      { property: "og:description", content: "Simulate or play a full Survivor season: alliances, idols, blindsides and Final Tribal." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
+  const [game, setGame] = useState<GameState | null>(null);
+  return game ? <Game game={game} setGame={setGame} onReset={() => setGame(null)} /> : <ClientOnly fallback={<div className="min-h-screen" />}><Setup onStart={setGame} /></ClientOnly>;
 }
