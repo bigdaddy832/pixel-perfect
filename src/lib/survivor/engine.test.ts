@@ -1,11 +1,34 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { alive, makeRoster, newGame, pendingDecision, simulateToEnd, step, TRIBE_COLORS, TRIBE_NAMES, type Config, type GameState } from "./engine";
+import { alive, makeRoster, MERGE_NAMES, newGame, pendingDecision, simulateToEnd, step, TRIBE_COLORS, TRIBE_NAMES, type Config, type GameState } from "./engine";
 
 const config: Config = { playerCount: 18, tribeCount: 2, jurySize: 8, finalSize: 3, fireAtF4: true, swapEnabled: true, swapAt: 15, mergeAt: 12, mergedName: "Merge Test", mergedColor: "#123abc", controlledId: "c0", swapTribe: { id: "swap-third", name: "Swap Test", color: "#ab1234" } };
 function season() { return newGame({ ...config }, [0, 1].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i] ?? "Test", color: TRIBE_COLORS[i] ?? "#123456" })), makeRoster(18, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i + 1}` }))); }
 afterEach(() => vi.restoreAllMocks());
 
 describe("Survivor decisions and tribes", () => {
+  it("uses invented merge defaults and suggestions instead of past tribe names", () => {
+    expect(MERGE_NAMES[0]).toBe("Velunara");
+    expect(new Set(MERGE_NAMES).size).toBe(MERGE_NAMES.length);
+    for (const name of ["Rattana", "Kasama", "Huyopa", "Dabu", "Galang", "Aitutonga", "Te Tuna"]) {
+      expect(MERGE_NAMES).not.toContain(name);
+    }
+  });
+
+  it("generates fresh cast names and nicknames without iconic contestant names", () => {
+    // A maximum random roll leaves the complete name pool in its original order.
+    vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    const names = makeRoster(64, 2).map((c) => c.name);
+    expect(names.every((name) => typeof name === "string" && name.length > 0)).toBe(true);
+    expect(new Set(names).size).toBe(names.length);
+    for (const name of ["Cirie", "Parvati", "Ozzy", "Yul", "Vecepia", "Gervase", "Boston", "Frosti", "Coach"]) {
+      expect(names).not.toContain(name);
+    }
+    for (const name of ["Tony", "Stephanie", "Rob", "Spark", "Patch", "Skipper"]) expect(names).toContain(name);
+    const custom = makeRoster(20, 2)[0];
+    if (!custom) throw new Error("Missing castaway");
+    expect(makeRoster(20, 2, [{ ...custom, name: "My nickname" }])[0]?.name).toBe("My nickname");
+  });
+
   it.each([[0.1, "Idol Found!", 1, 0], [0.5, "Advantage Found!", 0, 1], [0.99, "Nothing", 0, 0]])("handles search outcome for roll %s", (roll, title, idols, advantages) => {
     const g = season();
     const me = g.castaways[0];
