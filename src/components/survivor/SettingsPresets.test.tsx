@@ -26,7 +26,9 @@ describe("Season settings presets", () => {
     expect(screen.getByLabelText("Starting tribes")).toHaveValue("4");
     expect(screen.getByLabelText("Exile Island")).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: /Start the Season/ }));
-    const game: GameState = onStart.mock.calls[0][0];
+    const call = onStart.mock.calls[0];
+    if (!call) throw new Error("Season did not start");
+    const game: GameState = call[0];
     expect(game.tribes).toHaveLength(4);
     expect(game.castaways).toHaveLength(16);
     for (const t of game.tribes) expect(game.castaways.filter((c) => c.tribeId === t.id)).toHaveLength(4);
