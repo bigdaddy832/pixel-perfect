@@ -128,7 +128,37 @@ const NAMES = [
   "Mason", "Maya", "Owen", "Sophie", "Spark", "Patch", "Scooter", "Doc", "Rook", "Sprocket",
   "Radar", "Skipper", "Sparks", "Pebbles",
 ];
-const ALLIANCE_NAMES = ["The Core", "Four Horsemen", "Rogue Squad", "Black Widow Brigade", "Stealth R Us", "The Rat Pack", "Sanctuary", "Night Owls", "The Underdogs", "Tidal Wave", "The Coconut Crew", "Shadow Council"];
+const ALLIANCE_NAMES = ["The Core", "Rogue Squad", "Stealth Mode", "The Rat Pack", "Sanctuary", "Night Owls", "The Underdogs", "Tidal Wave", "The Coconut Crew", "Shadow Council", "Low Tide", "The Hammocks", "Driftwood", "Bonfire Club", "The Outliers", "Moonlight Pact", "Salt & Pepper Shakers", "The Lagoon", "Kingpins", "The Misfits", "Sharks in Suits", "Banana Republic", "The Nest", "Coral Cartel", "Sunset Society", "The Firekeepers", "Machete Gang", "Reef Raiders", "The Swamp", "Palm Readers", "Wolf Pack", "Midnight Snacks", "The Lifeboat", "Monsoon", "The Shell Game", "Quiet Storm", "Treehouse Club", "The Cartographers", "Rip Current", "Bamboo Brigade"];
+// Numbered names only ever go to alliances with exactly that many members.
+const SIZED_ALLIANCE_NAMES: Record<number, string[]> = {
+  2: ["Dynamic Duo", "Double Trouble", "The Pair", "Two Peas", "Final Two Pact", "Twin Flames", "Tag Team", "Bonnie & Clyde"],
+  3: ["Three Amigos", "Triple Threat", "The Trio", "Triangle", "Three Musketeers", "Trident", "Third Wheel Club", "Tripod"],
+  4: ["Four Horsemen", "Fab Four", "Fantastic Four", "Four Corners", "Four Leaf Clover", "The Quad Squad", "Square Deal"],
+  5: ["Starting Five", "Five Guys", "High Five", "The Pentagon", "Fist of Five", "Fifth Element Crew"],
+  6: ["Six Pack", "Six Shooters", "The Hex", "Sixth Sense"],
+  7: ["Seven Seas", "Lucky Sevens", "Magnificent Seven"],
+};
+const ALL_SIZED = Object.values(SIZED_ALLIANCE_NAMES).flat();
+const sizedFor = (name: string) => Number(Object.entries(SIZED_ALLIANCE_NAMES).find(([, v]) => v.includes(name))?.[0] ?? 0);
+export function allianceName(size: number, taken: string[]): string {
+  const sized = (SIZED_ALLIANCE_NAMES[size] ?? []).filter((n) => !taken.includes(n));
+  const plain = ALLIANCE_NAMES.filter((n) => !taken.includes(n));
+  if (sized.length && (Math.random() < 0.35 || !plain.length)) return pick(sized);
+  if (plain.length) return pick(plain);
+  let k = 2; while (taken.includes(`The Alliance ${"I".repeat(k)}`)) k++; return `The Alliance ${"I".repeat(k)}`;
+}
+// Renames any numbered alliance whose member count no longer matches its number.
+export function fixAllianceNames(s: GameState) {
+  for (const a of s.alliances) {
+    const n = sizedFor(a.name);
+    if (n && n !== a.members.length) {
+      const old = a.name;
+      a.name = allianceName(a.members.length, s.alliances.map((x) => x.name));
+      if (s.episodes.length) log(s, { kind: "alliance", title: "Alliance Renamed", text: `With ${a.members.length} members now, "${old}" regroups as "${a.name}".` });
+    }
+  }
+}
+export { ALL_SIZED };
 const EP_TITLES = ["The Island Has Spoken", "Sand in My Teeth", "Torches at Dusk", "Coconut Diplomacy", "Hold Your Fire", "Buffs and Bruises", "The Snake Pit", "Sunburned Strategies", "Rock Bottom", "Whispers by the Well", "A Storm Is Coming", "Paper Thin Promises", "Double Trouble", "Every Rock Has Two Sides", "Fire in the Belly", "Smoke Signals", "The Jungle Remembers", "Keep Your Enemies Closer", "Tree Mail Tremors", "Hunger Games at Camp", "Cracks in the Shelter", "No Safe Seats", "Chasing Shadows", "Last Light", "The Purple Rock", "Spilled Rice", "Low Tide, High Stakes", "Riding the Wave", "A Vote Is a Vote", "Ticking Time Bomb", "Dead Weight", "Born to Scheme", "The Merge Feast", "Cutthroat Paradise", "Lightning Strikes Twice", "I'm Not Here to Make Friends", "Blindside City", "The Tide Turns", "Snakes in the Grass", "Who Can You Trust?", "Playing With Fire", "Calm Before the Storm", "A Bridge Too Far", "Don't Get Comfortable", "Idol Chatter", "Trust Nobody", "Rice and Paranoia", "Numbers Game", "Out of the Frying Pan", "The Long Con", "Torch Snuffer"];
 
 const r = () => Math.random();
@@ -223,6 +253,7 @@ export function step(prev: GameState, d: Decision = {}): GameState {
     case "final_choice": doFinalChoice(s, d); s.phase = "ftc"; break;
     case "ftc": doFTC(s); s.phase = "done"; break;
   }
+  fixAllianceNames(s);
   return s;
 }
 
@@ -268,7 +299,7 @@ function doCamp(s: GameState, d: Decision) {
         const partners = members.filter((x) => x.id !== a.id && x.id !== s.config.controlledId)
           .sort((x, y) => getRel(s, a.id, y.id) - getRel(s, a.id, x.id)).slice(0, size);
         if (!partners.length || getRel(s, a.id, partners[0].id) < 0) continue;
-        const al: Alliance = { id: `a${s.alliances.length}${Date.now() % 1000}`, name: pick(ALLIANCE_NAMES.filter((n) => !s.alliances.some((x) => x.name === n))) ?? "The Alliance", members: [a.id, ...partners.map((p) => p.id)] };
+        const al: Alliance = { id: `a${s.alliances.length}${Date.now() % 1000}`, name: allianceName(partners.length + 1, s.alliances.map((x) => x.name)), members: [a.id, ...partners.map((p) => p.id)] };
         s.alliances.push(al);
         for (const x of al.members) for (const y of al.members) if (x < y) addRel(s, x, y, 6);
         log(s, { kind: "alliance", title: `${t.name}: Alliance Formed`, text: `${a.name} pulled ${partners.map((p) => p.name).join(", ")} aside to form "${al.name}".` });
@@ -366,7 +397,7 @@ function doCamp(s: GameState, d: Decision) {
       let al = s.alliances.find((a) => a.members.includes(me) && !a.members.includes(them));
       if (al && al.members.length < 5) al.members.push(them);
       else if (!s.alliances.some((a) => a.members.includes(me) && a.members.includes(them))) {
-        al = { id: `a${s.alliances.length}p`, name: pick(ALLIANCE_NAMES), members: [me, them] }; s.alliances.push(al);
+        al = { id: `a${s.alliances.length}p`, name: allianceName(2, s.alliances.map((x) => x.name)), members: [me, them] }; s.alliances.push(al);
       }
       log(s, { kind: "alliance", title: "Your Move", text: `You approached ${target.name} — they're in. You've agreed to work together.` });
     } else {
@@ -398,10 +429,10 @@ const CAMP_EVENTS: CampEvent[] = [
 
 // ---------- challenges ----------
 const CH_TYPES: { type: StatKey; names: string[] }[] = [
-  { type: "physical", names: ["Sea Crates", "Battering Ram", "Shipwrecked", "Tug of War Brawl", "Crate Smash", "Log Roll Rumble", "Sumo at Sea", "Barrel Haul", "Cargo Net Climb", "Sled Drag", "Wrecking Crew", "Ball Brawl"] },
-  { type: "endurance", names: ["Hang Time", "Last Gasp", "Balance Beam Hold", "Water Bucket Stand", "Pole Hang", "Statue Still", "Tidal Hold", "Weight of the Tribe", "Foothold", "Sunset Perch"] },
-  { type: "mental", names: ["Slide Puzzle", "Memory Mayhem", "Combination Lock", "Word Scramble", "Tile Twister", "Totem Riddle", "Mirror Maze", "Number Cipher", "Knot Unravel", "Map Fragments", "Tangram Tower", "Symbol Sequence"] },
-  { type: "general", names: ["Obstacle Gauntlet", "Swim & Dive", "Ring Toss Relay", "Sandbag Throw", "Coconut Bowling", "Spear Throw", "Slingshot Targets", "Paddle Relay", "Key Hunt", "Bridge Builder", "Sand Dig Relay", "Torch Run"] },
+  { type: "physical", names: ["Sea Crates", "Battering Ram", "Shipwrecked", "Tug of War Brawl", "Crate Smash", "Log Roll Rumble", "Sumo at Sea", "Barrel Haul", "Cargo Net Climb", "Sled Drag", "Wrecking Crew", "Ball Brawl", "Anchor Drag", "Raft Wrangle", "Tire Flip Frenzy", "Boulder Push", "Chain Gang", "Plank Carry", "Mud Pit Melee", "Totem Topple", "Ramming Speed", "Hammer Down", "Rope Burn", "Dragging Anchor"] },
+  { type: "endurance", names: ["Hang Time", "Last Gasp", "Balance Beam Hold", "Water Bucket Stand", "Pole Hang", "Statue Still", "Tidal Hold", "Weight of the Tribe", "Foothold", "Sunset Perch", "Pole Position", "Stand Your Ground", "Arm Lock", "Drip Drop", "Crate Squat", "Tiki Lean", "Hold the Line", "Rising Tide", "Ledge Hang", "Basket Hold", "Long Night", "Stillwater"] },
+  { type: "mental", names: ["Slide Puzzle", "Memory Mayhem", "Combination Lock", "Word Scramble", "Tile Twister", "Totem Riddle", "Mirror Maze", "Number Cipher", "Knot Unravel", "Map Fragments", "Tangram Tower", "Symbol Sequence", "Lantern Logic", "Stacking Stones", "Rune Reader", "Glyph Grid", "Shell Sorter", "Ladder Logic", "Tide Chart", "Puzzle Pyramid", "Clock Cracker", "Compass Code", "Mask Match", "Star Chart"] },
+  { type: "general", names: ["Obstacle Gauntlet", "Swim & Dive", "Ring Toss Relay", "Sandbag Throw", "Coconut Bowling", "Spear Throw", "Slingshot Targets", "Paddle Relay", "Key Hunt", "Bridge Builder", "Sand Dig Relay", "Torch Run", "Blowgun Bullseye", "Grappling Hook", "Wheel of Fortune", "Barrel Roll", "Lagoon Lunge", "Bamboo Maze", "Sand Castle Sprint", "Bucket Brigade", "Net Diver", "Chop Chop", "Fish Basket Relay", "Canoe Scramble"] },
 ];
 const indScore = (c: Castaway, t: StatKey) => c.stats.general * 0.5 + c.stats[t] * 1.2 + r() * 3.5;
 
@@ -517,6 +548,39 @@ function aiVote(s: GameState, voter: Castaway, cands: Castaway[], attendees: Cas
     }
   }
   return cands.map((c) => ({ c, sc: scoreFor(voter, c) })).sort((a, b) => b.sc - a.sc)[0].c.id;
+}
+
+export interface TargetPlan { voter: string; target: string; reason: string; alliance?: string }
+export interface GroupPlan { alliance: string; members: string[]; target: string; reason: string }
+// Deterministic preview of who each attendee plans to vote for and why.
+export function tribalTargets(s: GameState): { individual: TargetPlan[]; groups: GroupPlan[] } {
+  const att = attendees(s);
+  const cands = (v: Castaway) => att.filter((c) => c.id !== v.id && !s.immune.includes(c.id));
+  const parts = (v: Castaway, c: Castaway) => ({ rel: -getRel(s, v.id, c.id) * 0.08, game: s.merged ? threat(c) * v.stats.strategy * 0.06 : weakness(c) * 0.6, ally: sharedAlliance(s, v.id, c.id) ? -2.5 : 0 });
+  const sc = (v: Castaway, c: Castaway) => { const p = parts(v, c); return p.rel + p.game + p.ally; };
+  const why = (v: Castaway, c: Castaway) => {
+    const p = parts(v, c);
+    if (p.rel > p.game && getRel(s, v.id, c.id) < 0) return `bad blood with ${c.name} at camp`;
+    if (s.merged) return c.immunityWins > 1 ? `${c.name} has won ${c.immunityWins} immunities` : c.stats.social + c.stats.strategy >= 8 ? `${c.name} is a social and strategic threat` : `${c.name} is a jury threat`;
+    return `${c.name} is the weakest link in challenges`;
+  };
+  const groups: GroupPlan[] = [];
+  for (const a of s.alliances) {
+    const present = a.members.filter((m) => att.some((x) => x.id === m));
+    if (present.length < 2) continue;
+    const tc = att.filter((c) => !a.members.includes(c.id) && !s.immune.includes(c.id));
+    if (!tc.length) continue;
+    const best = tc.map((c) => ({ c, v: present.reduce((acc, m) => acc + sc(byId(s, m), c), 0) })).sort((x, y) => y.v - x.v)[0].c;
+    groups.push({ alliance: a.name, members: present, target: best.id, reason: why(byId(s, present[0]), best) });
+  }
+  const individual = att.map((v) => {
+    const g = groups.filter((x) => x.members.includes(v.id)).sort((a, b) => b.members.length - a.members.length)[0];
+    if (g && v.stats.loyalty >= 3 && g.target !== v.id) return { voter: v.id, target: g.target, alliance: g.alliance, reason: `sticking with ${g.alliance}: ${g.reason}` };
+    const cs = cands(v); if (!cs.length) return null;
+    const best = cs.sort((a, b) => sc(v, b) - sc(v, a))[0];
+    return { voter: v.id, target: best.id, reason: g ? `going rogue from ${g.alliance}: ${why(v, best)}` : why(v, best) };
+  }).filter(Boolean) as TargetPlan[];
+  return { individual, groups };
 }
 
 function tally(votes: Vote[]) { const m: Record<string, number> = {}; votes.forEach((v) => !v.nullified && (m[v.target] = (m[v.target] ?? 0) + 1)); return m; }

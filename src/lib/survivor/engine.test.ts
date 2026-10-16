@@ -138,3 +138,13 @@ describe("Survivor decisions and tribes", () => {
     expect(randomTribeColor(["not-a-color", "#12g456"])).toMatch(/^#[0-9a-f]{6}$/);
   });
 });
+import { allianceName as _an, fixAllianceNames as _fix } from "./engine";
+describe("numbered alliance names", () => {
+  it("never mismatches size", () => {
+    const words: Record<string, number> = { Duo: 2, Two: 2, Pair: 2, Double: 2, Three: 3, Triple: 3, Trio: 3, Four: 4, Fab: 4, Five: 5, Six: 6, Seven: 7 };
+    for (let n = 2; n <= 5; n++) for (let i = 0; i < 200; i++) {
+      const name = _an(n, []);
+      for (const [w, k] of Object.entries(words)) if (name.includes(w) && !name.includes("Trouble")) expect(k).toBe(n);
+    }
+  });
+});
