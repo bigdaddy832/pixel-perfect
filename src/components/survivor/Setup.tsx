@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, TRIBE_COLORS, TRIBE_NAMES, MERGE_NAMES,
+  CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, TRIBE_COLORS, MERGE_NAMES,
   defaultJury, defaultMergeAt, makeRoster, newGame, randomStats, randomTribeColor, randomTribeName, randStat,
   type Config, type GameState, type StatKey, type Tribe,
 } from "@/lib/survivor/engine";
