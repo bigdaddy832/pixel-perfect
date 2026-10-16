@@ -499,6 +499,20 @@ function doCamp(s: GameState, d: Decision) {
       log(s, { kind: "alliance", title: "Your Move", text: `You approached ${target.name}, but they seemed hesitant and noncommittal.` });
     }
   }
+  // Conversations with tribemates: each can work and build the bond, or backfire.
+  if (s.config.controlledId && d.talks?.length) {
+    const meC = byId(s, s.config.controlledId);
+    for (const talk of d.talks.slice(0, 2)) {
+      const them = alive(s).find((c) => c.id === talk.with && c.tribeId === meC.tribeId && c.id !== meC.id);
+      const t = TALK_TOPICS[talk.topic];
+      if (!them || !t || meC.out) continue;
+      const chance = clamp(t.base + getRel(s, meC.id, them.id) * 0.004 + meC.stats.social * 0.04 + them.stats.temperament * 0.02 - 0.15, 0.1, 0.95);
+      const ok = r() < chance;
+      addRel(s, meC.id, them.id, ok ? t.win : t.lose);
+      mood(them, ok ? 3 : -2);
+      log(s, { kind: "camp", title: `Conversation with ${them.name}: ${ok ? "It Worked" : "It Backfired"}`, text: `You tried to ${t.label.toLowerCase()} with ${them.name}. ${them.name} ${ok ? t.ok : t.bad}.`, details: [`Relationship ${ok ? "+" : ""}${ok ? t.win : t.lose}`] });
+    }
+  }
   s.day += 1;
 }
 
@@ -1294,7 +1308,56 @@ function doFTC(s: GameState, d: Decision) {
     ...(fireWinners ? [`The final four was decided by fire-making.`] : []),
     `${winnerC.name} walked away as Sole Survivor${favorite ? `, and ${favorite.name} took home the Fan Favorite award` : ""}.`,
   ];
+  const sups = superlatives(s);
+  if (sups.length) log(s, { kind: "finale", title: "Season Superlatives", text: "The season's standout performances, by the numbers.", details: sups.map((x) => `${x.award}: ${nm(s, x.id)} — ${x.why}`) });
   log(s, { kind: "finale", title: "Season Recap", text: `That's a wrap on the season! ${winnerC.name} outwit, outplayed and outlasted ${s.castaways.length - 1} others over ${s.day} days.`, details });
+}
+
+export function superlatives(s: GameState): { award: string; id: string; why: string }[] {
+  const cs = s.castaways;
+  const betrayals = (c: Castaway) => cs.reduce((n, o) => n + (new Set(o.betrayedBy).has(c.id) ? 1 : 0), 0);
+  const warmth = (c: Castaway) => cs.reduce((n, o) => n + (o.id === c.id ? 0 : Math.max(0, getRel(s, c.id, o.id))), 0);
+  const blindsided = new Set(s.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal" && e.text.includes("massive blindside") && e.out).map((e) => e.out!));
+  const defs: [string, (c: Castaway) => number, (n: number) => string][] = [
+    ["Challenge Beast", (c) => c.immunityWins + (c.rewardWins ?? 0), (n) => `${n} individual challenge win${n === 1 ? "" : "s"}`],
+    ["Strategic Mastermind", (c) => c.correctVotes ?? 0, (n) => `voted with the majority ${n} time${n === 1 ? "" : "s"}`],
+    ["Idol Magnet", (c) => (c.idolsPlayed ?? 0) * 2 + (c.advPlayed ?? 0), () => "played the most idols and advantages"],
+    ["Chaos Agent", betrayals, (n) => `betrayed ${n} former ally${n === 1 ? "" : "s"}`],
+    ["Biggest Target", (c) => c.votesAgainst ?? 0, (n) => `received ${n} vote${n === 1 ? "" : "s"}`],
+    ["Social Butterfly", (c) => Math.round(warmth(c)), () => "built the warmest bonds across the cast"],
+    ["Blindside Victim of the Season", (c) => (blindsided.has(c.id) ? 100 - (c.placement ?? 0) : 0), () => "went home with an idol in their pocket"],
+  ];
+  return defs.flatMap(([award, f, why]) => {
+    const best = [...cs].sort((a, b) => f(b) - f(a) || a.name.localeCompare(b.name))[0];
+    const n = best ? f(best) : 0;
+    return best && n > 0 ? [{ award, id: best.id, why: why(n) }] : [];
+  });
+}
+
+function ponderosa(s: GameState, c: Castaway) {
+  const jurors = s.castaways.filter((j) => j.juror && j.out && j.id !== c.id && !j.edge);
+  const remaining = alive(s);
+  const bitter = [...new Set(c.betrayedBy)].filter((id) => remaining.some((x) => x.id === id));
+  const details: string[] = [];
+  const text = bitter.length
+    ? `${c.name} arrives at Ponderosa fuming about ${bitter.map((id) => nm(s, id)).join(" and ")}.`
+    : pick([`${c.name} arrives at Ponderosa and heads straight for a hot shower and a real meal.`, `${c.name} walks into Ponderosa with their head held high.`, `${c.name} arrives at Ponderosa still in shock from the vote.`]);
+  if (jurors.length) {
+    const o = pick(jurors);
+    if (getRel(s, c.id, o.id) < -5 && r() < 0.5) { addRel(s, c.id, o.id, 8); details.push(`${c.name} and ${o.name} finally clear the air over breakfast.`); }
+    else { addRel(s, c.id, o.id, 3); details.push(`${o.name} fills ${c.name} in on what the jury has been saying.`); }
+  }
+  for (const j of [c, ...jurors]) for (const id of new Set(j.betrayedBy)) if (remaining.some((x) => x.id === id) && r() < 0.15) {
+    addRel(s, j.id, id, 4); details.push(`${j.name} is starting to respect how ${nm(s, id)} played them.`);
+  }
+  const lean: Record<string, number> = {};
+  for (const j of [c, ...jurors]) {
+    const fav = [...remaining].sort((a, b) => (getRel(s, j.id, b.id) - (j.betrayedBy.includes(b.id) ? 15 : 0) + threat(b) * 0.5) - (getRel(s, j.id, a.id) - (j.betrayedBy.includes(a.id) ? 15 : 0) + threat(a) * 0.5))[0];
+    if (fav) lean[fav.id] = (lean[fav.id] ?? 0) + 1;
+  }
+  const e = Object.entries(lean).sort((a, b) => b[1] - a[1]);
+  if (e.length) details.push(`Jury lean (${jurors.length + 1} juror${jurors.length ? "s" : ""}): ${e.map(([id, n]) => `${nm(s, id)} ${n}`).join(", ")}.`);
+  log(s, { kind: "jury", title: `Ponderosa — ${c.name} Arrives`, text, details });
 }
 
 function doJourney(s: GameState) {
