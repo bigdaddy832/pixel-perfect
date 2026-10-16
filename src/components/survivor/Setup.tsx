@@ -159,7 +159,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           <h2 className="text-3xl">The Cast</h2>
           <div className="flex gap-2">
             <Button variant="secondary" className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => setRoster((r) => makeRoster(count, tribeCount).map((p, i) => ({ ...p, name: r[i].name })))}>Randomize all stats</Button>
-            <Button variant="secondary" className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => recount(count)}>New random cast</Button>
+            <Button variant="secondary" className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => { setRoster((r) => makeRoster(count, tribeCount, undefined, r.map((x) => x.name))); setControlled(null); }}>New random cast</Button>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
