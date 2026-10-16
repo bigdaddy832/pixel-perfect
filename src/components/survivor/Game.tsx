@@ -237,6 +237,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
               </select></label>
           )}
           {dec.advantage && <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>}
+          {pending.canShoot && <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={dec.shotInDark ?? false} onChange={(e) => setDec({ ...dec, shotInDark: e.target.checked })} />Play Shot in the Dark (1 in 6 chance of safety; you lose your vote either way, one use per season)</label>}
           {pending.canPlayAmulet && <>
             <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={dec.playAmulet ?? false} onChange={(e) => setDec({ ...dec, playAmulet: e.target.checked, amuletTarget: undefined })} />Play Advantage Amulet{amuletHolders(game).length > 1 ? " together" : ""}</label>
             {dec.playAmulet && amuletHolders(game).length < 3 && <label className="flex items-center gap-2">Amulet target:
