@@ -47,7 +47,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     setTribes((all) => all.map((t, i) => (i < tribeCount ? { ...t, color: colors[i] } : t)));
     const mc = pick();
     setMergeTribe((t) => ({ ...t, color: mc }));
-    if (swap && tribeCount === 2 && addSwapTribe) {
+    if (tribeCount === 3 || (swap && addSwapTribe)) {
       const sc = pick();
       setSwapTribe((t) => ({ ...t, color: sc }));
     }
