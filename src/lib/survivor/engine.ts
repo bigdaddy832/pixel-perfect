@@ -247,7 +247,7 @@ const giveAdvantage = (c: Castaway, s?: GameState): AdvantageKey | null => { if 
 export const amuletHolders = (s: GameState) => alive(s).filter((c) => c.amulet);
 export function amuletDescription(s: GameState): string {
   const n = amuletHolders(s).length;
-  const power = n === 3 ? "one shared extra vote" : n === 2 ? "one shared steal-a-vote" : "a hidden immunity idol";
+  const power = n >= 3 ? "one shared extra vote" : n === 2 ? "one shared steal-a-vote" : "a hidden immunity idol";
   return `${n} holder${n === 1 ? "" : "s"} remain: ${power}. All remaining amulets must be played together at the same Tribal Council. Valid through the final six.`;
 }
 function noteAmuletStage(s: GameState) {
@@ -259,11 +259,9 @@ function noteAmuletStage(s: GameState) {
 function awardAmulets(s: GameState) {
   if (s.amuletsGiven || s.episodes.some((e) => e.entries.some((en) => en.title.startsWith("Reward Challenge:")))) return;
   const pools = shuffle([...groups(s).values()]).map((ms) => shuffle(ms));
-  const volunteers: Castaway[] = [];
-  while (volunteers.length < 3 && pools.some((ms) => ms.length)) {
-    for (const pool of pools) { const c = pool.shift(); if (c && volunteers.length < 3) volunteers.push(c); }
-  }
-  if (volunteers.length !== 3) return;
+  // Exactly one volunteer from every tribe, so each tribe is represented equally.
+  const volunteers = pools.map((ms) => ms[0]).filter((c): c is Castaway => !!c);
+  if (volunteers.length < 2 || volunteers.length !== pools.length) return;
   s.amuletsGiven = true;
   volunteers.forEach((c) => { c.amulet = true; });
   log(s, { kind: "twist", title: "First Reward: Amulet Volunteers", text: `${volunteers.map((c) => c.name).join(", ")} volunteer during the first reward challenge and each receive an Advantage Amulet.` });

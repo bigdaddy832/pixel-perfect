@@ -19,7 +19,7 @@ describe("social features", () => {
     expect(pond).toBeGreaterThan(0); expect(sups).toBe(40); expect(live).toBeGreaterThan(0); expect(split).toBeGreaterThan(0);
   });
   it("never repeats season titles", () => {
-    const used: string[] = []; for (let i = 0; i < 700; i++) { const t = randomSeasonTitle(used); expect(used).not.toContain(t); used.push(t); }
+    const used: string[] = []; for (let i = 0; i < 700; i++) { const t = randomSeasonTitle(used); expect(t).not.toContain("—"); expect(used).not.toContain(t); used.push(t); }
   });
   it("uses real locations and original themes, never a real Survivor season name", () => {
     const real = new Set(REAL_SEASON_NAMES.map((n) => n.toLowerCase()));
