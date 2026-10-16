@@ -326,6 +326,18 @@ function doCamp(s: GameState, d: Decision) {
         }
       }
     }
+    // idols & advantages are transferable — holders sometimes pass them to their closest ally
+    for (const holder of shuffle(members.filter((c) => c.id !== s.config.controlledId && (c.idols > 0 || c.advantages.length)))) {
+      const best = members.filter((c) => c.id !== holder.id).sort((a, b) => getRel(s, holder.id, b.id) - getRel(s, holder.id, a.id))[0];
+      if (!best || getRel(s, holder.id, best.id) < 8 || r() >= 0.08) continue;
+      if (holder.idols > 0 && best.idols === 0 && !holder.bewareTribals) {
+        holder.idols--; best.idols++;
+        log(s, { kind: "idol", title: `${t.name}: Idol Handed Over`, text: `${holder.name} secretly slipped their Hidden Immunity Idol to ${best.name} for safekeeping.` });
+      } else if (holder.advantages.length && missingAdv(best).length) {
+        const adv = holder.advantages.shift()!; best.advantages.push(adv);
+        log(s, { kind: "idol", title: `${t.name}: Advantage Handed Over`, text: `${holder.name} quietly passed their ${ADVANTAGE_LABEL[adv]} advantage to ${best.name}.` });
+      }
+    }
     for (const m of members) {
       const avg = members.reduce((acc, o) => (o.id === m.id ? acc : acc + getRel(s, m.id, o.id)), 0) / Math.max(1, members.length - 1);
       m.mood = clamp(Math.round(m.mood * 0.7 + (60 + avg * 1.5) * 0.3), 5, 100);
