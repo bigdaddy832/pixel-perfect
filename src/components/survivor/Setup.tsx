@@ -6,6 +6,7 @@ import {
   type Config, type GameState, type StatKey, type Tribe,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
+import { Button } from "@/components/ui/button";
 
 type Row = { name: string; stats: Record<StatKey, number>; tribeIndex: number };
 
@@ -18,7 +19,9 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [swap, setSwap] = useState(true);
   const [swapAt, setSwapAt] = useState(15);
   const [mergeAt, setMergeAt] = useState(defaultMergeAt(18, 8, 3));
-  const [mergedName, setMergedName] = useState(MERGE_NAMES[0]);
+  const [mergeTribe, setMergeTribe] = useState<Tribe>({ id: "merged", name: MERGE_NAMES[0], color: TRIBE_COLORS[2] });
+  const [swapTribe, setSwapTribe] = useState<Tribe>({ id: "swap-third", name: TRIBE_NAMES[2], color: TRIBE_COLORS[2] });
+  const [addSwapTribe, setAddSwapTribe] = useState(true);
   const [tribes, setTribes] = useState<Tribe[]>(() => [0, 1, 2].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i], color: TRIBE_COLORS[i] })));
   const [roster, setRoster] = useState<Row[]>(() => makeRoster(18, 2));
   const [controlled, setControlled] = useState<number | null>(null);
@@ -35,7 +38,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     const active = tribes.slice(0, tribeCount);
     const cfg: Config = {
       playerCount: count, tribeCount, jurySize: jury, finalSize, fireAtF4: fire && finalSize === 3,
-      swapEnabled: swap, swapAt, mergeAt: Math.min(mergeAt, count - 2), mergedName, mergedColor: "#d9a441",
+      swapEnabled: swap, swapAt, mergeAt: Math.min(mergeAt, count - 2), mergedName: mergeTribe.name, mergedColor: mergeTribe.color,
+      swapTribe: swap && tribeCount === 2 && addSwapTribe ? { ...swapTribe } : undefined,
       controlledId: controlled === null ? null : `c${controlled}`,
     };
     onStart(newGame(cfg, active, roster.map((r, i) => ({ ...r, tribeIndex: i % tribeCount }))));
@@ -64,16 +68,18 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           <Field label="Tribe swap"><input type="checkbox" checked={swap} onChange={(e) => setSwap(e.target.checked)} className="accent-primary size-4" /></Field>
           {swap && <Field label="Swap at (remaining)"><input type="number" className={`${sel} w-20`} value={swapAt} onChange={(e) => setSwapAt(+e.target.value)} /></Field>}
           <Field label="Merge at (remaining)"><input type="number" className={`${sel} w-20`} value={mergeAt} onChange={(e) => setMergeAt(+e.target.value)} /></Field>
-          <Field label="Merged tribe">
-            <div className="flex gap-1">
-              <input className={`${sel} w-28`} value={mergedName} onChange={(e) => setMergedName(e.target.value)} />
-              <button className="rounded-md bg-secondary px-2 text-xs hover:bg-muted" onClick={() => setMergedName(MERGE_NAMES[Math.floor(Math.random() * MERGE_NAMES.length)])}>Suggest</button>
-            </div>
-          </Field>
         </div>
         <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-2xl text-accent">Tribes & Mode</h2>
-          <TribeEditor tribes={tribes.slice(0, tribeCount)} onChange={(t) => setTribes((all) => all.map((x) => t.find((y) => y.id === x.id) ?? x))} />
+          <h3 className="text-lg">Starting tribes</h3>
+          <TribeEditor label="Starting tribe" tribes={tribes.slice(0, tribeCount)} onChange={(t) => setTribes((all) => all.map((x) => t.find((y) => y.id === x.id) ?? x))} />
+          <h3 className="border-t pt-3 text-lg">Merge tribe</h3>
+          <TribeEditor label="Merge tribe" tribes={[mergeTribe]} onChange={(t) => setMergeTribe(t[0])} />
+          <Button variant="secondary" size="sm" onClick={() => setMergeTribe((t) => ({ ...t, name: MERGE_NAMES[Math.floor(Math.random() * MERGE_NAMES.length)] }))}>Suggest name</Button>
+          {swap && tribeCount === 2 && <div className="space-y-2 border-t pt-3">
+            <Field label="Add a third tribe at swap"><input type="checkbox" checked={addSwapTribe} onChange={(e) => setAddSwapTribe(e.target.checked)} className="accent-primary size-4" /></Field>
+            {addSwapTribe && <TribeEditor label="Swap tribe" tribes={[swapTribe]} onChange={(t) => setSwapTribe(t[0])} />}
+          </div>}
           <Field label="Play as">
             <select className={sel} value={controlled ?? ""} onChange={(e) => setControlled(e.target.value === "" ? null : +e.target.value)}>
               <option value="">Spectator (auto)</option>
@@ -87,8 +93,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-3xl">The Cast</h2>
           <div className="flex gap-2">
-            <button className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => setRoster((r) => makeRoster(count, tribeCount).map((p, i) => ({ ...p, name: r[i].name })))}>Randomize all stats</button>
-            <button className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => recount(count)}>New random cast</button>
+            <Button variant="secondary" className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => setRoster((r) => makeRoster(count, tribeCount).map((p, i) => ({ ...p, name: r[i].name })))}>Randomize all stats</Button>
+            <Button variant="secondary" className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => recount(count)}>New random cast</Button>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -99,7 +105,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
                 <div key={i} className={`rounded-lg border bg-card p-3 ${controlled === i ? "border-primary torch-glow" : ""}`}>
                   <div className="mb-2 flex items-center gap-2">
                     <input className="flex-1 rounded bg-transparent text-lg font-semibold outline-none focus:bg-secondary px-1" value={p.name} onChange={(e) => upd(i, (r) => ({ ...r, name: e.target.value }))} />
-                    <button title="Randomize" className="rounded bg-secondary px-2 py-1 text-xs hover:bg-muted" onClick={() => upd(i, (r) => ({ ...r, stats: randomStats() }))}>🎲</button>
+                    <Button variant="secondary" title="Randomize" className="rounded bg-secondary px-2 py-1 text-xs hover:bg-muted" onClick={() => upd(i, (r) => ({ ...r, stats: randomStats() }))}>🎲</Button>
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     {[...SOCIAL_STATS, ...CHALLENGE_STATS].map((k) => (
@@ -114,7 +120,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       </section>
 
       <div className="sticky bottom-4 mt-8 flex justify-center">
-        <button onClick={start} className="rounded-full bg-primary px-10 py-4 font-display text-3xl tracking-widest text-primary-foreground torch-glow hover:scale-105 transition">Start the Season 🔥</button>
+        <Button variant="secondary" onClick={start} className="rounded-full bg-primary px-10 py-4 font-display text-3xl tracking-widest text-primary-foreground torch-glow hover:scale-105 transition">Start the Season 🔥</Button>
       </div>
       
     </div>
