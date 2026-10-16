@@ -641,23 +641,24 @@ function doChallenge(s: GameState) {
     const loser = is[is.length - 1];
     s.tribalTribe = loser.tid; s.tribalTribes = [loser.tid]; s.tribalQueue = [];
     s.twistsUsed ??= [];
-    log(s, { kind: "challenge", title: `Immunity Challenge: ${ch.name} (${STAT_LABEL[ch.type]})`, text: `${is.slice(0, -1).map((x) => tribeOf(s, x.tid)!.name).join(" & ")} win immunity! ${tribeOf(s, loser.tid)!.name} will face Tribal Council.`, details: [...is.map((x, i) => `${i + 1}. ${tribeOf(s, x.tid)!.name} — ${x.sc.toFixed(2)} (MVP: ${x.mvp.name})`), `${loser.mvp.name} tried to carry, but it wasn't enough.`] });
     const big = (tid: string) => (groups(s).get(tid)?.length ?? 0) >= 3;
+    const immLog = (text: string) => log(s, { kind: "challenge", title: `Immunity Challenge: ${ch.name} (${STAT_LABEL[ch.type]})`, text, details: [...is.map((x, i) => `${i + 1}. ${tribeOf(s, x.tid)!.name} — ${x.sc.toFixed(2)} (MVP: ${x.mvp.name})`), `${loser.mvp.name} tried to carry, but it wasn't enough.`] });
+    const lastTwo = is.length === 2 ? is : is.slice(-2);
     if (is.length >= 2 && s.config.jointTribals !== false && !bigTwistUsed(s) && r() < 0.14) {
-      const losing = is.length === 2 ? is : is.slice(-2);
+      const losing = lastTwo;
       s.twistsUsed.push("joint"); s.tribalTribes = losing.map((x) => x.tid);
       const pool = losing.flatMap((x) => groups(s).get(x.tid)!);
       const champ = pool.map((c) => ({ c, sc: indScore(c, ch.type) })).sort((a, b) => b.sc - a.sc)[0].c;
       s.immune = [champ.id]; champ.immunityWins++;
-      log(s, { kind: "twist", title: "Joint Tribal Council!", text: `Twist! ${losing.map((x) => tribeOf(s, x.tid)!.name).join(" and ")} will attend Tribal Council together and vote out one person. ${champ.name} earned individual immunity for the best performance.` });
-    } else if (is.length >= 2 && s.config.doubleTribals !== false && !bigTwistUsed(s) && r() < 0.12) {
-      const losing = (is.length === 2 ? is : is.slice(-2)).filter((x) => big(x.tid));
-      if (losing.length === 2) {
-        s.twistsUsed.push("double_pre");
-        s.tribalTribes = [losing[1].tid]; s.tribalQueue = [[losing[0].tid]];
-        log(s, { kind: "twist", title: "Double Tribal Council!", text: `Twist! Both ${tribeOf(s, losing[1].tid)!.name} and ${tribeOf(s, losing[0].tid)!.name} will go to Tribal Council tonight — two people are going home.` });
-      }
-    }
+      log(s, { kind: "twist", title: "Joint Tribal Council!", text: `Before the challenge, Jeff reveals a twist: only one tribe wins immunity, and everyone else goes to one Tribal Council together. The best individual performer from the losing tribes wins individual immunity.` });
+      immLog(`${is[0] && tribeOf(s, is[0].tid)!.name} win${is.length > 2 ? "" : "s"} immunity! ${losing.map((x) => tribeOf(s, x.tid)!.name).join(" and ")} will attend Tribal Council together and vote out one person. ${champ.name} earned individual immunity.`);
+    } else if (is.length >= 2 && s.config.doubleTribals !== false && !bigTwistUsed(s) && lastTwo.every((x) => big(x.tid)) && r() < 0.12) {
+      const losing = lastTwo;
+      s.twistsUsed.push("double_pre");
+      s.tribalTribes = [losing[1].tid]; s.tribalQueue = [[losing[0].tid]];
+      log(s, { kind: "twist", title: "Double Tribal Council!", text: `Before the challenge, Jeff reveals a twist: ${is.length > 2 ? "only the winning tribes are safe — the last two tribes" : "only the winning tribe is safe — the losing tribe and the runner-up"} will both go to Tribal Council tonight. Two people are going home.` });
+      immLog(`${is.slice(0, -2).map((x) => tribeOf(s, x.tid)!.name).join(" & ") || tribeOf(s, is[0].tid)!.name} win immunity! ${losing.map((x) => tribeOf(s, x.tid)!.name).join(" and ")} will both face Tribal Council tonight.`);
+    } else immLog(`${is.slice(0, -1).map((x) => tribeOf(s, x.tid)!.name).join(" & ")} win immunity! ${tribeOf(s, loser.tid)!.name} will face Tribal Council.`);
   } else {
     const ms = alive(s);
     const rr = ms.map((c) => ({ c, sc: indScore(c, rew.type) })).sort((a, b) => b.sc - a.sc);
@@ -673,7 +674,7 @@ function doChallenge(s: GameState) {
     s.twistsUsed ??= [];
     if (s.config.doubleTribals !== false && !bigTwistUsed(s) && ms.length >= s.config.finalSize + 4 && r() < 0.15) {
       s.twistsUsed.push("double_post"); s.doubleElim = true;
-      log(s, { kind: "twist", title: "Double Elimination!", text: "Jeff drops a bomb: tonight, two people will be voted out. A second immunity challenge follows the first vote." });
+      log(s, { kind: "twist", title: "Double Elimination!", text: "Before the challenge, Jeff drops a bomb: everyone is fighting for individual immunity, and tonight two people will be voted out. A second immunity challenge follows the first vote." });
     }
     log(s, { kind: "challenge", title: `Individual Immunity: ${ch.name} (${STAT_LABEL[ch.type]})`, text: `${ir[0].c.name} wins individual immunity and is safe tonight!`, details: ir.map((x, i) => `${i + 1}. ${x.c.name} — ${x.sc.toFixed(2)}`) });
   }
@@ -1017,8 +1018,9 @@ function doSwap(s: GameState) {
     tids.push(third.id);
     s.hiddenIdols[third.id] = 1;
   }
-  // Post-swap tribes get "2.0" names.
-  s.tribes = s.tribes.map((t) => tids.includes(t.id) && !t.name.endsWith(" 2.0") ? { ...t, name: `${t.name} 2.0` } : t);
+  // Only tribes that existed before the swap get "2.0" names; a newly introduced tribe keeps its plain name.
+  const before = new Set(alive(s).map((c) => c.tribeId));
+  s.tribes = s.tribes.map((t) => tids.includes(t.id) && before.has(t.id) && !t.name.endsWith(" 2.0") ? { ...t, name: `${t.name} 2.0` } : t);
   const prev: Record<string, string> = {}; alive(s).forEach((c) => (prev[c.id] = c.tribeId));
   shuffle(alive(s)).forEach((c, i) => { c.tribeId = tids[i % tids.length]; c.clue = false; });
   const details = tids.map((tid) => `${tribeOf(s, tid)!.name}: ${alive(s).filter((c) => c.tribeId === tid).map((c) => `${c.name} (formerly ${tribeOf(s, prev[c.id])?.name ?? "?"})`).join(", ")}`);
