@@ -49,13 +49,16 @@ export const TRIBE_NAMES = [
   "Ogakor", "Samburu", "Kota", "Fang", "Kalabaw", "Tandang", "Salani", "Manono", "Nuku",
   "Malolo", "Vakama", "Luvu", "Yase", "Soka", "Ika", "Baka", "Gata", "Lavo", "Moto", "Ravu",
 ];
-export const MERGE_NAMES = ["Solarrion", "Rattana", "Kasama", "Huyopa", "Dabu", "Galang", "Aitutonga", "Te Tuna"];
+export const MERGE_NAMES = ["Velunara", "Solarrion", "Orivessa", "Tazumori", "Kelavora", "Zunaveli", "Lumekari", "Veyranoa"];
 export const TRIBE_COLORS = ["#e8662a", "#2f7fd6", "#e3c13b", "#3fae5a", "#c43d3d", "#8b5ad6", "#e45fa1", "#2bb5b0"];
 const NAMES = [
-  "Ava", "Boston", "Cirie", "Danni", "Ethan", "Fabio", "Gervase", "Hali", "Ian", "Jenna",
-  "Kim", "Lex", "Malcolm", "Natalie", "Ozzy", "Parvati", "Quintavius", "Rob", "Sandra", "Tony",
-  "Ulysses", "Vecepia", "Wendell", "Xander", "Yul", "Zeke", "Aubry", "Brad", "Chelsea", "Denise",
-  "Earl", "Frosti", "Gabby", "Hayden", "Jeremy", "Kelley", "Michele", "Nick", "Rachel", "Spencer",
+  "Adrian", "Amara", "Anika", "Brielle", "Callum", "Celia", "Dorian", "Elise", "Emmett", "Esme",
+  "Felix", "Freya", "Gideon", "Hugo", "Imogen", "Inez", "Jasper", "Jules", "Kieran", "Leona",
+  "Luca", "Maeve", "Maren", "Micah", "Nadia", "Nico", "Noelle", "Otis", "Petra", "Rafael",
+  "Rhea", "Ronan", "Sienna", "Silas", "Tessa", "Theo", "Tobias", "Vera", "Willa", "Zara",
+  "Tony", "Stephanie", "Rob", "Ava", "Ben", "Daniel", "Emma", "Grace", "Jack", "Julia",
+  "Mason", "Maya", "Owen", "Sophie", "Spark", "Patch", "Scooter", "Doc", "Rook", "Sprocket",
+  "Radar", "Skipper", "Sparks", "Pebbles",
 ];
 const ALLIANCE_NAMES = ["The Core", "Four Horsemen", "Rogue Squad", "Black Widow Brigade", "Stealth R Us", "The Rat Pack", "Sanctuary", "Night Owls", "The Underdogs", "Tidal Wave", "The Coconut Crew", "Shadow Council"];
 const EP_TITLES = ["I'm Not Here to Make Friends", "Blindside City", "The Tide Turns", "Snakes in the Grass", "Who Can You Trust?", "Playing With Fire", "Calm Before the Storm", "A Bridge Too Far", "Don't Get Comfortable", "Idol Chatter", "Trust Nobody", "Rice and Paranoia", "Numbers Game", "Out of the Frying Pan", "The Long Con", "Torch Snuffer"];
