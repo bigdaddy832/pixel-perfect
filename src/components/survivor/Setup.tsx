@@ -47,7 +47,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     setTribes((all) => all.map((t, i) => (i < tribeCount ? { ...t, color: colors[i] } : t)));
     const mc = pick();
     setMergeTribe((t) => ({ ...t, color: mc }));
-    if (swap && tribeCount === 2 && addSwapTribe) {
+    if (tribeCount === 3 || (swap && addSwapTribe)) {
       const sc = pick();
       setSwapTribe((t) => ({ ...t, color: sc }));
     }
@@ -64,7 +64,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   };
 
   const start = () => {
-    const active = tribes.slice(0, tribeCount);
+    // With 3 starting tribes, the configured "swap tribe" IS the third starting tribe.
+    const active = tribeCount === 3 ? [tribes[0], tribes[1], { ...swapTribe }] : tribes.slice(0, tribeCount);
     const cfg: Config = {
       playerCount: count, tribeCount, jurySize: jury, finalSize, fireAtF4: fire && finalSize === 3,
       swapEnabled: swap, swapAt, mergeAt: Math.min(mergeAt, count - 2), mergedName: mergeTribe.name, mergedColor: mergeTribe.color,
@@ -111,7 +112,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           <h2 className="text-2xl text-accent">Tribes & Mode</h2>
           <div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={randomizeTribeNames} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">🎲 Randomize every tribe name</Button><Button variant="secondary" size="sm" onClick={randomizeTribeColors} className="rounded-md bg-secondary px-2 py-1 text-xs hover:bg-muted">🎲 Randomize every tribe color</Button></div>
           <h3 className="text-lg">Starting tribes</h3>
-          <TribeEditor label="Starting tribe" tribes={tribes.slice(0, tribeCount)} onChange={(t) => setTribes((all) => all.map((x) => t.find((y) => y.id === x.id) ?? x))} />
+          <TribeEditor label="Starting tribe" tribes={tribeCount === 3 ? [tribes[0], tribes[1], swapTribe] : tribes.slice(0, tribeCount)} onChange={(t) => { const third = t.find((y) => y.id === swapTribe.id); if (third) setSwapTribe(third); setTribes((all) => all.map((x) => t.find((y) => y.id === x.id) ?? x)); }} />
+          {tribeCount === 3 && <p className="text-xs text-muted-foreground">Your third tribe uses the swap-tribe settings below.</p>}
           <h3 className="border-t pt-3 text-lg">Merge tribe</h3>
           <TribeEditor label="Merge tribe" tribes={[mergeTribe]} onChange={(t) => setMergeTribe(t[0])} />
           <Button variant="secondary" size="sm" onClick={() => setMergeTribe((t) => ({ ...t, name: MERGE_NAMES[Math.floor(Math.random() * MERGE_NAMES.length)] }))}>Suggest name</Button>
