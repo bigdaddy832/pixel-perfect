@@ -28,10 +28,10 @@ export function Game({ game, setGame, onReset }: { game: GameState; setGame: (g:
           <p className="text-sm text-muted-foreground">Day {game.day} · {PHASE_LABEL[game.phase]} · {alive(game).length} remain</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button disabled={game.phase === "done"} onClick={next} className="rounded-md bg-primary px-5 py-2 font-semibold text-primary-foreground disabled:opacity-40 torch-glow">Next Phase ▶</button>
-          <button disabled={game.phase === "done"} onClick={() => setGame(simulateToEnd(game))} className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted disabled:opacity-40">Auto-Simulate to End ⏩</button>
-          <button onClick={() => setEditing(true)} className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted">Edit Stats / Tribes ✏️</button>
-          <button onClick={onReset} className="rounded-md border px-4 py-2 text-sm hover:bg-muted">New Season</button>
+          <Button variant="secondary" disabled={game.phase === "done"} onClick={next} className="rounded-md bg-primary px-5 py-2 font-semibold text-primary-foreground disabled:opacity-40 torch-glow">Next Phase ▶</Button>
+          <Button variant="secondary" disabled={game.phase === "done"} onClick={() => setGame(simulateToEnd(game))} className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted disabled:opacity-40">Auto-Simulate to End ⏩</Button>
+          <Button variant="secondary" onClick={() => setEditing(true)} className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted">Edit Stats / Tribes ✏️</Button>
+          <Button variant="secondary" onClick={onReset} className="rounded-md border px-4 py-2 text-sm hover:bg-muted">New Season</Button>
         </div>
       </header>
 
@@ -181,7 +181,7 @@ function EditModal({ game, setGame, onClose }: { game: GameState; setGame: (g: G
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background/80 p-4 backdrop-blur" onClick={onClose}>
       <div className="w-full max-w-4xl rounded-xl border bg-card p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-3xl">Edit Stats & Tribes</h2><button onClick={onClose} className="rounded-md bg-primary px-4 py-1.5 text-primary-foreground">Done</button></div>
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-3xl">Edit Stats & Tribes</h2><Button variant="secondary" onClick={onClose} className="rounded-md bg-primary px-4 py-1.5 text-primary-foreground">Done</Button></div>
         <h3 className="text-xl text-accent">Tribes</h3>
         <TribeEditor tribes={game.tribes} onChange={(t) => upd((g) => { g.tribes = t; const m = t.find((x) => x.id === "merged"); if (m) { g.config.mergedName = m.name; g.config.mergedColor = m.color; } })} />
         {!game.merged && (

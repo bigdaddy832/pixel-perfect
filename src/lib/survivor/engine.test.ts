@@ -10,7 +10,7 @@ describe("Survivor decisions and tribes", () => {
     const g = season();
     const me = g.castaways[0];
     if (!me) throw new Error("Missing player");
-    me.stats.strategy = 1;
+    g.castaways.forEach((c) => { c.stats.strategy = 1; });
     vi.spyOn(Math, "random").mockReturnValue(Number(roll));
     const result = step(g, { searchIdol: true, searchSpot: "the water well" });
     expect(result.episodes.flatMap((e) => e.entries).find((e) => e.title === `Your Search: ${title}`)?.text).toContain("the water well");

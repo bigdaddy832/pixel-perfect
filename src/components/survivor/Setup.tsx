@@ -93,8 +93,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-3xl">The Cast</h2>
           <div className="flex gap-2">
-            <button className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => setRoster((r) => makeRoster(count, tribeCount).map((p, i) => ({ ...p, name: r[i].name })))}>Randomize all stats</button>
-            <button className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => recount(count)}>New random cast</button>
+            <Button variant="secondary" className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => setRoster((r) => makeRoster(count, tribeCount).map((p, i) => ({ ...p, name: r[i].name })))}>Randomize all stats</Button>
+            <Button variant="secondary" className="rounded-md bg-secondary px-3 py-2 text-sm hover:bg-muted" onClick={() => recount(count)}>New random cast</Button>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -105,7 +105,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
                 <div key={i} className={`rounded-lg border bg-card p-3 ${controlled === i ? "border-primary torch-glow" : ""}`}>
                   <div className="mb-2 flex items-center gap-2">
                     <input className="flex-1 rounded bg-transparent text-lg font-semibold outline-none focus:bg-secondary px-1" value={p.name} onChange={(e) => upd(i, (r) => ({ ...r, name: e.target.value }))} />
-                    <button title="Randomize" className="rounded bg-secondary px-2 py-1 text-xs hover:bg-muted" onClick={() => upd(i, (r) => ({ ...r, stats: randomStats() }))}>🎲</button>
+                    <Button variant="secondary" title="Randomize" className="rounded bg-secondary px-2 py-1 text-xs hover:bg-muted" onClick={() => upd(i, (r) => ({ ...r, stats: randomStats() }))}>🎲</Button>
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     {[...SOCIAL_STATS, ...CHALLENGE_STATS].map((k) => (
@@ -120,7 +120,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       </section>
 
       <div className="sticky bottom-4 mt-8 flex justify-center">
-        <button onClick={start} className="rounded-full bg-primary px-10 py-4 font-display text-3xl tracking-widest text-primary-foreground torch-glow hover:scale-105 transition">Start the Season 🔥</button>
+        <Button variant="secondary" onClick={start} className="rounded-full bg-primary px-10 py-4 font-display text-3xl tracking-widest text-primary-foreground torch-glow hover:scale-105 transition">Start the Season 🔥</Button>
       </div>
       
     </div>
