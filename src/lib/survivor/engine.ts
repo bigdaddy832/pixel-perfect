@@ -174,8 +174,8 @@ export function fixAllianceNames(s: GameState) {
 export { ALL_SIZED };
 const EP_TITLES = ["The Island Has Spoken", "Sand in My Teeth", "Torches at Dusk", "Coconut Diplomacy", "Hold Your Fire", "Buffs and Bruises", "The Snake Pit", "Sunburned Strategies", "Rock Bottom", "Whispers by the Well", "A Storm Is Coming", "Paper Thin Promises", "Double Trouble", "Every Rock Has Two Sides", "Fire in the Belly", "Smoke Signals", "The Jungle Remembers", "Keep Your Enemies Closer", "Tree Mail Tremors", "Hunger Games at Camp", "Cracks in the Shelter", "No Safe Seats", "Chasing Shadows", "Last Light", "The Purple Rock", "Spilled Rice", "Low Tide, High Stakes", "Riding the Wave", "A Vote Is a Vote", "Ticking Time Bomb", "Dead Weight", "Born to Scheme", "The Merge Feast", "Cutthroat Paradise", "Lightning Strikes Twice", "I'm Not Here to Make Friends", "Blindside City", "The Tide Turns", "Snakes in the Grass", "Who Can You Trust?", "Playing With Fire", "Calm Before the Storm", "A Bridge Too Far", "Don't Get Comfortable", "Idol Chatter", "Trust Nobody", "Rice and Paranoia", "Numbers Game", "Out of the Frying Pan", "The Long Con", "Torch Snuffer"];
 
-let rand: () => number = Math.random;
-const r = () => rand();
+let rand: (() => number) | null = null;
+const r = () => (rand ? rand() : Math.random());
 const seeded = (seed: number) => () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 class RevotePause { constructor(public options: string[]) {} }
 const pick = <T,>(a: T[]): T => a[Math.floor(r() * a.length)];
@@ -307,7 +307,7 @@ export function step(prev: GameState, d: Decision = {}): GameState {
         if (!(e instanceof RevotePause)) throw e;
         const held = structuredClone(prev); held.pendingRevote = { seed, decision: d, options: e.options };
         return held;
-      } finally { rand = Math.random; }
+      } finally { rand = null; }
       afterTribal(s); break;
     }
     case "final_challenge": doFinalChallenge(s); s.phase = "final_choice"; break;
