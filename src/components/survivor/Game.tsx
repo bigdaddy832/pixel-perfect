@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, amuletHolders, amuletDescription,
+  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, getRel, amuletHolders, amuletDescription,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -60,6 +60,7 @@ export function Game({ game, setGame, onReset, readOnly = false }: { game: GameS
               </section>
             );
           })}
+          <RelationshipsPanel game={game} />
           <AlliancesPanel game={game} />
           {jury.length > 0 && (
             <section className="rounded-xl border bg-card p-4">
@@ -158,10 +159,15 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
         </div>
       )}
       {pending.kind === "revote" && (
-        <label className="mt-2 flex flex-wrap items-center gap-2 text-sm">The votes are tied — revote! Who do you vote for now?
+        <div className="mt-2 space-y-2">
+          <p className="text-sm font-semibold text-accent">Here's how the vote went:</p>
+          {pending.votes.length > 0 && <VoteChart g={game} votes={pending.votes} label="Votes read" />}
+          <ul className="list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">{pending.summary.map((x, i) => <li key={i}>{x}</li>)}</ul>
+        <label className="flex flex-wrap items-center gap-2 text-sm">Revote! You can vote for: {pending.options.map((o) => o.name).join(" or ")}.
           <select className={sel} value={dec.revoteVote ?? ""} onChange={(e) => setDec({ ...dec, revoteVote: e.target.value || undefined })}>
             <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select></label>
+        </div>
       )}
       {pending.kind === "camp" && (
         <div className="mt-2 space-y-3">
@@ -178,6 +184,14 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
             </label>}
           </div>
           {pending.canSearchAtChallenge && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.challengeIdol ?? false} onChange={(e) => setDec({ ...dec, challengeIdol: e.target.checked })} className="size-4 accent-primary" />Look for an idol during the immunity challenge (risks slowing your tribe)</label>}
+          {pending.giveables.length > 0 && <div className="flex flex-wrap items-center gap-2 text-sm">Give away:
+            <select className={sel} value={dec.giveItem ?? ""} onChange={(e) => setDec({ ...dec, giveItem: e.target.value || undefined })}>
+              <option value="">Keep everything</option>{pending.giveables.map((a) => <option key={a} value={a}>{a === "idol" ? "Hidden Immunity Idol" : ADVANTAGE_LABEL[a]}</option>)}
+            </select>
+            {dec.giveItem && <><span>to</span><select className={sel} value={dec.giveTo ?? ""} onChange={(e) => setDec({ ...dec, giveTo: e.target.value || undefined })}>
+              <option value="">— Choose —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select></>}
+          </div>}
           {!pending.fakeStatus && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.craftFake ?? false} onChange={(e) => setDec({ ...dec, craftFake: e.target.checked })} className="size-4 accent-primary" />Craft a fake idol</label>}
           {(pending.fakeStatus === "own" || dec.craftFake) && pending.plantTargets.length > 0 && <label className="flex flex-wrap items-center gap-2 text-sm">Plant fake idol on:
             <select className={sel} value={dec.fakeTarget ?? ""} onChange={(e) => setDec({ ...dec, fakeTarget: e.target.value || undefined })}>
@@ -223,6 +237,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
               </select></label>
           )}
           {dec.advantage && <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>}
+          {pending.canShoot && <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={dec.shotInDark ?? false} onChange={(e) => setDec({ ...dec, shotInDark: e.target.checked })} />Play Shot in the Dark (1 in 6 chance of safety; you lose your vote either way, one use per season)</label>}
           {pending.canPlayAmulet && <>
             <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={dec.playAmulet ?? false} onChange={(e) => setDec({ ...dec, playAmulet: e.target.checked, amuletTarget: undefined })} />Play Advantage Amulet{amuletHolders(game).length > 1 ? " together" : ""}</label>
             {dec.playAmulet && amuletHolders(game).length < 3 && <label className="flex items-center gap-2">Amulet target:
@@ -310,5 +325,26 @@ function TargetsPanel({ game }: { game: GameState }) {
         <ul className="mt-1 grid gap-1 text-sm sm:grid-cols-2">{individual.map((p) => <li key={p.voter}>{byId(game, p.voter).name} → <span className="text-primary">{byId(game, p.target).name}</span> <span className="text-muted-foreground">— {p.reason}</span></li>)}</ul>
       </div>
     </div>
+  );
+}
+
+function RelationshipsPanel({ game }: { game: GameState }) {
+  const id = game.config.controlledId;
+  if (!id) return null;
+  const me = byId(game, id);
+  if (me.out) return null;
+  const others = alive(game).filter((c) => c.id !== id && (game.merged || c.tribeId === me.tribeId)).sort((a, b) => getRel(game, id, b.id) - getRel(game, id, a.id));
+  const label = (v: number) => v >= 25 ? "Close bond" : v >= 10 ? "Friendly" : v > -5 ? "Neutral" : v > -20 ? "Tense" : "Enemies";
+  return (
+    <section className="rounded-xl border bg-card p-4">
+      <h2 className="text-2xl text-accent">Your Relationships</h2>
+      <p className="text-xs text-muted-foreground">Your mood: {me.mood}/100</p>
+      <ul className="mt-2 space-y-1 text-sm">{others.map((c) => { const v = getRel(game, id, c.id); return (
+        <li key={c.id} className="flex items-center gap-2">
+          <span className="w-28 truncate">{c.name}</span>
+          <div className="relative h-2 flex-1 rounded bg-muted"><div className={`absolute top-0 h-full rounded ${v >= 0 ? "left-1/2 bg-success" : "right-1/2 bg-destructive"}`} style={{ width: `${Math.abs(v)}%` }} /></div>
+          <span className="w-24 text-right text-xs text-muted-foreground">{label(v)} ({v > 0 ? "+" : ""}{v})</span>
+        </li>); })}</ul>
+    </section>
   );
 }

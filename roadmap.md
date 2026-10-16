@@ -17,3 +17,5 @@
 - [x] Include idol-negated votes in tribal counts and vary logged idol hiding places.
 - [x] Verify season changes with regression tests and the jury-vote screen.
 - [x] Add a final statistics sheet and a fan favorite award eligible only for castaways who reached the merge.
+- [x] Revote screen shows votes read and counts; more gifts to/from you; no advantages at final 5; more alliance names; unique juror questions; events affect relationships/mood; relationships panel.
+- [x] Shot in the Dark for everyone (one per season, 1/6 safety, forfeits vote).

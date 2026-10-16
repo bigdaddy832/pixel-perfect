@@ -16,7 +16,7 @@ export interface Castaway {
   stats: Record<StatKey, number>;
   out: boolean; juror: boolean; idols: number; advantages: AdvantageKey[]; mood: number;
   placement?: number; immunityWins: number; betrayedBy: string[];
-  fakeIdol?: "own" | "planted"; bewareTribals?: number; lostVote?: boolean; edge?: boolean; clue?: boolean;
+  fakeIdol?: "own" | "planted"; bewareTribals?: number; lostVote?: boolean; edge?: boolean; clue?: boolean; shotUsed?: boolean;
   votesCast?: number; correctVotes?: number; votesAgainst?: number; idolsPlayed?: number; advPlayed?: number;
   madeMerge?: boolean; rewardWins?: number; amulet?: boolean;
 }
@@ -52,7 +52,7 @@ export interface LogEntry {
 export interface Episode { n: number; title: string; entries: LogEntry[] }
 export type Phase = "camp" | "challenge" | "tribal" | "final_challenge" | "final_choice" | "ftc" | "done";
 export interface GameState {
-  pendingRevote?: { seed: number; decision: Decision; options: string[] };
+  pendingRevote?: { seed: number; decision: Decision; options: string[]; votes?: Vote[]; summary?: string[] };
   config: Config; castaways: Castaway[]; tribes: Tribe[]; alliances: Alliance[];
   rel: Record<string, number>; episodes: Episode[]; day: number; phase: Phase;
   merged: boolean; swapped: boolean; immune: string[]; tribalTribe: string | null;
@@ -72,7 +72,7 @@ export const IDOL_HIDING_PLACES = [
   "fastened to the underside of a water bucket", "hidden in the fork of a strangler fig",
 ];
 const CHALLENGE_IDOL_PLACES = ["beneath a puzzle table", "inside a hollow course marker", "under the climbing platform", "tied behind a balance-beam support", "inside a rope basket", "beneath the final station's bench"];
-export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; revoteVote?: string; pauseOnRevote?: boolean; revoteDecided?: boolean }
+export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; giveItem?: string; giveTo?: string; shotInDark?: boolean; revoteVote?: string; pauseOnRevote?: boolean; revoteDecided?: boolean }
 const BIG_TWISTS = ["joint", "double_pre", "double_post"];
 /** Joint tribals and double eliminations share a single once-per-season slot. */
 export const bigTwistUsed = (s: GameState) => (s.twistsUsed ?? []).some((x) => BIG_TWISTS.includes(x));
@@ -141,7 +141,7 @@ const NAMES = [
   "Mason", "Maya", "Owen", "Sophie", "Spark", "Patch", "Scooter", "Doc", "Rook", "Sprocket",
   "Radar", "Skipper", "Sparks", "Pebbles",
 ];
-const ALLIANCE_NAMES = ["The Core", "Rogue Squad", "Stealth Mode", "The Rat Pack", "Sanctuary", "Night Owls", "The Underdogs", "Tidal Wave", "The Coconut Crew", "Shadow Council", "Low Tide", "The Hammocks", "Driftwood", "Bonfire Club", "The Outliers", "Moonlight Pact", "Salt & Pepper Shakers", "The Lagoon", "Kingpins", "The Misfits", "Sharks in Suits", "Banana Republic", "The Nest", "Coral Cartel", "Sunset Society", "The Firekeepers", "Machete Gang", "Reef Raiders", "The Swamp", "Palm Readers", "Wolf Pack", "Midnight Snacks", "The Lifeboat", "Monsoon", "The Shell Game", "Quiet Storm", "Treehouse Club", "The Cartographers", "Rip Current", "Bamboo Brigade"];
+const ALLIANCE_NAMES = ["The Core", "Rogue Squad", "Stealth Mode", "The Rat Pack", "Sanctuary", "Night Owls", "The Underdogs", "Tidal Wave", "The Coconut Crew", "Shadow Council", "Low Tide", "The Hammocks", "Driftwood", "Bonfire Club", "The Outliers", "Moonlight Pact", "Salt & Pepper Shakers", "The Lagoon", "Kingpins", "The Misfits", "Sharks in Suits", "Banana Republic", "The Nest", "Coral Cartel", "Sunset Society", "The Firekeepers", "Machete Gang", "Reef Raiders", "The Swamp", "Palm Readers", "Wolf Pack", "Midnight Snacks", "The Lifeboat", "Monsoon", "The Shell Game", "Quiet Storm", "Treehouse Club", "The Cartographers", "Rip Current", "Bamboo Brigade", "The Breakfast Club", "Tiki Torches", "The Mangroves", "Sandcastle Kings", "Palm Pilots", "The Tortugas", "Hidden Agenda", "The Lighthouse", "Silent Partners", "Coconut Mafia", "The Hermit Crabs", "Second Wind", "The Riptide", "Undertow", "The Cove", "Paper Lanterns", "The Night Shift", "Island Royalty", "The Compass", "Fireflies", "The Lost Boys", "Hammerheads", "The Grind", "Camp Counselors", "Velvet Rope", "Barnacles", "The Shipwrights", "Saltwater Saints", "Moonshiners", "The Kitchen Cabinet", "Gold Coast", "The Anchors", "Sea Glass", "Volcano Club", "The Sundial", "Iron Palms", "Driftwood Dynasty", "The Jetty", "Coconut Telegraph", "The Wreckers"];
 // Numbered names only ever go to alliances with exactly that many members.
 const SIZED_ALLIANCE_NAMES: Record<number, string[]> = {
   2: ["Dynamic Duo", "Double Trouble", "The Pair", "Two Peas", "Final Two Pact", "Twin Flames", "Tag Team", "Bonnie & Clyde"],
@@ -156,7 +156,7 @@ const sizedFor = (name: string) => Number(Object.entries(SIZED_ALLIANCE_NAMES).f
 export function allianceName(size: number, taken: string[]): string {
   const sized = (SIZED_ALLIANCE_NAMES[size] ?? []).filter((n) => !taken.includes(n));
   const plain = ALLIANCE_NAMES.filter((n) => !taken.includes(n));
-  if (sized.length && (Math.random() < 0.35 || !plain.length)) return pick(sized);
+  if (sized.length && (Math.random() < 0.12 || !plain.length)) return pick(sized);
   if (plain.length) return pick(plain);
   let k = 2; while (taken.includes(`The Alliance ${"I".repeat(k)}`)) k++; return `The Alliance ${"I".repeat(k)}`;
 }
@@ -177,7 +177,7 @@ const EP_TITLES = ["The Island Has Spoken", "Sand in My Teeth", "Torches at Dusk
 let rand: (() => number) | null = null;
 const r = () => (rand ? rand() : Math.random());
 const seeded = (seed: number) => () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-class RevotePause { constructor(public options: string[]) {} }
+class RevotePause { constructor(public options: string[], public votes: Vote[] = [], public summary: string[] = []) {} }
 const pick = <T,>(a: T[]): T => a[Math.floor(r() * a.length)];
 const shuffle = <T,>(a: T[]): T[] => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -231,7 +231,7 @@ const log = (s: GameState, e: LogEntry) => ep(s).entries.push(e);
 const sharedAlliance = (s: GameState, a: string, b: string) => s.alliances.some((al) => al.members.includes(a) && al.members.includes(b));
 const threat = (c: Castaway) => (c.stats.strategy + c.stats.social) * 0.6 + (c.stats.general + c.stats.physical + c.stats.endurance + c.stats.mental) * 0.25 + c.immunityWins * 0.8;
 const missingAdv = (c: Castaway) => ADVANTAGES.filter((a) => !(c.advantages ?? []).includes(a));
-const giveAdvantage = (c: Castaway): AdvantageKey | null => { const opts = missingAdv(c); if (!opts.length) return null; const a = pick(opts); c.advantages = [...(c.advantages ?? []), a]; return a; };
+const giveAdvantage = (c: Castaway, s?: GameState): AdvantageKey | null => { if (s && alive(s).length <= 5) return null; const opts = missingAdv(c); if (!opts.length) return null; const a = pick(opts); c.advantages = [...(c.advantages ?? []), a]; return a; };
 export const amuletHolders = (s: GameState) => alive(s).filter((c) => c.amulet);
 export function amuletDescription(s: GameState): string {
   const n = amuletHolders(s).length;
@@ -265,11 +265,11 @@ const weakness = (c: Castaway) => 5 - (c.stats.general + c.stats.physical + c.st
 
 // ---------- decisions needed ----------
 export type Pending =
-  | { kind: "camp"; options: Castaway[]; canSearchAtChallenge: boolean; fakeStatus?: "own" | "planted"; plantTargets: Castaway[] }
-  | { kind: "tribal"; options: Castaway[]; hasIdol: boolean; advantages: AdvantageKey[]; idolTargets: Castaway[]; canGiveImmunity: boolean; noVote: boolean; canPlayAmulet: boolean }
+  | { kind: "camp"; options: Castaway[]; canSearchAtChallenge: boolean; fakeStatus?: "own" | "planted"; plantTargets: Castaway[]; giveables: string[] }
+  | { kind: "tribal"; options: Castaway[]; hasIdol: boolean; advantages: AdvantageKey[]; idolTargets: Castaway[]; canGiveImmunity: boolean; noVote: boolean; canPlayAmulet: boolean; canShoot: boolean }
   | { kind: "cut"; options: Castaway[]; fire: boolean }
   | { kind: "jury"; options: Castaway[] }
-  | { kind: "revote"; options: Castaway[] }
+  | { kind: "revote"; options: Castaway[]; votes: Vote[]; summary: string[] }
   | null;
 
 export const tribalGroup = (s: GameState) => s.tribalTribes?.length ? s.tribalTribes : s.tribalTribe ? [s.tribalTribe] : [];
@@ -279,11 +279,11 @@ export function pendingDecision(s: GameState): Pending {
   const me = s.config.controlledId ? byId(s, s.config.controlledId) : null;
   if (me?.juror && s.phase === "ftc") return { kind: "jury", options: (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id)) };
   if (!me || me.out) return null;
-  if (s.phase === "tribal" && s.pendingRevote) return { kind: "revote", options: s.pendingRevote.options.map((id) => byId(s, id)) };
-  if (s.phase === "camp") { const options = alive(s).filter((c) => c.tribeId === me.tribeId && c.id !== me.id); return { kind: "camp", options, canSearchAtChallenge: !s.merged, fakeStatus: me.fakeIdol, plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol) }; }
+  if (s.phase === "tribal" && s.pendingRevote) return { kind: "revote", options: s.pendingRevote.options.map((id) => byId(s, id)), votes: s.pendingRevote.votes ?? [], summary: s.pendingRevote.summary ?? [] };
+  if (s.phase === "camp") { const options = alive(s).filter((c) => c.tribeId === me.tribeId && c.id !== me.id); return { kind: "camp", options, canSearchAtChallenge: !s.merged, fakeStatus: me.fakeIdol, plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol), giveables: [...(me.idols > 0 && !me.bewareTribals ? ["idol"] : []), ...(alive(s).length > 5 ? me.advantages : [])] }; }
   if (s.phase === "tribal" && tribalGroup(s).includes(me.tribeId)) {
     const att = attendees(s);
-    return { kind: "tribal", options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)), hasIdol: me.idols > 0 && !(me.bewareTribals > 0), noVote: !!me.lostVote || me.bewareTribals > 0, advantages: [...(me.advantages ?? [])], idolTargets: att.filter((c) => !s.immune.includes(c.id)), canGiveImmunity: s.merged && s.immune.includes(me.id), canPlayAmulet: !!me.amulet && alive(s).length >= 6 && amuletHolders(s).every((c) => att.some((a) => a.id === c.id)) };
+    return { kind: "tribal", options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)), hasIdol: me.idols > 0 && !(me.bewareTribals > 0), noVote: !!me.lostVote || me.bewareTribals > 0, advantages: alive(s).length <= 5 ? [] : [...(me.advantages ?? [])], idolTargets: att.filter((c) => !s.immune.includes(c.id)), canGiveImmunity: s.merged && s.immune.includes(me.id), canShoot: !me.shotUsed && !me.lostVote && !(me.bewareTribals > 0) && !s.immune.includes(me.id) && alive(s).length > 5, canPlayAmulet: !!me.amulet && alive(s).length >= 6 && amuletHolders(s).every((c) => att.some((a) => a.id === c.id)) };
   }
   if (s.phase === "final_choice" && s.finalImmune === me.id) {
     return { kind: "cut", options: alive(s).filter((c) => c.id !== me.id), fire: isFireFinal(s) };
@@ -305,7 +305,7 @@ export function step(prev: GameState, d: Decision = {}): GameState {
       try { doTribal(s, dd); }
       catch (e) {
         if (!(e instanceof RevotePause)) throw e;
-        const held = structuredClone(prev); held.pendingRevote = { seed, decision: d, options: e.options };
+        const held = structuredClone(prev); held.pendingRevote = { seed, decision: d, options: e.options, votes: e.votes, summary: e.summary };
         return held;
       } finally { rand = null; }
       afterTribal(s); break;
@@ -380,9 +380,9 @@ function doCamp(s: GameState, d: Decision) {
       }
     } else {
       // advantages only surface once this camp's idol has been found
-      for (const a of shuffle(members.filter((c) => c.id !== s.config.controlledId && missingAdv(c).length))) {
+      for (const a of shuffle(members.filter((c) => alive(s).length > 5 && c.id !== s.config.controlledId && missingAdv(c).length))) {
         if (r() < 0.005 + a.stats.strategy * 0.006) {
-          const adv = giveAdvantage(a)!;
+          const adv = giveAdvantage(a, s)!;
           log(s, { kind: "idol", title: `${t.name}: Advantage Found!`, text: `${a.name} quietly pocketed a ${ADVANTAGE_LABEL[adv]} advantage.` });
           break;
         }
@@ -391,12 +391,13 @@ function doCamp(s: GameState, d: Decision) {
     // idols & advantages are transferable — holders sometimes pass them to their closest ally
     for (const holder of shuffle(members.filter((c) => c.id !== s.config.controlledId && (c.idols > 0 || c.advantages.length)))) {
       const best = members.filter((c) => c.id !== holder.id).sort((a, b) => getRel(s, holder.id, b.id) - getRel(s, holder.id, a.id))[0];
-      if (!best || getRel(s, holder.id, best.id) < 8 || r() >= 0.08) continue;
+      const toMe = best?.id === s.config.controlledId;
+      if (!best || getRel(s, holder.id, best.id) < (toMe ? 4 : 8) || r() >= (toMe ? 0.2 : 0.08)) continue;
       if (holder.idols > 0 && best.idols === 0 && !holder.bewareTribals) {
         holder.idols--; best.idols++;
         log(s, { kind: "idol", title: `${t.name}: Idol Handed Over`, text: `${holder.name} secretly slipped their Hidden Immunity Idol to ${best.name} for safekeeping.` });
-      } else if (holder.advantages.length && missingAdv(best).length) {
-        const adv = holder.advantages.shift()!; best.advantages.push(adv);
+      } else if (holder.advantages.length && alive(s).length > 5 && holder.advantages.some((x) => !best.advantages.includes(x))) {
+        const adv = holder.advantages.find((x) => !best.advantages.includes(x))!; holder.advantages = holder.advantages.filter((x) => x !== adv); best.advantages.push(adv); addRel(s, holder.id, best.id, 5);
         log(s, { kind: "idol", title: `${t.name}: Advantage Handed Over`, text: `${holder.name} quietly passed their ${ADVANTAGE_LABEL[adv]} advantage to ${best.name}.` });
       }
     }
@@ -443,7 +444,7 @@ function doCamp(s: GameState, d: Decision) {
       const hidingPlace = pick(IDOL_HIDING_PLACES);
       if (canFindBeware(s)) { s.bewareFound = true; meC.bewareTribals = 2; log(s, { kind: "idol", title: "Your Search: Beware Advantage!", text: `At ${spot} you found a note marked "BEWARE" ${hidingPlace}. You now hold an idol, but you lose your vote and can't play it for your next two Tribal Councils.` }); }
       else log(s, { kind: "idol", title: "Your Search: Idol Found!", text: `You slipped away to search ${spot} — and found a Hidden Immunity Idol ${hidingPlace}!` });
-    } else if (!idolHere && roll < 0.18 && (adv = giveAdvantage(meC))) {
+    } else if (!idolHere && roll < 0.18 && (adv = giveAdvantage(meC, s))) {
       log(s, { kind: "idol", title: "Your Search: Advantage Found!", text: `You searched ${spot} and found a ${ADVANTAGE_LABEL[adv]} advantage. ${ADVANTAGE_DESC[adv]}` });
     } else if (idolHere && !meC.clue && roll < 0.45) {
       meC.clue = true;
@@ -456,6 +457,11 @@ function doCamp(s: GameState, d: Decision) {
   if (s.config.controlledId && !byId(s, s.config.controlledId).out) {
     const meC = byId(s, s.config.controlledId);
     if (d.challengeIdol && !s.merged) s.challengeSearch = true;
+    if (d.giveItem && d.giveTo) {
+      const tg = alive(s).find((c) => c.id === d.giveTo && c.tribeId === meC.tribeId && c.id !== meC.id);
+      if (tg && d.giveItem === "idol" && meC.idols > 0 && tg.idols === 0 && !meC.bewareTribals) { meC.idols--; tg.idols++; addRel(s, meC.id, tg.id, 15); mood(tg, 8); log(s, { kind: "idol", title: "You Handed Over an Idol", text: `You secretly gave your Hidden Immunity Idol to ${tg.name}. They won't forget it.` }); }
+      else if (tg && d.giveItem !== "idol" && meC.advantages.includes(d.giveItem as AdvantageKey) && !tg.advantages.includes(d.giveItem as AdvantageKey)) { const a = d.giveItem as AdvantageKey; meC.advantages = meC.advantages.filter((x) => x !== a); tg.advantages.push(a); addRel(s, meC.id, tg.id, 12); mood(tg, 6); log(s, { kind: "idol", title: "You Handed Over an Advantage", text: `You quietly passed your ${ADVANTAGE_LABEL[a]} to ${tg.name}.` }); }
+    }
     if (d.craftFake && !meC.fakeIdol) { meC.fakeIdol = "own"; log(s, { kind: "idol", title: "You Crafted a Fake Idol", text: "You carved a convincing fake idol from a coconut, string, and shells." }); }
     if (meC.fakeIdol === "own" && d.fakeTarget) {
       const opts = alive(s).filter((c) => c.tribeId === meC.tribeId && c.id !== meC.id && c.idols === 0 && !c.fakeIdol);
@@ -497,6 +503,13 @@ const CAMP_EVENTS: CampEvent[] = [
   { kind: "camp", title: "Crab Feast", text: (a) => `${a} rounded up a bucket of crabs for dinner.`, fx: (_s, _a, _b, ms) => ms.forEach((m) => mood(m, 4)) },
   { kind: "camp", title: "Fake Idol Crafted", text: (a) => `${a} carved a fake idol out of a coconut and some beads — just in case.`, fx: (s, a, b) => { mood(a, 3); if (a.fakeIdol) return; if (b.id !== a.id && b.id !== s.config.controlledId && b.idols === 0 && !b.fakeIdol && r() < 0.6) b.fakeIdol = "planted"; else a.fakeIdol = "own"; } },
   { kind: "drama", title: "Fire Goes Out", text: (a) => `${a} was on fire duty and let the flames die overnight.`, fx: (s, a, _b, ms) => ms.forEach((m) => addRel(s, m.id, a.id, -5)) },
+  { kind: "drama", title: "Food Hoarding", text: (a) => `${a} was caught sneaking extra coconut meat at night.`, fx: (s, a, _b, ms) => ms.forEach((m) => { addRel(s, m.id, a.id, -6); mood(m, -3); }) },
+  { kind: "drama", title: "Heated Argument", text: (a, b) => `${a} and ${b} got into a screaming match over who does the chores.`, fx: (s, a, b, ms) => { addRel(s, a.id, b.id, -10); mood(a, -6); mood(b, -6); ms.forEach((m) => mood(m, -2)); } },
+  { kind: "camp", title: "Nursed Back to Health", text: (a, b) => `${b} came down with a fever and ${a} cared for them through the night.`, fx: (s, a, b) => { addRel(s, a.id, b.id, 12); mood(b, 8); } },
+  { kind: "camp", title: "Birthday at Camp", text: (a) => `It's ${a}'s birthday, and the tribe sang to them around the fire.`, fx: (s, a, _b, ms) => { mood(a, 15); ms.forEach((m) => addRel(s, a.id, m.id, 3)); } },
+  { kind: "drama", title: "Paranoia Spiral", text: (a) => `${a} is convinced everyone is plotting against them and can't sleep.`, fx: (s, a, _b, ms) => { mood(a, -14); ms.forEach((m) => addRel(s, m.id, a.id, -2)); } },
+  { kind: "camp", title: "Shelter Rebuilt", text: (a, b) => `${a} and ${b} spent the day rebuilding the shelter together.`, fx: (s, a, b, ms) => { addRel(s, a.id, b.id, 6); ms.forEach((m) => mood(m, 5)); } },
+  { kind: "drama", title: "Secret Exposed", text: (a, b) => `${b} told the tribe that ${a} has been promising final three deals to everyone.`, fx: (s, a, b, ms) => { ms.forEach((m) => addRel(s, m.id, a.id, -5)); addRel(s, a.id, b.id, -12); mood(a, -8); } },
   { kind: "camp", title: "Shark Sighting", text: (a) => `${a} spotted a reef shark near the water hole and nobody wanted to swim for the rest of the day.`, fx: () => {} },
 ];
 
@@ -535,9 +548,9 @@ function rewardAdvantage(s: GameState, winners: Castaway[]) {
     log(s, { kind: "idol", title: "Reward: Idol Clue!", text: `Along with the reward, ${c.name} was handed a sealed clue to the hidden immunity idol.` });
   }
   if (s.rewardAdvantageGiven || !(s.merged || r() < 0.3)) return;
-  const eligible = winners.filter((c) => missingAdv(c).length);
+  const eligible = alive(s).length > 5 ? winners.filter((c) => missingAdv(c).length) : [];
   if (!eligible.length) return;
-  const c = pick(eligible); const adv = giveAdvantage(c)!;
+  const c = pick(eligible); const adv = giveAdvantage(c, s)!;
   s.rewardAdvantageGiven = true;
   log(s, { kind: "idol", title: "Reward Advantage!", text: `Hidden in the reward basket, ${c.name} discovers a ${ADVANTAGE_LABEL[adv]} advantage. ${ADVANTAGE_DESC[adv]}` });
 }
@@ -681,7 +694,7 @@ function doTribal(s: GameState, d: Decision) {
   const plays: { who: Castaway; adv: AdvantageKey; target?: string }[] = []; const kipLog: string[] = [];
   for (const h of att.filter((c) => (c.advantages ?? []).length)) {
     let adv: AdvantageKey | undefined, target: string | undefined;
-    if (!h.advantages.length) continue;
+    if (!h.advantages.length || alive(s).length <= 5) continue;
     if (h.id === ctrl) { adv = d.advantage && h.advantages.includes(d.advantage) ? d.advantage : undefined; target = d.advantageTarget === "__random__" ? pick(att.filter((c) => c.id !== h.id))?.id : d.advantageTarget; }
     else if (r() < 0.25 + h.stats.strategy * 0.06) {
       adv = pick(h.advantages);
@@ -705,6 +718,19 @@ function doTribal(s: GameState, d: Decision) {
     plays.push({ who: h, adv, target });
   }
   const safe = plays.filter((p) => p.adv === "safety").map((p) => p.who.id);
+  // Shot in the Dark: one per castaway per season, 1-in-6 safety, vote forfeited either way
+  const shooters: string[] = []; const shotLog: string[] = [];
+  if (alive(s).length > 5) for (const c of att) {
+    if (c.shotUsed || c.lostVote || c.bewareTribals > 0 || s.immune.includes(c.id) || safe.includes(c.id)) continue;
+    const others = att.filter((o) => o.id !== c.id);
+    const warmth = others.reduce((a, o) => a + getRel(s, c.id, o.id), 0) / Math.max(1, others.length);
+    const wants = c.id === ctrl ? !!d.shotInDark : warmth < -3 && r() < 0.18;
+    if (!wants) continue;
+    c.shotUsed = true; shooters.push(c.id);
+    const hit = r() < 1 / 6;
+    if (hit) safe.push(c.id);
+    shotLog.push(`${c.name} plays their Shot in the Dark, giving up their vote... ${hit ? "SAFE! They cannot receive votes tonight." : "Not safe."}`);
+  }
   const holders = amuletHolders(s);
   const amuletLog: string[] = [];
   let amuletIdolTarget: string | undefined;
@@ -727,7 +753,7 @@ function doTribal(s: GameState, d: Decision) {
   const nullifyFor = plays.filter((p) => p.adv === "idol_nullifier").map((p) => p.target!);
   const advLog = plays.map((p) => p.adv === "safety" ? `${p.who.name} plays Safety Without Power and leaves Tribal Council.` : p.adv === "extra_vote" ? `${p.who.name} plays an Extra Vote advantage and casts a second vote.` : p.adv === "steal_vote" ? `${p.who.name} plays Steal a Vote — ${nm(s, p.target!)} loses their vote.` : p.adv === "vote_blocker" ? `${p.who.name} plays a Vote Blocker on ${nm(s, p.target!)}.` : `${p.who.name} secretly plays an Idol Nullifier on ${nm(s, p.target!)}.`);
   const cands = (v: Castaway, excl: string[] = []) => att.filter((c) => c.id !== v.id && !s.immune.includes(c.id) && !safe.includes(c.id) && !excl.includes(c.id));
-  const noVote = att.filter((v) => v.lostVote || v.bewareTribals > 0).map((v) => v.id);
+  const noVote = att.filter((v) => v.lostVote || v.bewareTribals > 0 || shooters.includes(v.id)).map((v) => v.id);
   let voters = att.filter((v) => !safe.includes(v.id) && !noVote.includes(v.id));
   if (!voters.length) voters = att.filter((v) => !safe.includes(v.id));
   const nvLog = noVote.map((id) => `${nm(s, id)} has no vote tonight.`);
@@ -774,11 +800,11 @@ function doTribal(s: GameState, d: Decision) {
   }
   votes = votes.map((v) => (protectedIds.includes(v.target) ? { ...v, nullified: true } : v));
   let t = tally(votes);
-  const details: string[] = [...immLog, ...kipLog, ...advLog, ...amuletLog, ...nvLog, ...idolLog];
+  const details: string[] = [...immLog, ...kipLog, ...advLog, ...amuletLog, ...shotLog, ...nvLog, ...idolLog];
   let revote: Vote[] | undefined;
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
-    const ask = (o: string[]) => { if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl)) throw new RevotePause(o); };
+    const ask = (o: string[]) => { if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl)) throw new RevotePause(o, votes, [...details, `Votes cast: ${votes.length} — all ${votes.length} negated by idols.`]); };
     ask(voters.flatMap((v) => v.id === ctrl ? cands(v, protectedIds).map((c) => c.id) : []));
     revote = voters.map((v) => { const cs = cands(v, protectedIds); return { voter: v.id, target: v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote) ? d.revoteVote : aiVote(s, v, cs, att) }; });
     t = tally(revote);
@@ -787,7 +813,7 @@ function doTribal(s: GameState, d: Decision) {
   let out: string; let rocks = false;
   if (tied.length > 1) {
     details.push(`Tie between ${tied.map((x) => nm(s, x)).join(" and ")}. Revote!`);
-    if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl) && !tied.includes(ctrl)) throw new RevotePause(tied);
+    if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl) && !tied.includes(ctrl)) { const e = Object.entries(t).sort((a, b) => b[1] - a[1]); throw new RevotePause(tied, votes, [`Count: ${e.map(([, n]) => n).join("-")} (${e.map(([k, n]) => `${nm(s, k)}: ${n}`).join(", ")})`, ...details]); }
     revote = voters.filter((v) => !tied.includes(v.id)).map((v) => ({ voter: v.id, target: v.id === ctrl && d.revoteVote && tied.includes(d.revoteVote) ? d.revoteVote : v.id === ctrl && !d.revoteDecided && d.vote && tied.includes(d.vote) ? d.vote : aiVote(s, v, att.filter((c) => tied.includes(c.id)), att) }));
     const rt = tally(revote); const rtop = Math.max(0, ...Object.values(rt)); const rtied = Object.keys(rt).filter((k) => rt[k] === rtop);
     if (rtied.length === 1) out = rtied[0];
@@ -817,6 +843,13 @@ function doTribal(s: GameState, d: Decision) {
     if (sharedAlliance(s, out, v) || getRel(s, out, v) > 5) loser.betrayedBy.push(v);
   }
   for (const a of against) for (const b of against) if (a < b) addRel(s, a, b, 3);
+  // tribal fallout on everyone's mental state
+  for (const c of att.filter((x) => x.id !== out)) {
+    const closeToBoot = sharedAlliance(s, c.id, out) || getRel(s, c.id, out) > 8;
+    if (closeToBoot) { mood(c, -10); for (const v of against) if (v !== c.id) addRel(s, c.id, v, -6); }
+    else if (against.includes(c.id)) mood(c, 4);
+    else mood(c, -5);
+  }
   const blindside = !allVotes.some((v) => v.voter === out && against.includes(v.target)) && against.length > att.length / 2 && loser.idols > 0;
   eliminate(s, loser, `voted out`);
   const fmt = (tt: Record<string, number>) => { const e = Object.entries(tt).sort((a, b) => b[1] - a[1]); return `${e.map(([, n]) => n).join("-")} (${e.map(([k, n]) => `${nm(s, k)}: ${n}`).join(", ")})`; };
@@ -978,15 +1011,32 @@ function prepareFTC(s: GameState) {
   const jury = s.castaways.filter((c) => c.juror);
   log(s, { kind: "finale", title: "Opening Statements", text: "Each finalist makes their case to the jury.", details: finalistSpeeches(s) });
   const qa: string[] = [];
+  const used = new Set<string>();
   for (const j of jury) {
-    const f = pick(fin);
-    if (j.betrayedBy.includes(f.id)) qa.push(`${j.name} → ${f.name}: "You looked me in the eye and lied. Why should I reward that?"`);
-    else if (j.stats.strategy >= 4) qa.push(`${j.name} → ${f.name}: "Name one big move that was yours and yours alone."`);
-    else if (j.stats.temperament <= 2) qa.push(`${j.name} → ${f.name}: "I'm not asking a question. I'm just telling you how angry I am."`);
-    else qa.push(`${j.name} → ${f.name}: "Tell me something real about yourself that you hid out here."`);
+    const f = [...fin].sort((a, b) => getRel(s, j.id, a.id) - getRel(s, j.id, b.id))[r() < 0.6 ? 0 : fin.length - 1];
+    const prefs = [
+      ...(j.betrayedBy.includes(f.id) ? JURY_Q.betrayed : []),
+      ...(j.stats.strategy >= 4 ? JURY_Q.strategy : []),
+      ...(j.stats.temperament <= 2 ? JURY_Q.angry : []),
+      ...(j.stats.social >= 4 ? JURY_Q.social : []),
+      ...(f.immunityWins > 0 ? JURY_Q.challenge : []),
+    ];
+    const all = Object.values(JURY_Q).flat();
+    const q = pick(prefs.filter((x) => !used.has(x))) ?? pick(all.filter((x) => !used.has(x))) ?? `If you had to vote out one finalist, ${f.name}, would you vote yourself out?`;
+    used.add(q);
+    qa.push(`${j.name} → ${f.name}: "${q}"`);
   }
   log(s, { kind: "finale", title: `Final Tribal Council — Day ${s.day}`, text: `${fin.map((f) => f.name).join(", ")} face the jury of ${jury.length}.`, details: qa });
 }
+
+const JURY_Q: Record<string, string[]> = {
+  betrayed: ["You looked me in the eye and lied. Why should I reward that?", "Was our friendship ever real, or was I just a number?", "Do you regret how you got me out?", "Tell me the moment you decided to turn on me."],
+  strategy: ["Name one big move that was yours and yours alone.", "Walk me through the vote you're proudest of.", "Who was the biggest threat you let slide, and why?", "What's one mistake you made, and how did you recover?", "When did you first think you could win?"],
+  angry: ["I'm not asking a question. I'm just telling you how angry I am.", "Why should I respect the way you played?", "Give me one reason not to vote for the person next to you."],
+  social: ["Tell me something real about yourself that you hid out here.", "Who out here do you think you really connected with?", "What did you learn about yourself on this island?", "How did you keep people from seeing you as a threat?"],
+  challenge: ["Did winning immunity help your game, or did it just paint a target on you?", "Would you still be sitting there without your challenge wins?"],
+  general: ["Why do you deserve this more than the others?", "Describe your game in three words.", "What would you do differently if you played again?", "Who would you say played the best game besides yourself?", "What's one thing you'd say to your family watching at home?", "If you lose tonight, who should win and why?", "Which jury member do you owe an apology to?", "What was your lowest point out here?"],
+};
 
 function doFTC(s: GameState, d: Decision) {
   const fin = (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id));
@@ -1024,7 +1074,7 @@ function doJourney(s: GameState) {
   const details = risk.map((x) => `${x.c.name} chose to ${x.risk ? "RISK their vote" : "protect their vote"}.`);
   let text: string;
   if (takers.length === risk.length) { takers.forEach((x) => (x.c.lostVote = true)); text = "Everyone got greedy — all of them lose their vote at their next Tribal Council."; }
-  else if (takers.length) { takers.forEach((x) => { const a = giveAdvantage(x.c); details.push(a ? `${x.c.name} earns a ${ADVANTAGE_LABEL[a]}.` : `${x.c.name} already holds everything on offer.`); }); text = "The gamble paid off for the risk-takers."; }
+  else if (takers.length) { takers.forEach((x) => { const a = giveAdvantage(x.c, s); details.push(a ? `${x.c.name} earns a ${ADVANTAGE_LABEL[a]}.` : `${x.c.name} already holds everything on offer.`); }); text = "The gamble paid off for the risk-takers."; }
   else text = "Everyone played it safe and returns to camp empty-handed but with their vote.";
   picks.forEach((a) => picks.forEach((b) => a.id < b.id && addRel(s, a.id, b.id, 6)));
   log(s, { kind: "twist", title: pick(["Journey to the Summit", "A Secret Journey", "The Summit"]), text: `${picks.map((c) => c.name).join(", ")} are sent on a journey and face a dilemma: protect your vote or risk it for an advantage. ${text}`, details });
