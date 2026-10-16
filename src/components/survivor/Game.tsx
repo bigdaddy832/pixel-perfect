@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees,
+  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -143,6 +143,17 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
   return (
     <div className="mb-6 rounded-xl border-2 border-primary bg-card p-4">
       <h2 className="text-2xl text-primary">Your Decision, {me.name}</h2>
+      {pending.kind === "jury" && (
+        <div className="mt-3 space-y-4">
+          <h3 className="text-xl text-accent">Finalists’ Speeches</h3>
+          <ul className="space-y-3 text-sm">{finalistSpeeches(game).map((speech, i) => <li key={i}>{speech}</li>)}</ul>
+          <label className="flex flex-wrap items-center gap-2 text-sm">Your vote for Sole Survivor:
+            <select className={sel} value={dec.juryVote ?? ""} onChange={(e) => setDec({ ...dec, juryVote: e.target.value || undefined })}>
+              <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </label>
+        </div>
+      )}
       {pending.kind === "camp" && (
         <div className="mt-2 space-y-3">
         <label className="flex flex-wrap items-center gap-2 text-sm">Approach someone to align with (optional):
