@@ -47,7 +47,7 @@ export interface Config {
 export interface Vote { voter: string; target: string; nullified?: boolean }
 export interface LogEntry {
   kind: "camp" | "drama" | "alliance" | "idol" | "challenge" | "tribal" | "twist" | "finale" | "confessional";
-  title: string; text: string; details?: string[]; votes?: Vote[]; revote?: Vote[];
+  title: string; text: string; details?: string[]; votes?: Vote[]; revote?: Vote[]; quoteKey?: string;
 }
 export interface Episode { n: number; title: string; entries: LogEntry[] }
 export type Phase = "camp" | "challenge" | "tribal" | "final_challenge" | "final_choice" | "ftc" | "done";
@@ -172,7 +172,7 @@ export function fixAllianceNames(s: GameState) {
   }
 }
 export { ALL_SIZED };
-const EP_TITLES = ["The Island Has Spoken", "Sand in My Teeth", "Torches at Dusk", "Coconut Diplomacy", "Hold Your Fire", "Buffs and Bruises", "The Snake Pit", "Sunburned Strategies", "Rock Bottom", "Whispers by the Well", "A Storm Is Coming", "Paper Thin Promises", "Double Trouble", "Every Rock Has Two Sides", "Fire in the Belly", "Smoke Signals", "The Jungle Remembers", "Keep Your Enemies Closer", "Tree Mail Tremors", "Hunger Games at Camp", "Cracks in the Shelter", "No Safe Seats", "Chasing Shadows", "Last Light", "The Purple Rock", "Spilled Rice", "Low Tide, High Stakes", "Riding the Wave", "A Vote Is a Vote", "Ticking Time Bomb", "Dead Weight", "Born to Scheme", "The Merge Feast", "Cutthroat Paradise", "Lightning Strikes Twice", "I'm Not Here to Make Friends", "Blindside City", "The Tide Turns", "Snakes in the Grass", "Who Can You Trust?", "Playing With Fire", "Calm Before the Storm", "A Bridge Too Far", "Don't Get Comfortable", "Idol Chatter", "Trust Nobody", "Rice and Paranoia", "Numbers Game", "Out of the Frying Pan", "The Long Con", "Torch Snuffer"];
+const EP_TITLES = ["The Island Has Spoken", "Sand in My Teeth", "Torches at Dusk", "Coconut Diplomacy", "Hold Your Fire", "Buffs and Bruises", "The Snake Pit", "Sunburned Strategies", "Rock Bottom", "Whispers by the Well", "A Storm Is Coming", "Paper Thin Promises", "Double Trouble", "Every Rock Has Two Sides", "Fire in the Belly", "Smoke Signals", "The Jungle Remembers", "Keep Your Enemies Closer", "Tree Mail Tremors", "Hunger Games at Camp", "Cracks in the Shelter", "No Safe Seats", "Chasing Shadows", "Last Light", "The Purple Rock", "Spilled Rice", "Low Tide, High Stakes", "Riding the Wave", "A Vote Is a Vote", "Ticking Time Bomb", "Dead Weight", "Born to Scheme", "The Merge Feast", "Cutthroat Paradise", "Lightning Strikes Twice", "I'm Not Here to Make Friends", "Blindside City", "The Tide Turns", "Snakes in the Grass", "Who Can You Trust?", "Playing With Fire", "Calm Before the Storm", "A Bridge Too Far", "Don't Get Comfortable", "Idol Chatter", "Trust Nobody", "Rice and Paranoia", "Numbers Game", "Out of the Frying Pan", "The Long Con", "Torch Snuffer", "Butterflies and Machetes", "Salt in the Wound", "Mutiny at Dawn", "The Coconut Telegraph", "Smile and Nod", "Nothing to Lose", "Bad Blood, Good Fish", "Read the Room", "Going Rogue", "Thin Ice in the Tropics", "Sleeping With One Eye Open", "The Fuse Is Lit", "Say It to My Face", "One Bad Day", "Sharks Circling", "Bold Moves Only", "A House Divided", "The Swing Vote", "Pecking Order", "Shifting Sands"];
 
 let rand: (() => number) | null = null;
 const r = () => (rand ? rand() : Math.random());
@@ -949,43 +949,141 @@ function doMerge(s: GameState) {
 }
 
 // ---------- confessionals ----------
+// Each quote has a stable key (its template) so no line is ever reused in a season, even with different names.
+// Event quotes carry a short phrase that can become the episode title.
+type Quote = { key: string; text: string; phrase?: string };
+const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
+  idol: [
+    () => ["A Gift From God", `"Oh wow. This is a gift from God. I'm holding my whole game in my hand right now."`],
+    () => ["Hands Shaking", `"My hands are shaking. I just found the idol and I have to walk back to camp like nothing happened."`],
+    () => ["Power in My Pocket", `"Power in my pocket. Nobody knows, and nobody is going to know until it matters."`],
+    () => ["Christmas Came Early", `"Christmas came early this year! I literally screamed into my buff."`],
+    () => ["The Island Chose Me", `"I genuinely believe the island chose me. That idol was waiting for me."`],
+    () => ["Insurance Policy", `"That's my insurance policy. Now I can play a little bit bolder."`],
+    () => ["Finders Keepers", `"Finders keepers. I'm not telling a soul — not even my alliance."`],
+  ],
+  advantage: [
+    () => ["A Secret Weapon", `"This is a secret weapon. One play and the whole vote flips."`],
+    () => ["Ace Up My Sleeve", `"I've got an ace up my sleeve, and I'm going to wait for the perfect moment."`],
+    () => ["Not Just Along for the Ride", `"Everyone thinks I'm just along for the ride. This advantage says otherwise."`],
+    () => ["Tools of the Trade", `"In this game you need tools of the trade. Today I picked one up."`],
+  ],
+  clue: [
+    () => ["Treasure Map", `"It's basically a treasure map. I just have to get away from camp without anyone noticing."`],
+    () => ["Hot on the Trail", `"I'm hot on the trail. That idol is close, I can feel it."`],
+  ],
+  drama: [
+    (o) => ["I'm Not Here for Your Drama", `"I'm not here for your drama, ${o}. Keep my name out of your mouth."`],
+    (o) => ["Lines Were Crossed", `"Lines were crossed today. ${o} showed me exactly who they are."`],
+    () => ["Camp Is a Pressure Cooker", `"Camp is a pressure cooker, and somebody's lid just blew off."`],
+    (o) => ["Bite My Tongue", `"I had to bite my tongue so hard with ${o}. But I'll get the last word at Tribal."`],
+    () => ["Pass the Popcorn", `"I just sat back and watched. Somebody pass the popcorn."`],
+  ],
+  alliance: [
+    (o) => ["Shake On It", `"${o} and I shook on it. Whether that handshake means anything... we'll see."`],
+    () => ["Strength in Numbers", `"Strength in numbers. We've got them now, and the others don't even know it."`],
+    () => ["Ride or Die", `"This is my ride or die crew. If one of us goes, we all go down swinging."`],
+    () => ["A Pact Under the Stars", `"We made a pact under the stars. Feels a little dramatic, but I'm all in."`],
+    (o) => ["Partners in Crime", `"${o} and I are partners in crime now. Nobody would ever suspect us."`],
+  ],
+  gift: [
+    (o) => ["Ultimate Trust", `"I gave ${o} my most valuable thing. That's the ultimate trust in this game."`],
+    () => ["Paying It Forward", `"Paying it forward. One day that favor comes back to me."`],
+  ],
+  camp: [
+    () => ["Fed the Tribe", `"I fed the tribe today. Nobody votes out the person keeping them alive."`],
+    () => ["Hunger Hurts", `"Hunger hurts. I'd trade my shoes for a plate of pancakes right now."`],
+    (o) => ["A Real Friend", `"${o} might be a real friend. That's dangerous out here — and kind of beautiful."`],
+    () => ["Mother Nature Hates Us", `"Mother Nature hates us. The shelter's gone and so is my patience."`],
+    () => ["Small Wins", `"You take the small wins out here. Fire, fish, a dry shirt."`],
+  ],
+};
+const GENERIC_QUOTES = [
+  "Day {day}. I'm still here, and that's all that matters.", "People underestimate me. Good. Let them.",
+  "Every vote from here on out is a chess move, and I'm three steps ahead.", "I came here to play, not to make friends. Well... maybe a few friends.",
+  "The rain hasn't stopped in two days and my patience is about as thin as the shelter roof.", "I keep smiling at camp, but in my head I'm counting votes every second.",
+  "Nobody out here is your friend after the merge. Nobody.", "I miss my family so much, and that's exactly why I can't let up now.",
+  "Sometimes the best move is no move at all. I'm sitting tight.", "I can feel the target shifting. I just need it to land on someone else tonight.",
+  "Being in the middle is dangerous, but it also means everyone needs me.", "Losing weight, losing sleep, but I am not losing this game.",
+  "I've been lying so much I need a spreadsheet, and we don't have paper.", "My mom told me not to trust anybody out here. Hi Mom, you were right.",
+  "If I go home tonight, at least I go home with a great tan.", "The sand gets everywhere. Everywhere. And so do the rumors.",
+  "I'm a nice person back home. Out here? I'm whoever I need to be.", "You don't win this game by playing scared, so I'm done being scared.",
+  "I can hear people whispering from the shelter. They think the waves cover it. They don't.", "I've eaten a bug today. That's who I am now.",
+  "Being on the bottom gives you clarity. You see everything.", "Trust is a currency out here, and I'm spending mine carefully.",
+  "I'm playing checkers while they argue over chess.", "It's not personal. Well... it's a little personal.",
+  "Somebody's getting blindsided this week, and I'd love for it not to be me.", "I'd give anything for a cheeseburger and eight hours of sleep.",
+  "The game never stops. Even when you're asleep, somebody's plotting.", "I'm keeping my head down and my ears open.",
+  "This island humbles you. One day you're on top, the next you're crawling.", "Loyalty is great until it gets you voted out.",
+  "Every conversation out here is an audition for the jury.", "I'm tired of being the swing vote. Actually, no — I love it.",
+  "I keep thinking about my kids. They're why I fight for every single day.", "My strategy is simple: be everybody's second-favorite person.",
+  "When people stop talking when I walk up, I know I'm in trouble.", "The bigger they are, the louder the blindside.",
+  "I haven't stopped shaking since the last Tribal. That was way too close.", "I'm a fan of this show, but nothing prepares you for the real thing.",
+];
+const PERSONAL_QUOTES: ((s: GameState, c: Castaway, x: { best?: Castaway; worst?: Castaway; al?: Alliance }) => Quote | null)[] = [
+  (_s, c) => c.idols > 0 ? { key: "p-idol", text: `"I have an idol and nobody suspects a thing. That feeling? Pure power."` } : null,
+  (_s, c) => c.advantages.length ? { key: "p-adv", text: `"I'm sitting on a ${ADVANTAGE_LABEL[c.advantages[0]]}. When I play it, this game flips upside down."` } : null,
+  (_s, _c, x) => x.al ? { key: "p-al", text: `"${x.al.name} is my lifeline right now. As long as we stick together, nobody can touch us."` } : null,
+  (s, c, x) => x.best && getRel(s, c.id, x.best.id) > 10 ? { key: "p-best", text: `"${x.best.name} is the one person I truly trust out here. I'd go to the end with them."` } : null,
+  (s, c, x) => x.worst && getRel(s, c.id, x.worst.id) < -8 ? { key: "p-worst", text: `"If ${x.worst.name} is still here tomorrow, something has gone very wrong. They have to go."` } : null,
+  (_s, c) => c.mood < 35 ? { key: "p-low", text: `"I'm exhausted, I'm starving, and honestly... I don't know how much more of this I have in me."` } : null,
+  (_s, c) => c.mood > 80 ? { key: "p-high", text: `"Everything is clicking. The tribe loves me, I'm eating well — this is my game to lose."` } : null,
+  (_s, c) => c.immunityWins > 0 ? { key: "p-imm", text: `"Winning immunity feels great, but I know it paints a target on my back."` } : null,
+  (s, c) => c.betrayedBy.length ? { key: "p-betray", text: `"I haven't forgotten what ${nm(s, c.betrayedBy[0])} did to me. Payback is coming."` } : null,
+];
+function eventKind(e: LogEntry): string | null {
+  if (e.kind === "confessional") return null;
+  if (/Idol Found|Beware Advantage/.test(e.title)) return "idol";
+  if (/Advantage Found/.test(e.title)) return "advantage";
+  if (/Idol Clue/.test(e.title)) return "clue";
+  if (/Handed Over/.test(e.title)) return "gift";
+  if (/Alliance Formed|Your Move/.test(e.title) && !/hesitant/.test(e.text)) return "alliance";
+  if (e.kind === "drama") return "drama";
+  if (e.kind === "camp" && !/Life at Camp/.test(e.title)) return "camp";
+  return null;
+}
+const PRIORITY = ["idol", "advantage", "gift", "drama", "alliance", "clue", "camp"];
 function addConfessionals(s: GameState) {
   const ms = alive(s);
   if (ms.length < 3) return;
-  const used = new Set(s.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "confessional").map((e) => e.text));
-  for (const c of shuffle(ms).slice(0, r() < 0.5 ? 1 : 2)) {
+  const all = s.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "confessional");
+  const usedKeys = new Set(all.map((e) => e.quoteKey ?? e.text));
+  const usedText = new Set(all.map((e) => e.text));
+  const ep = s.episodes[s.episodes.length - 1];
+  const usedTitles = new Set(s.episodes.slice(0, -1).map((e) => e.title));
+  const speakers: Castaway[] = [];
+  const say = (c: Castaway, q: Quote) => {
+    usedKeys.add(q.key); usedText.add(q.text); speakers.push(c);
+    log(s, { kind: "confessional", title: `Confessional — ${c.name}`, text: q.text, quoteKey: q.key });
+  };
+  // 1) Event-driven confessional, which also names the episode.
+  const events = (ep?.entries ?? []).map((e) => ({ e, k: eventKind(e) })).filter((x) => x.k).sort((a, b) => PRIORITY.indexOf(a.k!) - PRIORITY.indexOf(b.k!));
+  let titled = false;
+  for (const { e, k } of events) {
+    const mentioned = ms.filter((c) => e.text.includes(c.name)).sort((a, b) => e.text.indexOf(a.name) - e.text.indexOf(b.name));
+    const actor = e.title.startsWith("Your") || e.title.startsWith("You ") ? ms.find((c) => c.id === s.config.controlledId) : mentioned[0];
+    if (!actor || speakers.includes(actor)) continue;
+    const other = mentioned.find((c) => c.id !== actor.id) ?? ms.find((c) => c.id !== actor.id && c.tribeId === actor.tribeId);
+    const opts = EVENT_QUOTES[k!].map((f, i) => ({ i, r: f(other?.name ?? "them") })).filter((o) => !usedKeys.has(`${k}-${o.i}`) && !usedTitles.has(o.r[0]));
+    if (!opts.length) continue;
+    const o = pick(opts);
+    say(actor, { key: `${k}-${o.i}`, text: o.r[1], phrase: o.r[0] });
+    if (ep && !titled) { ep.title = o.r[0]; titled = true; }
+    if (speakers.length >= 2) break;
+  }
+  // 2) Fill with personal or generic confessionals.
+  const want = Math.max(speakers.length, r() < 0.5 ? 1 : 2);
+  for (const c of shuffle(ms.filter((m) => !speakers.includes(m)))) {
+    if (speakers.length >= want) break;
     const others = ms.filter((o) => o.id !== c.id);
     const best = [...others].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
     const worst = [...others].sort((a, b) => getRel(s, c.id, a.id) - getRel(s, c.id, b.id))[0];
     const al = s.alliances.find((a) => a.members.includes(c.id));
-    const lines: string[] = [];
-    if (c.idols > 0) lines.push(`"I have an idol and nobody suspects a thing. That feeling? Pure power."`);
-    if (c.advantages.length) lines.push(`"I'm sitting on a ${ADVANTAGE_LABEL[c.advantages[0]]}. When I play it, this game flips upside down."`);
-    if (al) lines.push(`"${al.name} is my lifeline right now. As long as we stick together, nobody can touch us."`);
-    if (best && getRel(s, c.id, best.id) > 10) lines.push(`"${best.name} is the one person I truly trust out here. I'd go to the end with them."`);
-    if (worst && getRel(s, c.id, worst.id) < -8) lines.push(`"If ${worst.name} is still here tomorrow, something has gone very wrong. They have to go."`);
-    if (c.mood < 35) lines.push(`"I'm exhausted, I'm starving, and honestly... I don't know how much more of this I have in me."`);
-    if (c.mood > 80) lines.push(`"Everything is clicking. The tribe loves me, I'm eating well — this is my game to lose."`);
-    if (c.immunityWins > 0) lines.push(`"Winning immunity feels great, but I know it paints a target on my back."`);
-    if (c.betrayedBy.length) lines.push(`"I haven't forgotten what ${nm(s, c.betrayedBy[0])} did to me. Payback is coming."`);
-    lines.push(
-      `"Day ${s.day}. I'm still here, and that's all that matters."`,
-      `"People underestimate me. Good. Let them."`,
-      `"Every vote from here on out is a chess move, and I'm three steps ahead."`,
-      `"I came here to play, not to make friends. Well... maybe a few friends."`,
-      `"The rain hasn't stopped in two days and my patience is about as thin as the shelter roof."`,
-      `"I keep smiling at camp, but in my head I'm counting votes every second."`,
-      `"Nobody out here is your friend after the merge. Nobody."`,
-      `"I miss my family so much, and that's exactly why I can't let up now."`,
-      `"Sometimes the best move is no move at all. I'm sitting tight."`,
-      `"I can feel the target shifting. I just need it to land on someone else tonight."`,
-      `"Being in the middle is dangerous, but it also means everyone needs me."`,
-      `"Losing weight, losing sleep, but I am not losing this game."`,
-    );
-    const fresh = lines.filter((l) => !used.has(l));
-    if (!fresh.length) continue;
-    const text = pick(fresh); used.add(text);
-    log(s, { kind: "confessional", title: `Confessional — ${c.name}`, text });
+    const pool: Quote[] = [
+      ...PERSONAL_QUOTES.map((f) => f(s, c, { best, worst, al })).filter((q): q is Quote => !!q),
+      ...GENERIC_QUOTES.map((t, i) => ({ key: `g-${i}`, text: `"${t.replace("{day}", String(s.day))}"` })),
+    ].filter((q) => !usedKeys.has(q.key) && !usedText.has(q.text));
+    if (!pool.length) continue;
+    say(c, pick(pool));
   }
 }
 

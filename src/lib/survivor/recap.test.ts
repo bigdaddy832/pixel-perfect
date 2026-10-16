@@ -76,3 +76,18 @@ describe("unique confessionals", () => {
     }
   });
 });
+
+describe("event-matched episode titles", () => {
+  it("never reuses a confessional template and names episodes after event quotes", () => {
+    let matched = 0;
+    for (let i = 0; i < 15; i++) {
+      const g = simulateToEnd(season());
+      const conf = g.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "confessional");
+      const keys = conf.map((e) => e.quoteKey);
+      expect(new Set(keys).size).toBe(keys.length);
+      expect(new Set(g.episodes.map((e) => e.title)).size).toBe(g.episodes.length);
+      matched += g.episodes.filter((ep) => ep.entries.some((e) => e.kind === "confessional" && e.text.toLowerCase().includes(ep.title.toLowerCase().split(" ").slice(0, 2).join(" ")))).length;
+    }
+    expect(matched).toBeGreaterThan(0);
+  });
+});
