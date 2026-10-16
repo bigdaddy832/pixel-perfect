@@ -148,7 +148,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           <Field label="Play as">
             <select className={sel} value={controlled ?? ""} onChange={(e) => setControlled(e.target.value === "" ? null : +e.target.value)}>
               <option value="">Spectator (auto)</option>
-              {roster.map((r, i) => <option key={i} value={i}>{r.name}</option>)}
+              {roster.map((r, i) => ({ r, i })).sort((a, b) => a.r.name.localeCompare(b.r.name)).map(({ r, i }) => <option key={i} value={i}>{r.name}</option>)}
             </select>
           </Field>
         </div>
