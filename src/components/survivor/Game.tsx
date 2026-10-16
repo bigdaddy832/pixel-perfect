@@ -91,7 +91,7 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
     <div className={`rounded-lg border bg-card p-3 ${me ? "border-primary torch-glow" : ""} ${g.immune.includes(c.id) ? "ring-2 ring-idol" : ""}`}>
       <div className="flex items-center justify-between">
         <span className="font-semibold">{c.name}{me && <span className="ml-1 text-xs text-primary">(YOU)</span>}</span>
-        <span className="flex flex-wrap items-center justify-end gap-1 text-sm">{g.immune.includes(c.id) && "🛡️"}{c.idols > 0 && "🗿".repeat(c.idols)}{(c.advantages ?? []).map((a) => <span key={a} className="text-xs text-accent">{ADVANTAGE_LABEL[a]}</span>)}{c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}</span>
+        <span className="flex flex-wrap items-center justify-end gap-1 text-sm">{g.immune.includes(c.id) && "🛡️"}{c.idols > 0 && "🗿".repeat(c.idols)}{c.fakeIdol && <span className="text-xs text-muted-foreground">{c.fakeIdol === "own" ? "Fake idol" : "Fake idol (thinks it's real)"}</span>}{c.bewareTribals > 0 && <span className="text-xs text-destructive">Beware</span>}{c.lostVote && <span className="text-xs text-destructive">No vote</span>}{(c.advantages ?? []).map((a) => <span key={a} className="text-xs text-accent">{ADVANTAGE_LABEL[a]}</span>)}{c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}</span>
       </div>
       <div className="mt-1 h-1.5 overflow-hidden rounded bg-muted" title={`Mood ${c.mood}`}><div className="h-full bg-success" style={{ width: `${c.mood}%` }} /></div>
       <div className="mt-1.5 flex flex-wrap gap-1">{als.map((a) => <span key={a.id} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-accent">{a.name}</span>)}</div>
@@ -155,6 +155,12 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
               </select>
             </label>}
           </div>
+          {pending.canSearchAtChallenge && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.challengeIdol ?? false} onChange={(e) => setDec({ ...dec, challengeIdol: e.target.checked })} className="size-4 accent-primary" />Look for an idol during the immunity challenge (risks slowing your tribe)</label>}
+          {!pending.fakeStatus && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.craftFake ?? false} onChange={(e) => setDec({ ...dec, craftFake: e.target.checked })} className="size-4 accent-primary" />Craft a fake idol</label>}
+          {(pending.fakeStatus === "own" || dec.craftFake) && pending.plantTargets.length > 0 && <label className="flex flex-wrap items-center gap-2 text-sm">Plant fake idol on:
+            <select className={sel} value={dec.fakeTarget ?? ""} onChange={(e) => setDec({ ...dec, fakeTarget: e.target.value || undefined })}>
+              <option value="">Keep it for now</option><option value="__random__">Random person</option>{pending.plantTargets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select></label>}
         </div>
       )}
       {pending.kind === "cut" && (
@@ -165,6 +171,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
       )}
       {pending.kind === "tribal" && (
         <div className="mt-2 flex flex-wrap gap-4 text-sm">
+          {pending.noVote && <p className="w-full text-destructive">You have no vote tonight.</p>}
           {pending.canGiveImmunity && (
             <label className="flex items-center gap-2">🛡️ Give up immunity to:
               <select className={sel} value={dec.giveImmunity ?? ""} onChange={(e) => setDec({ ...dec, giveImmunity: e.target.value || undefined })}>
@@ -178,7 +185,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           {pending.hasIdol && (
             <label className="flex items-center gap-2">🗿 Play idol on:
               <select className={sel} value={dec.idol ?? ""} onChange={(e) => setDec({ ...dec, idol: e.target.value })}>
-                <option value="">Keep it</option>{pending.idolTargets.map((o) => <option key={o.id} value={o.id}>{o.id === me.id ? "Myself" : o.name}</option>)}
+                <option value="">Keep it</option><option value="__random__">Random person</option>{pending.idolTargets.map((o) => <option key={o.id} value={o.id}>{o.id === me.id ? "Myself" : o.name}</option>)}
               </select></label>
           )}
           {pending.advantages.length > 0 && (
@@ -190,7 +197,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           {dec.advantage && ADVANTAGE_NEEDS_TARGET.includes(dec.advantage) && (
             <label className="flex items-center gap-2">On:
               <select className={sel} value={dec.advantageTarget ?? ""} onChange={(e) => setDec({ ...dec, advantageTarget: e.target.value || undefined })}>
-                <option value="">— Choose —</option>{pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                <option value="">— Choose —</option><option value="__random__">Random person</option>{pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select></label>
           )}
           {dec.advantage && <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>}

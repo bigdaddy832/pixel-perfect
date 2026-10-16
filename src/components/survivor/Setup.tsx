@@ -24,6 +24,10 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [addSwapTribe, setAddSwapTribe] = useState(true);
   const [joint, setJoint] = useState(true);
   const [double, setDouble] = useState(true);
+  const [edge, setEdge] = useState(false);
+  const [journeys, setJourneys] = useState(true);
+  const [exile, setExile] = useState(false);
+  const [beware, setBeware] = useState(true);
   const [tribes, setTribes] = useState<Tribe[]>(() => [0, 1, 2].map((i) => ({ id: `t${i}`, name: TRIBE_NAMES[i], color: TRIBE_COLORS[i] })));
   const [roster, setRoster] = useState<Row[]>(() => makeRoster(18, 2));
   const [controlled, setControlled] = useState<number | null>(null);
@@ -66,6 +70,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       swapEnabled: swap, swapAt, mergeAt: Math.min(mergeAt, count - 2), mergedName: mergeTribe.name, mergedColor: mergeTribe.color,
       swapTribe: swap && tribeCount === 2 && addSwapTribe ? { ...swapTribe } : undefined,
       jointTribals: joint, doubleTribals: double,
+      edgeOfExtinction: edge, journeys, exileIsland: exile, bewareAdvantages: beware,
       controlledId: controlled === null ? null : `c${controlled}`,
     };
     onStart(newGame(cfg, active, roster.map((r, i) => ({ ...r, tribeIndex: i % tribeCount }))));
@@ -95,6 +100,11 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           {swap && <Field label="Swap at (remaining)"><input type="number" className={`${sel} w-20`} value={swapAt} onChange={(e) => setSwapAt(+e.target.value)} /></Field>}
           <Field label="Joint tribal councils"><input type="checkbox" checked={joint} onChange={(e) => setJoint(e.target.checked)} className="accent-primary size-4" /></Field>
           <Field label="Double tribals / eliminations"><input type="checkbox" checked={double} onChange={(e) => setDouble(e.target.checked)} className="accent-primary size-4" /></Field>
+          <p className="text-xs text-muted-foreground">Max one joint or double tribal per season.</p>
+          <Field label="Edge of Extinction / Redemption"><input type="checkbox" checked={edge} onChange={(e) => setEdge(e.target.checked)} className="accent-primary size-4" /></Field>
+          <Field label="Summit journeys"><input type="checkbox" checked={journeys} onChange={(e) => setJourneys(e.target.checked)} className="accent-primary size-4" /></Field>
+          <Field label="Exile Island"><input type="checkbox" checked={exile} onChange={(e) => setExile(e.target.checked)} className="accent-primary size-4" /></Field>
+          <Field label="Beware advantages"><input type="checkbox" checked={beware} onChange={(e) => setBeware(e.target.checked)} className="accent-primary size-4" /></Field>
           <Field label="Merge at (remaining)"><input type="number" className={`${sel} w-20`} value={mergeAt} onChange={(e) => setMergeAt(+e.target.value)} /></Field>
         </div>
         <div className="rounded-xl border bg-card p-5 space-y-3">
