@@ -40,10 +40,12 @@ describe("confessionals, recap, nullifier, and list ordering", () => {
     const holder = g.castaways.find((c) => c.tribeId === "t0" && c.id !== me.id);
     if (!me || !holder) throw new Error("Missing castaways");
     me.advantages = ["idol_nullifier"];
-    holder.idols = 1;
+    holder.idols = 1; holder.stats.strategy = 10;
     // Everyone votes for the idol holder so they play it.
     g.castaways.forEach((c) => { if (c.id !== holder.id) g.rel[[c.id, holder.id].sort().join("|")] = -100; });
-    const result = step(g, { advantage: "idol_nullifier", advantageTarget: holder.id });
+    // Live-tribal whispering can occasionally move votes off the holder, so retry until they play it.
+    let result = step(g, { vote: holder.id, advantage: "idol_nullifier", advantageTarget: holder.id });
+    for (let i = 0; i < 30 && result.castaways.find((c) => c.id === holder.id)?.idols !== 0; i++) result = step(g, { vote: holder.id, advantage: "idol_nullifier", advantageTarget: holder.id });
     const entry = result.episodes.flatMap((e) => e.entries).find((e) => e.kind === "tribal");
     expect(entry?.details?.some((d) => d.includes("nullified"))).toBe(true);
     expect(result.castaways[0]?.advantages).toEqual([]);
