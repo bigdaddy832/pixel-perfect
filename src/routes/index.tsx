@@ -42,7 +42,7 @@ function Season() {
       if (!data.user) return;
       const winner = game.castaways.find((c) => c.id === game.winner)?.name ?? null;
       const marked = { ...game, savedToHistory: true } as GameState;
-      const { error } = await supabase.from("seasons").insert({ user_id: data.user.id, title: `Season: ${game.tribes.map((t) => t.name).slice(0, 3).join(" vs ")}`, winner, cast_size: game.castaways.length, data: marked as any });
+      const { error } = await supabase.from("seasons").insert({ user_id: data.user.id, title: game.config.seasonTitle ?? `Season: ${game.tribes.map((t) => t.name).slice(0, 3).join(" vs ")}`, winner, cast_size: game.castaways.length, data: marked as any });
       if (!error) setGameState(marked);
     })();
   }, [game]);
