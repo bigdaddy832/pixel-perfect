@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { alive, amuletHolders, makeRoster, newGame, pendingDecision, simulateToEnd, step, type GameState } from "./engine";
 
 function season(tribeCount = 3) {
-  return newGame({ playerCount: 18, tribeCount, jurySize: 8, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 15, mergeAt: 12, mergedName: "Velunara", mergedColor: "#123abc", controlledId: "c0", bewareAdvantages: true, jointTribals: false, doubleTribals: false }, Array.from({ length: tribeCount }, (_, i) => ({ id: `t${i}`, name: `Tribe ${i}`, color: "#123abc" })), makeRoster(18, tribeCount));
+  return newGame({ playerCount: 18, tribeCount, jurySize: 8, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 15, mergeAt: 12, mergedName: "Velunara", mergedColor: "#123abc", controlledId: "c0", bewareAdvantages: true, jointTribals: false, doubleTribals: false }, Array.from({ length: tribeCount }, (_, i) => ({ id: `t${i}`, name: `Tribe ${i}`, color: "#123abc" })), makeRoster(18, tribeCount).map((c, i) => ({ ...c, name: c.name ?? `Player ${i}` })));
 }
 const entries = (s: GameState) => s.episodes.flatMap((e) => e.entries);
 function tribalWithHolders(n: number) {
@@ -26,7 +26,9 @@ describe("Beware and Advantage Amulets", () => {
 
   it("requires all holders at Tribal Council", () => {
     const s = tribalWithHolders(3);
-    s.castaways[1].tribeId = "t1";
+    const other = s.castaways[1];
+    if (!other) throw new Error("Missing holder");
+    other.tribeId = "t1";
     expect(pendingDecision(s)).toMatchObject({ canPlayAmulet: false });
     const result = step(s, { playAmulet: true });
     expect(result.amuletsConsumed).not.toBe(true);
@@ -42,7 +44,7 @@ describe("Beware and Advantage Amulets", () => {
     expect(tribal?.details?.some((d) => d.includes("Advantage Amulets together"))).toBe(true);
     if (n > 1) expect(tribal?.votes?.filter((v) => v.voter === "c0")).toHaveLength(2);
     if (n === 2) expect(tribal?.votes?.some((v) => v.voter === "c7")).toBe(false);
-    if (n === 1) { expect(result.castaways[0].out).toBe(false); expect(tribal?.votes?.filter((v) => v.target === "c0").every((v) => v.nullified)).toBe(true); }
+    if (n === 1) { expect(result.castaways[0]?.out).toBe(false); expect(tribal?.votes?.filter((v) => v.target === "c0").every((v) => v.nullified)).toBe(true); }
   });
 
   it("announces three, two, and one holders once each after eliminations", () => {
@@ -76,8 +78,10 @@ describe("Beware and Advantage Amulets", () => {
     const result = step(s);
     expect(entries(result).filter((e) => e.title.includes("Beware Advantage"))).toHaveLength(1);
     expect(result.bewareFound).toBe(true);
-    result.bewareFound = undefined; result.config.controlledId = "c0";
-    result.castaways[0].idols = 0; result.hiddenIdols.t0 = 1; result.phase = "camp";
+    delete result.bewareFound; result.config.controlledId = "c0";
+    const player = result.castaways[0];
+    if (!player) throw new Error("Missing player");
+    player.idols = 0; result.hiddenIdols['t0'] = 1; result.phase = "camp";
     const later = step(result, { searchIdol: true });
     expect(entries(later).filter((e) => e.title.includes("Beware Advantage"))).toHaveLength(1);
   });
