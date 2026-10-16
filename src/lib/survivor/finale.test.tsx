@@ -5,7 +5,7 @@ import { finalistSpeeches, IDOL_HIDING_PLACES, SEARCH_SPOTS, makeRoster, newGame
 import { reachedMerge, seasonStatistics } from "./statistics";
 
 function season() {
-  return newGame({ playerCount: 12, tribeCount: 2, jurySize: 6, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 10, mergeAt: 8, mergedName: "Final Tribe", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(12, 2));
+  return newGame({ playerCount: 12, tribeCount: 2, jurySize: 6, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 10, mergeAt: 8, mergedName: "Final Tribe", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(12, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i}` })));
 }
 function jurySeason() {
   const g = season();
@@ -39,7 +39,9 @@ describe("finale detail and decisions", () => {
     expect(done.phase).toBe("done");
     expect(done.episodes.flatMap((e) => e.entries).filter((e) => e.title === "Opening Statements")).toHaveLength(1);
     expect(step(g, { juryVote: "c11" }).juryVotes?.find((v) => v.juror === "c0")?.finalist).not.toBe("c11");
-    g.castaways[0].juror = false;
+    const me = g.castaways[0];
+    if (!me) throw new Error("Missing player");
+    me.juror = false;
     expect(pendingDecision(g)).toBeNull();
   });
 
@@ -84,8 +86,10 @@ describe("finale detail and decisions", () => {
 
   it("counts individual wins and all ballots, separating negated votes", () => {
     const g = jurySeason();
-    g.castaways[1].immunityWins = 2;
-    g.episodes[0]?.entries.push({ kind: "challenge", title: "Reward Challenge: Test", text: `${g.castaways[1].name} wins reward.` }, { kind: "tribal", title: "Vote", text: "", votes: [{ voter: "c4", target: "c1", nullified: true }, { voter: "c5", target: "c1" }], revote: [{ voter: "c4", target: "c1" }] });
+    const finalist = g.castaways[1];
+    if (!finalist) throw new Error("Missing finalist");
+    finalist.immunityWins = 2;
+    g.episodes[0]?.entries.push({ kind: "challenge", title: "Reward Challenge: Test", text: `${finalist.name} wins reward.` }, { kind: "tribal", title: "Vote", text: "", votes: [{ voter: "c4", target: "c1", nullified: true }, { voter: "c5", target: "c1" }], revote: [{ voter: "c4", target: "c1" }] });
     expect(seasonStatistics(g).find((r) => r.id === "c1")).toMatchObject({ rewards: 1, immunity: 2, totalWins: 3, votesAgainst: 3, countedAgainst: 2, negated: 1 });
   });
 
