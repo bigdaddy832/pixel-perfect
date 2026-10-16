@@ -1,4 +1,4 @@
-// Season titles follow the show's "Survivor: Location — Theme" format.
+// Season titles follow the show's "Survivor: X" format, where X is a location OR a theme (never both).
 // Locations are REAL places (islands, countries, seas) — but never one that
 // already served as a real Survivor season name. Themes are original,
 // twist-style coined names (like "Elimination Island") — never a real
@@ -37,11 +37,10 @@ export function readUsedTitles(): string[] {
 export function markTitleUsed(title: string) {
   try { const u = readUsedTitles(); if (!u.includes(title)) localStorage.setItem(USED_TITLES_KEY, JSON.stringify([...u, title])); } catch { /* storage blocked */ }
 }
-/** Random unused "Survivor: Place — Theme" title; falls back to a numbered variant once every combo is spent. */
+/** Random unused "Survivor: X" title — X is either a real place or an original theme, never both. */
 export function randomSeasonTitle(used: string[], rand: () => number = Math.random): string {
   const usedSet = new Set(used.map((t) => t.toLowerCase()));
-  const all: string[] = [];
-  for (const p of SEASON_PLACES) for (const t of SEASON_THEMES) all.push(`Survivor: ${p} — ${t}`);
+  const all = [...SEASON_PLACES, ...SEASON_THEMES].map((x) => `Survivor: ${x}`);
   const free = all.filter((t) => !usedSet.has(t.toLowerCase()));
   if (free.length) return free[Math.floor(rand() * free.length)]!;
   for (let n = 2; ; n++) { const t = `${all[Math.floor(rand() * all.length)]} ${n}`; if (!usedSet.has(t.toLowerCase())) return t; }

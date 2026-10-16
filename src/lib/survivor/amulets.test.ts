@@ -14,11 +14,11 @@ function tribalWithHolders(n: number) {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Beware and Advantage Amulets", () => {
-  it.each([2, 3, 4])("awards exactly three first-reward volunteers with %s tribes, only once", (n) => {
+  it.each([2, 3, 4])("awards one first-reward volunteer per tribe with %s tribes, only once", (n) => {
     const s = season(n); s.phase = "challenge";
     const result = step(s);
-    expect(amuletHolders(result)).toHaveLength(3);
-    expect(new Set(amuletHolders(result).map((c) => c.tribeId)).size).toBe(Math.min(3, n));
+    expect(amuletHolders(result)).toHaveLength(n);
+    expect(new Set(amuletHolders(result).map((c) => c.tribeId)).size).toBe(n);
     expect(entries(result).filter((e) => e.title.startsWith("Advantage Amulet:"))).toHaveLength(1);
     result.phase = "challenge";
     expect(entries(step(result)).filter((e) => e.title === "First Reward: Amulet Volunteers")).toHaveLength(1);
@@ -93,7 +93,7 @@ describe("Beware and Advantage Amulets", () => {
       expect(entries(result).filter((e) => e.title.includes("Beware Advantage")).length).toBeLessThanOrEqual(1);
       const notes = entries(result).filter((e) => e.title.startsWith("Advantage Amulet:"));
       expect(new Set(notes.map((e) => e.title)).size).toBe(notes.length);
-      expect(notes.length).toBeLessThanOrEqual(3);
+      expect(notes.length).toBeLessThanOrEqual(i % 3 + 2);
     }
   });
 });
