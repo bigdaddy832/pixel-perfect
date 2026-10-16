@@ -20,3 +20,4 @@
 - [x] Revote screen shows votes read and counts; more gifts to/from you; no advantages at final 5; more alliance names; unique juror questions; events affect relationships/mood; relationships panel.
 - [x] Shot in the Dark for everyone (one per season, 1/6 safety, forfeits vote).
 - [x] Player confessionals each episode; F4 immunity-winner reasoning and rare immunity give-up for fire; alphabetical player lists; one-use idol nullifier confirmed; end-of-season recap entry.
+- [x] Vote-by-vote parchment reveal; original never-repeating season titles; superlatives; Ponderosa logs; split votes; live tribal whispering; camp conversations.
