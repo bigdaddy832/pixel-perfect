@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, getRel, amuletHolders, amuletDescription,
+  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, getRel, amuletHolders, amuletDescription, TALK_TOPICS,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -9,14 +9,21 @@ import { Button } from "@/components/ui/button";
 import { SeasonStatistics } from "./SeasonStatistics";
 
 const PHASE_LABEL: Record<string, string> = { camp: "Life at Camp", challenge: "Challenges", tribal: "Tribal Council", final_challenge: "Final Immunity", final_choice: "Final Decision", ftc: "Final Tribal Council", done: "Season Complete" };
-const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑", confessional: "🎙️" };
+const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑", confessional: "🎙️", jury: "⚖️" };
 
 const az = <T extends { name: string }>(xs: T[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
 export function Game({ game, setGame, onReset, readOnly = false }: { game: GameState; setGame: (g: GameState) => void; onReset: () => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [dec, setDec] = useState<Decision>({});
   const pending = pendingDecision(game);
-  const next = () => { setGame(step(game, { ...dec, pauseOnRevote: true })); setDec({}); };
+  const [reveals, setReveals] = useState<LogEntry[]>([]);
+  const tribalCount = (g: GameState) => g.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal").length;
+  const next = () => {
+    const ng = step(game, { ...dec, pauseOnRevote: true });
+    const fresh = ng.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal").slice(tribalCount(game));
+    setGame(ng); setDec({});
+    if (fresh.length) setReveals(fresh);
+  };
   const winner = game.winner ? byId(game, game.winner) : null;
   const groups = [...new Set(alive(game).map((c) => c.tribeId))];
   const jury = game.castaways.filter((c) => c.juror);
@@ -27,6 +34,7 @@ export function Game({ game, setGame, onReset, readOnly = false }: { game: GameS
       <header className="sticky top-0 z-20 -mx-4 mb-6 flex flex-wrap items-center justify-between gap-3 border-b bg-background/90 px-4 py-3 backdrop-blur">
         <div>
           <h1 className="text-4xl leading-none">Survivor Simulator</h1>
+          {game.config.seasonTitle && <p className="font-display text-lg tracking-wide text-accent">{game.config.seasonTitle}</p>}
           <p className="text-sm text-muted-foreground">Day {game.day} · {PHASE_LABEL[game.phase]} · {alive(game).length} remain</p>
         </div>
         {!readOnly && <div className="flex flex-wrap gap-2">
@@ -63,6 +71,7 @@ export function Game({ game, setGame, onReset, readOnly = false }: { game: GameS
           })}
           <RelationshipsPanel game={game} />
           <AlliancesPanel game={game} />
+          <PonderosaPanel game={game} />
           {jury.length > 0 && (
             <section className="rounded-xl border bg-card p-4">
               <h2 className="text-2xl text-accent">Jury ({jury.length}/{game.config.jurySize})</h2>
@@ -85,6 +94,7 @@ export function Game({ game, setGame, onReset, readOnly = false }: { game: GameS
           ))}
         </div>
       </div>
+      {reveals[0] && <VoteReveal key={reveals.length} g={game} e={reveals[0]} onDone={() => setReveals(reveals.slice(1))} />}
       {editing && <EditModal game={game} setGame={setGame} onClose={() => setEditing(false)} />}
     </div>
   );
@@ -176,6 +186,16 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           <select className={sel} value={dec.allyWith ?? ""} onChange={(e) => setDec({ ...dec, allyWith: e.target.value || undefined })}>
             <option value="">— Lay low —</option><option value="__random__">Randomize who I approach</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select></label>
+          {[0, 1].map((i) => { const t = dec.talks?.[i]; const set = (v?: { with: string; topic: any }) => { const arr = [...(dec.talks ?? [])]; if (v) arr[i] = v; else arr.splice(i, 1); setDec({ ...dec, talks: arr.filter(Boolean) }); };
+            if (i === 1 && !dec.talks?.[0]) return null;
+            return <div key={i} className="flex flex-wrap items-center gap-2 text-sm">{i === 0 ? "Have a conversation with" : "Second conversation with"}
+              <select className={sel} value={t?.with ?? ""} onChange={(e) => set(e.target.value ? { with: e.target.value, topic: t?.topic ?? "personal" } : undefined)}>
+                <option value="">— Nobody —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+              {t && <><span>about</span><select className={sel} value={t.topic} onChange={(e) => set({ ...t, topic: e.target.value })}>
+                {Object.entries(TALK_TOPICS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select><span className="text-xs text-muted-foreground">(can work or backfire)</span></>}
+            </div>; })}
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={dec.searchIdol ?? false} onChange={(e) => setDec({ ...dec, searchIdol: e.target.checked })} className="size-4 accent-primary" />Search for an idol</label>
             {dec.searchIdol && <label className="flex flex-wrap items-center gap-2">Search location:
@@ -219,6 +239,10 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
             <select className={sel} value={dec.vote ?? ""} onChange={(e) => setDec({ ...dec, vote: e.target.value || undefined })}>
               <option value="">— Let instinct decide —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select></label>
+          {!pending.noVote && <label className="flex items-center gap-2">🤫 Whisper at Tribal to push votes onto:
+            <select className={sel} value={dec.whisper ?? ""} onChange={(e) => setDec({ ...dec, whisper: e.target.value || undefined })}>
+              <option value="">Stay quiet</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select></label>}
           {pending.hasIdol && (
             <label className="flex items-center gap-2">🗿 Play idol on:
               <select className={sel} value={dec.idol ?? ""} onChange={(e) => setDec({ ...dec, idol: e.target.value })}>
@@ -347,5 +371,51 @@ function RelationshipsPanel({ game }: { game: GameState }) {
           <span className="w-24 text-right text-xs text-muted-foreground">{label(v)} ({v > 0 ? "+" : ""}{v})</span>
         </li>); })}</ul>
     </section>
+  );
+}
+
+function PonderosaPanel({ game }: { game: GameState }) {
+  const logs = game.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "jury");
+  if (!logs.length) return null;
+  return (
+    <section className="rounded-xl border bg-card p-4">
+      <h2 className="text-2xl text-accent">Ponderosa</h2>
+      <ul className="mt-2 space-y-2 text-sm">{[...logs].reverse().map((e, i) => <li key={i}><b>{e.title.replace("Ponderosa — ", "")}</b>: {e.text}{e.details?.length ? <span className="block text-xs text-muted-foreground">{e.details.join(" ")}</span> : null}</li>)}</ul>
+    </section>
+  );
+}
+
+/** Reads parchments one at a time, like Jeff at the urn; the sealing vote comes last. */
+function revealOrder(votes: Vote[], out?: string) {
+  const counted = votes.filter((v) => !v.nullified);
+  const L = counted.filter((v) => v.target === out), O = counted.filter((v) => v.target !== out);
+  const seq: Vote[] = [];
+  while (L.length || O.length) { if (O.length && (L.length <= 1 || seq.length % 2 === 0)) seq.push(O.shift()!); else seq.push(L.shift()!); }
+  return [...votes.filter((v) => v.nullified), ...seq];
+}
+function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone: () => void }) {
+  const seq = [...revealOrder(e.votes ?? [], e.revote?.length ? undefined : e.out), ...(e.revote?.length ? revealOrder(e.revote, e.out).map((v) => ({ ...v, re: true })) : [])];
+  const [n, setN] = useState(0);
+  const shown = seq.slice(0, n);
+  const counts: Record<string, number> = {};
+  shown.forEach((v: any) => { if (!v.nullified && (v.re || !e.revote?.length || true)) counts[`${v.re ? "R" : ""}${v.target}`] = (counts[`${v.re ? "R" : ""}${v.target}`] ?? 0) + 1; });
+  const last: any = shown.at(-1);
+  const finished = n >= seq.length;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-4 backdrop-blur">
+      <div className="w-full max-w-lg rounded-2xl border-2 border-primary bg-card p-6 text-center torch-glow">
+        <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{e.title}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{n === 0 ? `"I'll read the votes." ${seq.length} parchment${seq.length === 1 ? "" : "s"}.` : last.re ? "Revote" : last.nullified ? "Does not count" : `Vote ${shown.filter((v: any) => !v.re && !v.nullified).length}`}</p>
+        <div className="my-6 flex min-h-32 items-center justify-center rounded-lg border bg-secondary/60 p-6">
+          {last ? <span key={n} className={`vote-reveal font-display text-5xl tracking-wide ${last.nullified ? "line-through text-muted-foreground" : "text-primary"}`}>{byId(g, last.target).name}</span> : <span className="text-4xl">📜</span>}
+        </div>
+        <div className="flex flex-wrap justify-center gap-2 text-sm">{Object.entries(counts).map(([k, c]) => <span key={k} className="rounded bg-secondary px-2 py-1">{k.startsWith("R") ? "Revote · " : ""}{byId(g, k.replace(/^R/, "")).name}: <b>{c}</b></span>)}</div>
+        {finished && <p className="mt-4 text-sm">{e.text}</p>}
+        <div className="mt-5 flex justify-center gap-2">
+          {!finished ? <Button onClick={() => setN(n + 1)}>Read next vote</Button> : <Button onClick={onDone}>Continue</Button>}
+          {!finished && <Button variant="secondary" onClick={() => setN(seq.length)}>Skip to result</Button>}
+        </div>
+      </div>
+    </div>
   );
 }
