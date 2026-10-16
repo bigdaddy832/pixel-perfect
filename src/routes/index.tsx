@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Setup } from "@/components/survivor/Setup";
 import { Game } from "@/components/survivor/Game";
 import type { GameState } from "@/lib/survivor/engine";
+import { AccountBar } from "@/components/survivor/AccountBar";
+import { supabase } from "@/integrations/supabase/client";
 
 const SAVE_KEY = "survivor-sim-season";
 
@@ -32,5 +34,17 @@ function Season() {
   useEffect(() => {
     try { if (game) localStorage.setItem(SAVE_KEY, JSON.stringify(game)); else localStorage.removeItem(SAVE_KEY); } catch { /* storage full or blocked */ }
   }, [game]);
-  return game ? <Game game={game} setGame={setGameState} onReset={() => setGameState(null)} /> : <Setup onStart={setGameState} />;
+  // Save finished seasons to the signed-in user's history (once per season).
+  useEffect(() => {
+    if (!game || game.phase !== "done" || (game as any).savedToHistory) return;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
+      const winner = game.castaways.find((c) => c.id === game.winner)?.name ?? null;
+      const marked = { ...game, savedToHistory: true } as GameState;
+      const { error } = await supabase.from("seasons").insert({ user_id: data.user.id, title: `Season: ${game.tribes.map((t) => t.name).slice(0, 3).join(" vs ")}`, winner, cast_size: game.castaways.length, data: marked as any });
+      if (!error) setGameState(marked);
+    })();
+  }, [game]);
+  return <><AccountBar />{game ? <Game game={game} setGame={setGameState} onReset={() => setGameState(null)} /> : <Setup onStart={setGameState} />}</>;
 }

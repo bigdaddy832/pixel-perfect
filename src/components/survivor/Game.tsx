@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, pendingDecision, simulateToEnd, step, tribeOf,
+  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 const PHASE_LABEL: Record<string, string> = { camp: "Life at Camp", challenge: "Challenges", tribal: "Tribal Council", final_challenge: "Final Immunity", final_choice: "Final Decision", ftc: "Final Tribal Council", done: "Season Complete" };
 const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑" };
 
-export function Game({ game, setGame, onReset }: { game: GameState; setGame: (g: GameState) => void; onReset: () => void }) {
+export function Game({ game, setGame, onReset, readOnly = false }: { game: GameState; setGame: (g: GameState) => void; onReset: () => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [dec, setDec] = useState<Decision>({});
   const pending = pendingDecision(game);
@@ -27,12 +27,12 @@ export function Game({ game, setGame, onReset }: { game: GameState; setGame: (g:
           <h1 className="text-4xl leading-none">Survivor Simulator</h1>
           <p className="text-sm text-muted-foreground">Day {game.day} · {PHASE_LABEL[game.phase]} · {alive(game).length} remain</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        {!readOnly && <div className="flex flex-wrap gap-2">
           <Button variant="secondary" disabled={game.phase === "done"} onClick={next} className="rounded-md bg-primary px-5 py-2 font-semibold text-primary-foreground disabled:opacity-40 torch-glow">Next Phase ▶</Button>
           <Button variant="secondary" disabled={game.phase === "done"} onClick={() => setGame(simulateToEnd(game))} className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted disabled:opacity-40">Auto-Simulate to End ⏩</Button>
           <Button variant="secondary" onClick={() => setEditing(true)} className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted">Edit Stats / Tribes ✏️</Button>
           <Button variant="secondary" onClick={() => { if (game.phase === "done" || window.confirm("Start a new season? This season will be lost.")) onReset(); }} className="rounded-md border px-4 py-2 text-sm hover:bg-muted">New Season</Button>
-        </div>
+        </div>}
       </header>
 
       {winner && (
@@ -43,7 +43,8 @@ export function Game({ game, setGame, onReset }: { game: GameState; setGame: (g:
         </div>
       )}
 
-      {pending && game.phase !== "done" && <DecisionPanel game={game} pending={pending} dec={dec} setDec={setDec} />}
+      {!readOnly && game.phase === "tribal" && <TargetsPanel game={game} />}
+      {!readOnly && pending && game.phase !== "done" && <DecisionPanel game={game} pending={pending} dec={dec} setDec={setDec} />}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <div className="space-y-5">
@@ -57,6 +58,7 @@ export function Game({ game, setGame, onReset }: { game: GameState; setGame: (g:
               </section>
             );
           })}
+          <AlliancesPanel game={game} />
           {jury.length > 0 && (
             <section className="rounded-xl border bg-card p-4">
               <h2 className="text-2xl text-accent">Jury ({jury.length}/{game.config.jurySize})</h2>
@@ -234,6 +236,50 @@ function EditModal({ game, setGame, onClose }: { game: GameState; setGame: (g: G
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AlliancesPanel({ game }: { game: GameState }) {
+  if (!game.alliances.length) return null;
+  const tribes = [...new Set(alive(game).map((c) => c.tribeId))];
+  return (
+    <section className="rounded-xl border bg-card p-4">
+      <h2 className="text-2xl text-accent">Alliances</h2>
+      {tribes.map((tid) => {
+        const t = tribeOf(game, tid);
+        const als = game.alliances.filter((a) => a.members.some((m) => byId(game, m).tribeId === tid));
+        if (!t || !als.length) return null;
+        return (
+          <div key={tid} className="mt-2">
+            <p className="text-sm font-semibold" style={{ color: t.color }}>{t.name}</p>
+            <ul className="mt-1 space-y-1 text-sm">{als.map((a) => <li key={a.id}><b>{a.name}</b> <span className="text-muted-foreground">({a.members.length}): {a.members.map((m) => byId(game, m).name).join(", ")}</span></li>)}</ul>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function TargetsPanel({ game }: { game: GameState }) {
+  const att = attendees(game);
+  if (!att.length) return null;
+  const { individual, groups } = tribalTargets(game);
+  const names = [...new Set(att.map((c) => tribeOf(game, c.tribeId)?.name))].join(" & ");
+  return (
+    <div className="mb-6 rounded-xl border-2 border-accent bg-card p-4">
+      <h2 className="text-2xl text-accent">Heading to Tribal: {names}</h2>
+      <p className="text-xs text-muted-foreground">Current plans. Minds can still change at the vote.</p>
+      {groups.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Group targets</p>
+          <ul className="mt-1 space-y-1 text-sm">{groups.map((g) => <li key={g.alliance}><b>{g.alliance}</b> ({g.members.map((m) => byId(game, m).name).join(", ")}) → <span className="text-primary">{byId(game, g.target).name}</span> <span className="text-muted-foreground">— {g.reason}</span></li>)}</ul>
+        </div>
+      )}
+      <div className="mt-3">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Individual targets</p>
+        <ul className="mt-1 grid gap-1 text-sm sm:grid-cols-2">{individual.map((p) => <li key={p.voter}>{byId(game, p.voter).name} → <span className="text-primary">{byId(game, p.target).name}</span> <span className="text-muted-foreground">— {p.reason}</span></li>)}</ul>
       </div>
     </div>
   );
