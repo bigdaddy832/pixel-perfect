@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SeasonStatistics } from "./SeasonStatistics";
 
 const PHASE_LABEL: Record<string, string> = { camp: "Life at Camp", challenge: "Challenges", tribal: "Tribal Council", final_challenge: "Final Immunity", final_choice: "Final Decision", ftc: "Final Tribal Council", done: "Season Complete" };
-const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑" };
+const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑", confessional: "🎙️" };
 
 export function Game({ game, setGame, onReset, readOnly = false }: { game: GameState; setGame: (g: GameState) => void; onReset: () => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false);

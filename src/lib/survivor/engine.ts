@@ -46,7 +46,7 @@ export interface Config {
 }
 export interface Vote { voter: string; target: string; nullified?: boolean }
 export interface LogEntry {
-  kind: "camp" | "drama" | "alliance" | "idol" | "challenge" | "tribal" | "twist" | "finale";
+  kind: "camp" | "drama" | "alliance" | "idol" | "challenge" | "tribal" | "twist" | "finale" | "confessional";
   title: string; text: string; details?: string[]; votes?: Vote[]; revote?: Vote[];
 }
 export interface Episode { n: number; title: string; entries: LogEntry[] }
@@ -275,18 +275,20 @@ export type Pending =
 export const tribalGroup = (s: GameState) => s.tribalTribes?.length ? s.tribalTribes : s.tribalTribe ? [s.tribalTribe] : [];
 export const attendees = (s: GameState) => { const g = tribalGroup(s); return alive(s).filter((c) => g.includes(c.tribeId)); };
 
+const byName = (a: Castaway, b: Castaway) => a.name.localeCompare(b.name);
+
 export function pendingDecision(s: GameState): Pending {
   const me = s.config.controlledId ? byId(s, s.config.controlledId) : null;
-  if (me?.juror && s.phase === "ftc") return { kind: "jury", options: (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id)) };
+  if (me?.juror && s.phase === "ftc") return { kind: "jury", options: (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id)).sort(byName) };
   if (!me || me.out) return null;
-  if (s.phase === "tribal" && s.pendingRevote) return { kind: "revote", options: s.pendingRevote.options.map((id) => byId(s, id)), votes: s.pendingRevote.votes ?? [], summary: s.pendingRevote.summary ?? [] };
-  if (s.phase === "camp") { const options = alive(s).filter((c) => c.tribeId === me.tribeId && c.id !== me.id); return { kind: "camp", options, canSearchAtChallenge: !s.merged, fakeStatus: me.fakeIdol, plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol), giveables: [...(me.idols > 0 && !me.bewareTribals ? ["idol"] : []), ...(alive(s).length > 5 ? me.advantages : [])] }; }
+  if (s.phase === "tribal" && s.pendingRevote) return { kind: "revote", options: s.pendingRevote.options.map((id) => byId(s, id)).sort(byName), votes: s.pendingRevote.votes ?? [], summary: s.pendingRevote.summary ?? [] };
+  if (s.phase === "camp") { const options = alive(s).filter((c) => c.tribeId === me.tribeId && c.id !== me.id).sort(byName); return { kind: "camp", options, canSearchAtChallenge: !s.merged, fakeStatus: me.fakeIdol, plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol), giveables: [...(me.idols > 0 && !me.bewareTribals ? ["idol"] : []), ...(alive(s).length > 5 ? me.advantages : [])] }; }
   if (s.phase === "tribal" && tribalGroup(s).includes(me.tribeId)) {
     const att = attendees(s);
-    return { kind: "tribal", options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)), hasIdol: me.idols > 0 && !(me.bewareTribals > 0), noVote: !!me.lostVote || me.bewareTribals > 0, advantages: alive(s).length <= 5 ? [] : [...(me.advantages ?? [])], idolTargets: att.filter((c) => !s.immune.includes(c.id)), canGiveImmunity: s.merged && s.immune.includes(me.id), canShoot: !me.shotUsed && !me.lostVote && !(me.bewareTribals > 0) && !s.immune.includes(me.id) && alive(s).length > 5, canPlayAmulet: !!me.amulet && alive(s).length >= 6 && amuletHolders(s).every((c) => att.some((a) => a.id === c.id)) };
+    return { kind: "tribal", options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)).sort(byName), hasIdol: me.idols > 0 && !(me.bewareTribals > 0), noVote: !!me.lostVote || me.bewareTribals > 0, advantages: alive(s).length <= 5 ? [] : [...(me.advantages ?? [])], idolTargets: att.filter((c) => !s.immune.includes(c.id)).sort(byName), canGiveImmunity: s.merged && s.immune.includes(me.id), canShoot: !me.shotUsed && !me.lostVote && !(me.bewareTribals > 0) && !s.immune.includes(me.id) && alive(s).length > 5, canPlayAmulet: !!me.amulet && alive(s).length >= 6 && amuletHolders(s).every((c) => att.some((a) => a.id === c.id)) };
   }
   if (s.phase === "final_choice" && s.finalImmune === me.id) {
-    return { kind: "cut", options: alive(s).filter((c) => c.id !== me.id), fire: isFireFinal(s) };
+    return { kind: "cut", options: alive(s).filter((c) => c.id !== me.id).sort(byName), fire: isFireFinal(s) };
   }
   return null;
 }
@@ -413,6 +415,7 @@ function doCamp(s: GameState, d: Decision) {
     }
     log(s, { kind: "camp", title: `${t.name}: Life at Camp`, text: `Day ${s.day}. ${pick(["The rain wouldn't stop.", "Spirits are high at camp.", "Hunger is setting in.", "The heat is brutal.", "Paranoia is creeping in."])}`, details: details.length ? details : ["A quiet day at camp."] });
   }
+  addConfessionals(s);
   // medevacs & quits (rare, at most one per episode)
   if (alive(s).length > s.config.finalSize + 3) {
     const pool = alive(s);
@@ -945,6 +948,35 @@ function doMerge(s: GameState) {
   log(s, { kind: "twist", title: `The Merge — ${t.name}`, text: `The ${alive(s).length} remaining castaways merge into a single tribe, ${t.name}. It's now an individual game.`, details: [`Remaining: ${mergeDetails.join(", ")}`, `Jury of ${s.config.jurySize} begins soon.`] });
 }
 
+// ---------- confessionals ----------
+function addConfessionals(s: GameState) {
+  const ms = alive(s);
+  if (ms.length < 3) return;
+  for (const c of shuffle(ms).slice(0, r() < 0.5 ? 1 : 2)) {
+    const others = ms.filter((o) => o.id !== c.id);
+    const best = [...others].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
+    const worst = [...others].sort((a, b) => getRel(s, c.id, a.id) - getRel(s, c.id, b.id))[0];
+    const al = s.alliances.find((a) => a.members.includes(c.id));
+    const lines: string[] = [];
+    if (c.idols > 0) lines.push(`"I have an idol and nobody suspects a thing. That feeling? Pure power."`);
+    if (c.advantages.length) lines.push(`"I'm sitting on a ${ADVANTAGE_LABEL[c.advantages[0]]}. When I play it, this game flips upside down."`);
+    if (al) lines.push(`"${al.name} is my lifeline right now. As long as we stick together, nobody can touch us."`);
+    if (best && getRel(s, c.id, best.id) > 10) lines.push(`"${best.name} is the one person I truly trust out here. I'd go to the end with them."`);
+    if (worst && getRel(s, c.id, worst.id) < -8) lines.push(`"If ${worst.name} is still here tomorrow, something has gone very wrong. They have to go."`);
+    if (c.mood < 35) lines.push(`"I'm exhausted, I'm starving, and honestly... I don't know how much more of this I have in me."`);
+    if (c.mood > 80) lines.push(`"Everything is clicking. The tribe loves me, I'm eating well — this is my game to lose."`);
+    if (c.immunityWins > 0) lines.push(`"Winning immunity feels great, but I know it paints a target on my back."`);
+    if (c.betrayedBy.length) lines.push(`"I haven't forgotten what ${nm(s, c.betrayedBy[0])} did to me. Payback is coming."`);
+    lines.push(
+      `"Day ${s.day}. I'm still here, and that's all that matters."`,
+      `"People underestimate me. Good. Let them."`,
+      `"Every vote from here on out is a chess move, and I'm three steps ahead."`,
+      `"I came here to play, not to make friends. Well... maybe a few friends."`,
+    );
+    log(s, { kind: "confessional", title: `Confessional — ${c.name}`, text: pick(lines) });
+  }
+}
+
 // ---------- finale ----------
 const isFireFinal = (s: GameState) => s.config.finalSize === 3 && s.config.fireAtF4 && alive(s).length === 4;
 function doFinalChallenge(s: GameState) {
@@ -960,11 +992,24 @@ function doFinalChoice(s: GameState, d: Decision) {
   const mine = w.id === s.config.controlledId && others.some((c) => c.id === d.cut) ? byId(s, d.cut!) : null;
   const pickCut = () => (w.id === s.config.controlledId && d.cut ? byId(s, d.cut) : [...others].sort((a, b) => (threat(b) - getRel(s, w.id, b.id) * 0.1) - (threat(a) - getRel(s, w.id, a.id) * 0.1))[0]);
   if (isFireFinal(s)) {
-    const safe = mine ?? [...others].sort((a, b) => getRel(s, w.id, b.id) - getRel(s, w.id, a.id))[0];
-    const fire = others.filter((c) => c.id !== safe.id);
-    const fs = fire.map((c) => ({ c, sc: c.stats.endurance * 0.6 + c.stats.mental * 0.4 + r() * 4 })).sort((a, b) => b.sc - a.sc);
-    eliminate(s, fs[1].c, "fire");
-    log(s, { kind: "finale", title: "Forced Fire-Making Challenge", text: `${w.name} takes ${safe.name} to the end. ${fs[0].c.name} and ${fs[1].c.name} battle at fire-making... ${fs[0].c.name}'s flame burns through the rope! ${fs[1].c.name} becomes the final juror.`, details: fs.map((x) => `${x.c.name} — ${x.sc.toFixed(2)}`) });
+    // Rare bold move: the immune player gives up the necklace to face the biggest threat at fire themselves.
+    const biggestThreat = [...others].sort((a, b) => threat(b) - threat(a))[0];
+    const givesUp = !mine && w.id !== s.config.controlledId && biggestThreat && threat(biggestThreat) > threat(w) && r() < 0.06 + w.stats.endurance * 0.02;
+    if (givesUp) {
+      const through = others.filter((c) => c.id !== biggestThreat.id);
+      const fs = [w, biggestThreat].map((c) => ({ c, sc: c.stats.endurance * 0.6 + c.stats.mental * 0.4 + r() * 4 })).sort((a, b) => b.sc - a.sc);
+      eliminate(s, fs[1].c, "fire");
+      log(s, { kind: "finale", title: "Immunity Given Up — Fire-Making Showdown", text: `In a stunning move, ${w.name} gives up the immunity necklace and volunteers for fire-making against ${biggestThreat.name}, sending ${through.map((c) => c.name).join(" and ")} straight to the end. "I didn't come here to sneak into the finals — I came to take out the biggest threat myself." ${fs[0].c.name}'s flame burns through the rope! ${fs[1].c.name} becomes the final juror.`, details: [`Why: ${w.name} believed ${biggestThreat.name} was the one player they couldn't beat in front of the jury, and wanted the credit for ending their game.`, ...fs.map((x) => `${x.c.name} — ${x.sc.toFixed(2)}`)] });
+    } else {
+      const safe = mine ?? [...others].sort((a, b) => getRel(s, w.id, b.id) - getRel(s, w.id, a.id))[0];
+      const fire = others.filter((c) => c.id !== safe.id);
+      const fs = fire.map((c) => ({ c, sc: c.stats.endurance * 0.6 + c.stats.mental * 0.4 + r() * 4 })).sort((a, b) => b.sc - a.sc);
+      eliminate(s, fs[1].c, "fire");
+      const bond = getRel(s, w.id, safe.id);
+      const whySafe = mine ? "your call as the immunity winner" : bond > 10 ? `${safe.name} has been their most loyal ally all season — loyalty matters more than jury math` : bond < -5 ? `they want ${safe.name} beside them precisely because the jury dislikes them` : `${safe.name} is the weakest jury threat of the three, the easiest seatmate for Final Tribal`;
+      const whyFire = fire.map((c) => `${c.name}: ${threat(c) > threat(safe) ? "too big a jury threat to hand a free finalist seat" : "no free rides — make them earn it at fire"}`);
+      log(s, { kind: "finale", title: "Forced Fire-Making Challenge", text: `${w.name} takes ${safe.name} to the end. ${fs[0].c.name} and ${fs[1].c.name} battle at fire-making... ${fs[0].c.name}'s flame burns through the rope! ${fs[1].c.name} becomes the final juror.`, details: [`Why ${w.name} saved ${safe.name}: ${whySafe}.`, ...whyFire, ...fs.map((x) => `${x.c.name} — ${x.sc.toFixed(2)}`)] });
+    }
   } else {
     const cut = pickCut();
     eliminate(s, cut, "cut");
@@ -1064,6 +1109,26 @@ function doFTC(s: GameState, d: Decision) {
     s.fanFavorite = favorite.id;
     log(s, { kind: "finale", title: "Fan Favorite Award", text: `${favorite.name} wins the simulated fan vote! Their personality, bonds, and memorable moments won over the audience.`, details: ["Only castaways who reached the merge were eligible."] });
   }
+  // Season recap: a closing summary of the whole game.
+  const allEntries = s.episodes.flatMap((e) => e.entries);
+  const tribalEntries = allEntries.filter((e) => e.kind === "tribal");
+  const blindsides = tribalEntries.filter((e) => e.text.includes("massive blindside")).length;
+  const idolsPlayedTotal = s.castaways.reduce((n, c) => n + (c.idolsPlayed ?? 0), 0);
+  const advPlayedTotal = s.castaways.reduce((n, c) => n + (c.advPlayed ?? 0), 0);
+  const quits = allEntries.filter((e) => e.title === "A Castaway Quits").length;
+  const medevacs = allEntries.filter((e) => e.title === "Medical Evacuation").length;
+  const rocks = tribalEntries.filter((e) => e.text.includes("drawing the wrong rock")).length;
+  const fireWinners = allEntries.filter((e) => e.title.includes("Fire-Making")).length;
+  const winnerC = byId(s, s.winner!);
+  const details = [
+    `${s.episodes.length} episodes, ${tribalEntries.length} Tribal Councils, ${s.castaways.length} castaways.`,
+    `${idolsPlayedTotal} idol${idolsPlayedTotal === 1 ? "" : "s"} played, ${advPlayedTotal} advantage${advPlayedTotal === 1 ? "" : "s"} used, ${blindsides} blindside${blindsides === 1 ? "" : "s"} with an idol in someone's pocket.`,
+    ...(quits || medevacs ? [`Unusual exits: ${[quits ? `${quits} quit${quits > 1 ? "s" : ""}` : "", medevacs ? `${medevacs} medevac${medevacs > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ")}.`] : []),
+    ...(rocks ? [`${rocks} Tribal Council${rocks > 1 ? "s" : ""} went all the way to rocks.`] : []),
+    ...(fireWinners ? [`The final four was decided by fire-making.`] : []),
+    `${winnerC.name} walked away as Sole Survivor${favorite ? `, and ${favorite.name} took home the Fan Favorite award` : ""}.`,
+  ];
+  log(s, { kind: "finale", title: "Season Recap", text: `That's a wrap on the season! ${winnerC.name} outwit, outplayed and outlasted ${s.castaways.length - 1} others over ${s.day} days.`, details });
 }
 
 function doJourney(s: GameState) {
