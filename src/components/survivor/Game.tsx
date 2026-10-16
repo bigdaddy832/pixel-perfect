@@ -6,6 +6,7 @@ import {
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
 import { Button } from "@/components/ui/button";
+import { SeasonStatistics } from "./SeasonStatistics";
 
 const PHASE_LABEL: Record<string, string> = { camp: "Life at Camp", challenge: "Challenges", tribal: "Tribal Council", final_challenge: "Final Immunity", final_choice: "Final Decision", ftc: "Final Tribal Council", done: "Season Complete" };
 const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑" };
@@ -44,6 +45,7 @@ export function Game({ game, setGame, onReset, readOnly = false }: { game: GameS
       )}
 
       {!readOnly && game.phase === "tribal" && <TargetsPanel game={game} />}
+      {game.phase === "done" && <SeasonStatistics game={game} />}
       {!readOnly && pending && game.phase !== "done" && <DecisionPanel game={game} pending={pending} dec={dec} setDec={setDec} />}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">

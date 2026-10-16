@@ -18,6 +18,7 @@ export interface Castaway {
   placement?: number; immunityWins: number; betrayedBy: string[];
   fakeIdol?: "own" | "planted"; bewareTribals?: number; lostVote?: boolean; edge?: boolean; clue?: boolean;
   votesCast?: number; correctVotes?: number; votesAgainst?: number; idolsPlayed?: number; advPlayed?: number;
+  madeMerge?: boolean; rewardWins?: number;
 }
 export type AdvantageKey = "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power";
 export const ADVANTAGES: AdvantageKey[] = ["extra_vote", "steal_vote", "vote_blocker", "safety", "idol_nullifier", "knowledge_is_power"];
@@ -57,7 +58,7 @@ export interface GameState {
   hiddenIdols: Record<string, number>; finalImmune?: string; usedChallenges: string[]; rewardAdvantageGiven: boolean;
   tribalTribes?: string[]; tribalQueue?: string[][]; doubleElim?: boolean; twistsUsed?: string[];
   challengeSearch?: boolean; edgeDone?: boolean; journeysDone?: number;
-  winner?: string; finalists?: string[]; juryVotes?: { juror: string; finalist: string; reason: string }[];
+  winner?: string; finalists?: string[]; juryVotes?: { juror: string; finalist: string; reason: string }[]; fanFavorite?: string;
 }
 export const SEARCH_SPOTS = ["the tree line", "the water well", "behind the shelter", "the rocky outcrop", "the beach at dawn"];
 export const IDOL_HIDING_PLACES = [
@@ -542,6 +543,7 @@ function doChallenge(s: GameState) {
     const ms = alive(s);
     const rr = ms.map((c) => ({ c, sc: indScore(c, rew.type) })).sort((a, b) => b.sc - a.sc);
     rr[0].c.mood = clamp(rr[0].c.mood + 10, 0, 100);
+    rr[0].c.rewardWins = (rr[0].c.rewardWins ?? 0) + 1;
     const buddy = ms.filter((x) => x.id !== rr[0].c.id).sort((a, b) => getRel(s, rr[0].c.id, b.id) - getRel(s, rr[0].c.id, a.id))[0];
     if (buddy) addRel(s, rr[0].c.id, buddy.id, 6);
     log(s, { kind: "challenge", title: `Reward Challenge: ${rew.name} (${STAT_LABEL[rew.type]})`, text: `${rr[0].c.name} wins reward${buddy ? ` and brings ${buddy.name} along` : ""}.`, details: rr.slice(0, 5).map((x, i) => `${i + 1}. ${x.c.name} — ${x.sc.toFixed(2)}`) });
@@ -708,7 +710,7 @@ function doTribal(s: GameState, d: Decision) {
     t = tally(revote);
   }
   let top = Math.max(...Object.values(t)); let tied = Object.keys(t).filter((k) => t[k] === top);
-  let out: string; let rocks = false; const firstTally = t;
+  let out: string; let rocks = false;
   if (tied.length > 1) {
     details.push(`Tie between ${tied.map((x) => nm(s, x)).join(" and ")}. Revote!`);
     revote = voters.filter((v) => !tied.includes(v.id)).map((v) => ({ voter: v.id, target: v.id === ctrl && d.vote && tied.includes(d.vote) ? d.vote : aiVote(s, v, att.filter((c) => tied.includes(c.id)), att) }));
@@ -827,6 +829,7 @@ function doMerge(s: GameState) {
   }
   const oldTribes = (c: Castaway) => { const o = tribeOf(s, c.originalTribeId)?.name ?? "?"; const cur = c.tribeId !== "merged" ? tribeOf(s, c.tribeId)?.name : undefined; return cur && cur !== o ? `${o} → ${cur}` : o; };
   const mergeDetails = alive(s).map((c) => `${c.name} (${oldTribes(c)})`);
+  s.castaways.forEach((c) => { c.madeMerge = !c.out; });
   alive(s).forEach((c) => { c.tribeId = "merged"; c.clue = false; });
   s.hiddenIdols.merged = 1;
   log(s, { kind: "twist", title: `The Merge — ${t.name}`, text: `The ${alive(s).length} remaining castaways merge into a single tribe, ${t.name}. It's now an individual game.`, details: [`Remaining: ${mergeDetails.join(", ")}`, `Jury of ${s.config.jurySize} begins soon.`] });
@@ -928,6 +931,12 @@ function doFTC(s: GameState, d: Decision) {
   const sorted = fin.sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0) || threat(b) - threat(a));
   s.winner = sorted[0].id;
   log(s, { kind: "finale", title: "The Reunion — Sole Survivor", text: `${sorted[0].name} wins Survivor by a vote of ${fin.map((f) => counts[f.id] ?? 0).sort((a, b) => b - a).join("-")}!`, details: s.juryVotes.map((v) => `${nm(s, v.juror)} voted for ${nm(s, v.finalist)} — ${v.reason}`), votes: s.juryVotes.map((v) => ({ voter: v.juror, target: v.finalist })) });
+  const eligible = s.castaways.filter((c) => c.madeMerge ?? (c.tribeId === "merged"));
+  const favorite = eligible.map((c) => ({ c, score: c.stats.social * 2 + c.stats.temperament * 0.5 + c.immunityWins * 0.6 + (c.idolsPlayed ?? 0) * 0.8 + s.castaways.reduce((n, other) => n + Math.max(0, getRel(s, c.id, other.id)), 0) * 0.025 + r() * 8 })).sort((a, b) => b.score - a.score)[0]?.c;
+  if (favorite) {
+    s.fanFavorite = favorite.id;
+    log(s, { kind: "finale", title: "Fan Favorite Award", text: `${favorite.name} wins the simulated fan vote! Their personality, bonds, and memorable moments won over the audience.`, details: ["Only castaways who reached the merge were eligible."] });
+  }
 }
 
 function doJourney(s: GameState) {
