@@ -300,7 +300,7 @@ function doCamp(s: GameState, d: Decision) {
   if (alive(s).length > s.config.finalSize + 3) {
     const pool = alive(s);
     const med = pool.find(() => r() < 0.0035);
-    const quitter = !med && pool.filter((c) => c.id !== s.config.controlledId && c.mood < 30 && c.stats.temperament <= 3).find(() => r() < 0.06);
+    const quitter = !med && pool.filter((c) => c.id !== s.config.controlledId && (c.mood < 45 && c.stats.temperament <= 3) || r() < 0.03).find(() => r() < 0.06);
     const gone = med || quitter;
     if (gone) {
       eliminate(s, gone, med ? "medevac" : "quit");
