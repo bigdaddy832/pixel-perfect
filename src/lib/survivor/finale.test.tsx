@@ -33,7 +33,7 @@ describe("finale detail and decisions", () => {
 
   it("lets an eliminated juror choose a finalist and records that vote", () => {
     const g = jurySeason();
-    expect(pendingDecision(g)).toMatchObject({ kind: "jury", options: g.castaways.filter((c) => !c.out) });
+    expect(pendingDecision(g)).toMatchObject({ kind: "jury", options: g.castaways.filter((c) => !c.out).sort((a, b) => a.name.localeCompare(b.name)) });
     const done = step(g, { juryVote: "c2" });
     expect(done.juryVotes?.find((v) => v.juror === "c0")?.finalist).toBe("c2");
     expect(done.phase).toBe("done");
@@ -101,8 +101,9 @@ describe("finale detail and decisions", () => {
       if (!favorite) throw new Error("Missing favorite");
       expect(reachedMerge(done, favorite)).toBe(true);
       const entries = done.episodes.flatMap((e) => e.entries);
-      expect(entries.at(-1)?.title).toBe("Fan Favorite Award");
-      expect(entries.at(-2)?.title).toBe("The Reunion — Sole Survivor");
+      expect(entries.at(-1)?.title).toBe("Season Recap");
+      expect(entries.at(-2)?.title).toBe("Fan Favorite Award");
+      expect(entries.at(-3)?.title).toBe("The Reunion — Sole Survivor");
     }
   });
 });
