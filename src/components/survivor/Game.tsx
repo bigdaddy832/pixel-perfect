@@ -11,6 +11,7 @@ import { SeasonStatistics } from "./SeasonStatistics";
 const PHASE_LABEL: Record<string, string> = { camp: "Life at Camp", challenge: "Challenges", tribal: "Tribal Council", final_challenge: "Final Immunity", final_choice: "Final Decision", ftc: "Final Tribal Council", done: "Season Complete" };
 const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑", confessional: "🎙️" };
 
+const az = <T extends { name: string }>(xs: T[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
 export function Game({ game, setGame, onReset, readOnly = false }: { game: GameState; setGame: (g: GameState) => void; onReset: () => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [dec, setDec] = useState<Decision>({});
@@ -153,7 +154,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           <ul className="space-y-3 text-sm">{finalistSpeeches(game).map((speech, i) => <li key={i}>{speech}</li>)}</ul>
           <label className="flex flex-wrap items-center gap-2 text-sm">Your vote for Sole Survivor:
             <select className={sel} value={dec.juryVote ?? ""} onChange={(e) => setDec({ ...dec, juryVote: e.target.value || undefined })}>
-              <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              <option value="">— Let instinct decide —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </label>
         </div>
@@ -165,7 +166,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           <ul className="list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">{pending.summary.map((x, i) => <li key={i}>{x}</li>)}</ul>
         <label className="flex flex-wrap items-center gap-2 text-sm">Revote! You can vote for: {pending.options.map((o) => o.name).join(" or ")}.
           <select className={sel} value={dec.revoteVote ?? ""} onChange={(e) => setDec({ ...dec, revoteVote: e.target.value || undefined })}>
-            <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            <option value="">— Let instinct decide —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select></label>
         </div>
       )}
@@ -173,7 +174,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
         <div className="mt-2 space-y-3">
         <label className="flex flex-wrap items-center gap-2 text-sm">Approach someone to align with (optional):
           <select className={sel} value={dec.allyWith ?? ""} onChange={(e) => setDec({ ...dec, allyWith: e.target.value || undefined })}>
-            <option value="">— Lay low —</option><option value="__random__">Randomize who I approach</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            <option value="">— Lay low —</option><option value="__random__">Randomize who I approach</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select></label>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={dec.searchIdol ?? false} onChange={(e) => setDec({ ...dec, searchIdol: e.target.checked })} className="size-4 accent-primary" />Search for an idol</label>
@@ -189,20 +190,20 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
               <option value="">Keep everything</option>{pending.giveables.map((a) => <option key={a} value={a}>{a === "idol" ? "Hidden Immunity Idol" : ADVANTAGE_LABEL[a]}</option>)}
             </select>
             {dec.giveItem && <><span>to</span><select className={sel} value={dec.giveTo ?? ""} onChange={(e) => setDec({ ...dec, giveTo: e.target.value || undefined })}>
-              <option value="">— Choose —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              <option value="">— Choose —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select></>}
           </div>}
           {!pending.fakeStatus && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.craftFake ?? false} onChange={(e) => setDec({ ...dec, craftFake: e.target.checked })} className="size-4 accent-primary" />Craft a fake idol</label>}
           {(pending.fakeStatus === "own" || dec.craftFake) && pending.plantTargets.length > 0 && <label className="flex flex-wrap items-center gap-2 text-sm">Plant fake idol on:
             <select className={sel} value={dec.fakeTarget ?? ""} onChange={(e) => setDec({ ...dec, fakeTarget: e.target.value || undefined })}>
-              <option value="">Keep it for now</option><option value="__random__">Random person</option>{pending.plantTargets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              <option value="">Keep it for now</option><option value="__random__">Random person</option>{az(pending.plantTargets).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select></label>}
         </div>
       )}
       {pending.kind === "cut" && (
         <label className="mt-2 flex flex-wrap items-center gap-2 text-sm">{pending.fire ? "You won! Choose who sits beside you at Final 3 (the other two make fire):" : "You won! Choose who to vote out:"}
           <select className={sel} value={dec.cut ?? ""} onChange={(e) => setDec({ ...dec, cut: e.target.value || undefined })}>
-            <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            <option value="">— Let instinct decide —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select></label>
       )}
       {pending.kind === "tribal" && (
@@ -211,17 +212,17 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           {pending.canGiveImmunity && (
             <label className="flex items-center gap-2">🛡️ Give up immunity to:
               <select className={sel} value={dec.giveImmunity ?? ""} onChange={(e) => setDec({ ...dec, giveImmunity: e.target.value || undefined })}>
-                <option value="">Keep my necklace</option>{pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                <option value="">Keep my necklace</option>{az(pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i)).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select></label>
           )}
           <label className="flex items-center gap-2">Vote for:
             <select className={sel} value={dec.vote ?? ""} onChange={(e) => setDec({ ...dec, vote: e.target.value || undefined })}>
-              <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              <option value="">— Let instinct decide —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select></label>
           {pending.hasIdol && (
             <label className="flex items-center gap-2">🗿 Play idol on:
               <select className={sel} value={dec.idol ?? ""} onChange={(e) => setDec({ ...dec, idol: e.target.value })}>
-                <option value="">Keep it</option><option value="__random__">Random person</option>{pending.idolTargets.map((o) => <option key={o.id} value={o.id}>{o.id === me.id ? "Myself" : o.name}</option>)}
+                <option value="">Keep it</option><option value="__random__">Random person</option>{az(pending.idolTargets).map((o) => <option key={o.id} value={o.id}>{o.id === me.id ? "Myself" : o.name}</option>)}
               </select></label>
           )}
           {pending.advantages.length > 0 && (
@@ -233,7 +234,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           {dec.advantage && ADVANTAGE_NEEDS_TARGET.includes(dec.advantage) && (
             <label className="flex items-center gap-2">On:
               <select className={sel} value={dec.advantageTarget ?? ""} onChange={(e) => setDec({ ...dec, advantageTarget: e.target.value || undefined })}>
-                <option value="">— Choose —</option><option value="__random__">Random person</option>{pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                <option value="">— Choose —</option><option value="__random__">Random person</option>{az(pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i)).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select></label>
           )}
           {dec.advantage && <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>}
@@ -242,7 +243,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
             <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={dec.playAmulet ?? false} onChange={(e) => setDec({ ...dec, playAmulet: e.target.checked, amuletTarget: undefined })} />Play Advantage Amulet{amuletHolders(game).length > 1 ? " together" : ""}</label>
             {dec.playAmulet && amuletHolders(game).length < 3 && <label className="flex items-center gap-2">Amulet target:
               <select className={sel} value={dec.amuletTarget ?? ""} onChange={(e) => setDec({ ...dec, amuletTarget: e.target.value || undefined })}>
-                <option value="">— Choose —</option><option value="__random__">Random person</option>{(amuletHolders(game).length === 1 ? pending.idolTargets : attendees(game).filter((c) => c.id !== me.id && !game.immune.includes(c.id))).map((c) => <option key={c.id} value={c.id}>{c.id === me.id ? "Myself" : c.name}</option>)}
+                <option value="">— Choose —</option><option value="__random__">Random person</option>{az((amuletHolders(game).length === 1 ? pending.idolTargets : attendees(game).filter((c) => c.id !== me.id && !game.immune.includes(c.id)))).map((c) => <option key={c.id} value={c.id}>{c.id === me.id ? "Myself" : c.name}</option>)}
               </select>
             </label>}
           </>}

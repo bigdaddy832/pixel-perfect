@@ -952,6 +952,7 @@ function doMerge(s: GameState) {
 function addConfessionals(s: GameState) {
   const ms = alive(s);
   if (ms.length < 3) return;
+  const used = new Set(s.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "confessional").map((e) => e.text));
   for (const c of shuffle(ms).slice(0, r() < 0.5 ? 1 : 2)) {
     const others = ms.filter((o) => o.id !== c.id);
     const best = [...others].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
@@ -972,8 +973,19 @@ function addConfessionals(s: GameState) {
       `"People underestimate me. Good. Let them."`,
       `"Every vote from here on out is a chess move, and I'm three steps ahead."`,
       `"I came here to play, not to make friends. Well... maybe a few friends."`,
+      `"The rain hasn't stopped in two days and my patience is about as thin as the shelter roof."`,
+      `"I keep smiling at camp, but in my head I'm counting votes every second."`,
+      `"Nobody out here is your friend after the merge. Nobody."`,
+      `"I miss my family so much, and that's exactly why I can't let up now."`,
+      `"Sometimes the best move is no move at all. I'm sitting tight."`,
+      `"I can feel the target shifting. I just need it to land on someone else tonight."`,
+      `"Being in the middle is dangerous, but it also means everyone needs me."`,
+      `"Losing weight, losing sleep, but I am not losing this game."`,
     );
-    log(s, { kind: "confessional", title: `Confessional — ${c.name}`, text: pick(lines) });
+    const fresh = lines.filter((l) => !used.has(l));
+    if (!fresh.length) continue;
+    const text = pick(fresh); used.add(text);
+    log(s, { kind: "confessional", title: `Confessional — ${c.name}`, text });
   }
 }
 

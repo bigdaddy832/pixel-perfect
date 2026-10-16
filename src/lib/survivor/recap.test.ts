@@ -67,3 +67,12 @@ describe("confessionals, recap, nullifier, and list ordering", () => {
     }
   });
 });
+
+describe("unique confessionals", () => {
+  it("never repeats a confessional line in a season", () => {
+    for (let i = 0; i < 15; i++) {
+      const t = simulateToEnd(season()).episodes.flatMap((e) => e.entries).filter((e) => e.kind === "confessional").map((e) => e.text);
+      expect(new Set(t).size).toBe(t.length);
+    }
+  });
+});
