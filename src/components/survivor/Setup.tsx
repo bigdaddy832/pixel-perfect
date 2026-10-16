@@ -116,7 +116,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       <div className="sticky bottom-4 mt-8 flex justify-center">
         <button onClick={start} className="rounded-full bg-primary px-10 py-4 font-display text-3xl tracking-widest text-primary-foreground torch-glow hover:scale-105 transition">Start the Season 🔥</button>
       </div>
-      <span className="hidden">{randStat()}</span>
+      
     </div>
   );
 }

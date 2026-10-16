@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useState } from "react";
 import { Setup } from "@/components/survivor/Setup";
 import { Game } from "@/components/survivor/Game";
@@ -20,5 +20,5 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [game, setGame] = useState<GameState | null>(null);
-  return game ? <Game game={game} setGame={setGame} onReset={() => setGame(null)} /> : <Setup onStart={setGame} />;
+  return game ? <Game game={game} setGame={setGame} onReset={() => setGame(null)} /> : <ClientOnly fallback={<div className="min-h-screen" />}><Setup onStart={setGame} /></ClientOnly>;
 }
