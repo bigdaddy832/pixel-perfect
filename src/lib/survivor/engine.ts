@@ -121,12 +121,13 @@ const SYL_C = ["ra", "ri", "kai", "lo", "na", "mu", "sa", "tu", "vi", "ko", "ne"
 const REAL_TRIBES = ["Pagong", "Tagi", "Kucha", "Ogakor", "Samburu", "Boran", "Rotu", "Maraamu", "Chuay Gahn", "Sook Jai", "Rotu", "Fang", "Kota", "Ulong", "Koror", "Moto", "Ravu", "Casaya", "La Mina", "Bayoneta", "Aitu", "Puka", "Raro", "Manihiki", "Fei Long", "Zhan Hu", "Malakal", "Airai", "Dabu", "Galang", "Tandang", "Kalabaw", "Salani", "Manono", "Nuku", "Vakama", "Yase", "Soka", "Ika", "Baka", "Gata", "Lavo", "Luvu", "Naviti", "Taku", "Dakal"];
 /** An invented tribe name (never a real Survivor tribe) that isn't already in `avoid`. */
 export function randomTribeName(avoid: string[] = []): string {
-  const lower = [...avoid, ...REAL_TRIBES].map((x) => x.toLowerCase());
+  const lower = [...avoid, ...REAL_TRIBES, ...NAMES].map((x) => x.toLowerCase());
   for (let i = 0; i < 50; i++) {
-    const n = pick(SYL_A) + (r() < 0.6 ? pick(SYL_B) : "") + pick(SYL_C);
-    if (!lower.includes(n.toLowerCase())) return n;
+    const n = pick(SYL_A) + pick(SYL_B) + pick(SYL_C);
+    if (n.length < 6 || lower.includes(n.toLowerCase())) continue;
+    return n;
   }
-  return `${pick(SYL_A)}${pick(SYL_C)}${Math.floor(r() * 90 + 10)}`;
+  return `${pick(SYL_A)}${pick(SYL_B)}${pick(SYL_C)}${Math.floor(r() * 90 + 10)}`;
 }
 
 const NAMES = [
