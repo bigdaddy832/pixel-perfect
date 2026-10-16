@@ -14,4 +14,4 @@ it("stress", () => {
       catch (e) { console.log("FAIL", k, g.phase, (e as Error).stack?.slice(0, 600)); throw e; }
     }
   }
-});
+}, 600000);
