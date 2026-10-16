@@ -15,3 +15,4 @@
 - Configure a future third swap tribe separately from active starting tribes and only activate it during the swap so cast assignment and hidden idols stay consistent.
 - Reuse the shared tribe editor for starting, merge, swap, and in-season editing so name and color controls behave consistently.
 - Finished seasons are saved to the signed-in user's history from the season page; history pages live under the signed-in-only area and reuse the Game view in read-only mode, so past seasons look identical to live ones.
+- Named settings presets use a validated browser-local format separate from saved seasons and exclude cast and controlled-player choices, so loading a format does not overwrite a customized cast.
