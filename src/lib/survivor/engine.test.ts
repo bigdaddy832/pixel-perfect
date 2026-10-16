@@ -105,7 +105,7 @@ describe("Survivor decisions and tribes", () => {
       expect(new Set(alive(g).map((c) => c.tribeId)).size).toBe(2);
       expect(g.tribes.find((t) => t.id === "swap-third")).toBeUndefined();
     } else {
-      expect(g.tribes.find((t) => t.id === "swap-third")).toEqual({ ...config.swapTribe, name: "Swap Test 2.0" });
+      expect(g.tribes.find((t) => t.id === "swap-third")).toEqual(config.swapTribe);
       expect(alive(g).filter((c) => c.tribeId === "swap-third")).toHaveLength(Math.floor(alive(g).length / 3));
       expect(g.hiddenIdols["swap-third"]).toBe(1);
     }
