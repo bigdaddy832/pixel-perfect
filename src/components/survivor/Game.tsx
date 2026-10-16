@@ -7,7 +7,7 @@ import {
 import { StatPicker, TribeEditor } from "./shared";
 import { Button } from "@/components/ui/button";
 
-const PHASE_LABEL: Record<string, string> = { camp: "Life at Camp", challenge: "Challenges", tribal: "Tribal Council", final_challenge: "Final Immunity", ftc: "Final Tribal Council", done: "Season Complete" };
+const PHASE_LABEL: Record<string, string> = { camp: "Life at Camp", challenge: "Challenges", tribal: "Tribal Council", final_challenge: "Final Immunity", final_choice: "Final Decision", ftc: "Final Tribal Council", done: "Season Complete" };
 const KIND_ICON: Record<string, string> = { camp: "🏕️", drama: "💢", alliance: "🤝", idol: "🗿", challenge: "🏆", tribal: "🔥", twist: "🌀", finale: "👑" };
 
 export function Game({ game, setGame, onReset }: { game: GameState; setGame: (g: GameState) => void; onReset: () => void }) {
@@ -31,7 +31,7 @@ export function Game({ game, setGame, onReset }: { game: GameState; setGame: (g:
           <Button variant="secondary" disabled={game.phase === "done"} onClick={next} className="rounded-md bg-primary px-5 py-2 font-semibold text-primary-foreground disabled:opacity-40 torch-glow">Next Phase ▶</Button>
           <Button variant="secondary" disabled={game.phase === "done"} onClick={() => setGame(simulateToEnd(game))} className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted disabled:opacity-40">Auto-Simulate to End ⏩</Button>
           <Button variant="secondary" onClick={() => setEditing(true)} className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted">Edit Stats / Tribes ✏️</Button>
-          <Button variant="secondary" onClick={onReset} className="rounded-md border px-4 py-2 text-sm hover:bg-muted">New Season</Button>
+          <Button variant="secondary" onClick={() => { if (game.phase === "done" || window.confirm("Start a new season? This season will be lost.")) onReset(); }} className="rounded-md border px-4 py-2 text-sm hover:bg-muted">New Season</Button>
         </div>
       </header>
 
@@ -157,8 +157,20 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           </div>
         </div>
       )}
+      {pending.kind === "cut" && (
+        <label className="mt-2 flex flex-wrap items-center gap-2 text-sm">{pending.fire ? "You won! Choose who sits beside you at Final 3 (the other two make fire):" : "You won! Choose who to vote out:"}
+          <select className={sel} value={dec.cut ?? ""} onChange={(e) => setDec({ ...dec, cut: e.target.value || undefined })}>
+            <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select></label>
+      )}
       {pending.kind === "tribal" && (
         <div className="mt-2 flex flex-wrap gap-4 text-sm">
+          {pending.canGiveImmunity && (
+            <label className="flex items-center gap-2">🛡️ Give up immunity to:
+              <select className={sel} value={dec.giveImmunity ?? ""} onChange={(e) => setDec({ ...dec, giveImmunity: e.target.value || undefined })}>
+                <option value="">Keep my necklace</option>{pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select></label>
+          )}
           <label className="flex items-center gap-2">Vote for:
             <select className={sel} value={dec.vote ?? ""} onChange={(e) => setDec({ ...dec, vote: e.target.value || undefined })}>
               <option value="">— Let instinct decide —</option>{pending.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
