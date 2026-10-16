@@ -43,11 +43,12 @@ export interface Config {
   jointTribals?: boolean; doubleTribals?: boolean;
   edgeOfExtinction?: boolean; journeys?: boolean; exileIsland?: boolean; bewareAdvantages?: boolean;
   controlledId: string | null;
+  seasonTitle?: string;
 }
 export interface Vote { voter: string; target: string; nullified?: boolean }
 export interface LogEntry {
-  kind: "camp" | "drama" | "alliance" | "idol" | "challenge" | "tribal" | "twist" | "finale" | "confessional";
-  title: string; text: string; details?: string[]; votes?: Vote[]; revote?: Vote[]; quoteKey?: string;
+  kind: "camp" | "drama" | "alliance" | "idol" | "challenge" | "tribal" | "twist" | "finale" | "confessional" | "jury";
+  title: string; text: string; details?: string[]; votes?: Vote[]; revote?: Vote[]; quoteKey?: string; out?: string;
 }
 export interface Episode { n: number; title: string; entries: LogEntry[] }
 export type Phase = "camp" | "challenge" | "tribal" | "final_challenge" | "final_choice" | "ftc" | "done";
@@ -72,7 +73,16 @@ export const IDOL_HIDING_PLACES = [
   "fastened to the underside of a water bucket", "hidden in the fork of a strangler fig",
 ];
 const CHALLENGE_IDOL_PLACES = ["beneath a puzzle table", "inside a hollow course marker", "under the climbing platform", "tied behind a balance-beam support", "inside a rope basket", "beneath the final station's bench"];
-export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; giveItem?: string; giveTo?: string; shotInDark?: boolean; revoteVote?: string; pauseOnRevote?: boolean; revoteDecided?: boolean }
+export type TalkTopic = "personal" | "strategy" | "chore" | "compliment" | "vent" | "joke";
+export const TALK_TOPICS: Record<TalkTopic, { label: string; base: number; win: number; lose: number; ok: string; bad: string }> = {
+  personal: { label: "Talk about home & family", base: 0.7, win: 8, lose: -3, ok: "opened up about life back home — a real bond formed", bad: "seemed uncomfortable sharing anything personal" },
+  strategy: { label: "Talk strategy", base: 0.5, win: 10, lose: -6, ok: "trusted you with their read on the game", bad: "got paranoid that you're playing too hard" },
+  chore: { label: "Do a camp chore together", base: 0.75, win: 6, lose: -2, ok: "worked side by side with you and appreciated the effort", bad: "thought you slacked off and did most of the work themselves" },
+  compliment: { label: "Compliment their game", base: 0.6, win: 7, lose: -4, ok: "lit up — they felt seen", bad: "smelled a suck-up and got guarded" },
+  vent: { label: "Vent about someone", base: 0.45, win: 12, lose: -8, ok: "agreed completely — you've got a shared enemy now", bad: "didn't share your gripe and may repeat what you said" },
+  joke: { label: "Joke around", base: 0.65, win: 6, lose: -3, ok: "was cracking up — the mood at camp lifted", bad: "didn't find it funny at all" },
+};
+export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey; advantageTarget?: string; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; giveItem?: string; giveTo?: string; shotInDark?: boolean; revoteVote?: string; pauseOnRevote?: boolean; revoteDecided?: boolean; talks?: { with: string; topic: TalkTopic }[]; whisper?: string }
 const BIG_TWISTS = ["joint", "double_pre", "double_post"];
 /** Joint tribals and double eliminations share a single once-per-season slot. */
 export const bigTwistUsed = (s: GameState) => (s.twistsUsed ?? []).some((x) => BIG_TWISTS.includes(x));
