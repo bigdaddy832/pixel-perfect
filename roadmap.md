@@ -7,3 +7,6 @@
 - [x] Tie: show original and revote counts.
 - [x] Giving up immunity; rocks; joint and double tribals.
 - [x] Forced final 4 fire-making option (winner picks who sits beside them).
+- [x] Accounts (email + Google, username) and season history.
+- [x] More varied alliance and challenge names; numbered alliance names match member count.
+- [x] Alliances panel by tribe; tribal targets panel (group + individual, with reasons).
