@@ -1,14 +1,33 @@
-// Original season locations and themes (none used by the real show). A title is never reused.
+// Season titles follow the show's "Survivor: Location — Theme" format.
+// Locations are REAL places (islands, countries, seas) — but never one that
+// already served as a real Survivor season name. Themes are original,
+// twist-style coined names (like "Elimination Island") — never a real
+// Survivor season name or twist name. A full title is never reused.
 export const SEASON_PLACES = [
-  "Emberreach", "Coral Vesta", "Isla Thornwake", "Saltmoor", "Kalivora", "Driftmark", "Tavuna Reef", "Obsidian Cay",
-  "Mirelune", "Sunhollow", "Velatu Atoll", "Brackenfall", "Isla Quorra", "Lumeshore", "Tidecrest", "Nalimar",
-  "Ashveil Keys", "Pelorin", "Stormhaven Bay", "Corvanta", "Isla Brisa Negra", "Wyndral", "Ondeluma", "Sablecove",
+  "Bora Bora", "Tahiti", "Moorea", "Raiatea", "Huahine", "Tuvalu", "Palawan", "Cebu",
+  "Okinawa", "Halmahera", "Komodo", "Langkawi", "Sri Lanka", "Andaman Islands", "Maldives", "Seychelles",
+  "Mauritius", "Madagascar", "Zanzibar", "São Tomé", "Cape Verde", "Madeira", "Azores", "Canary Islands",
+  "Sardinia", "Corsica", "Sicily", "Crete", "Antigua", "Dominica", "Grenada", "St. Lucia",
+  "Roatán", "Cozumel", "Grand Cayman", "Aruba", "Curaçao", "Bonaire", "Yasawa Islands", "Taveuni",
+  "Guadalcanal", "Solomon Islands", "New Britain", "Palau Negros"? extends never — placeholder removed,
 ];
 export const SEASON_THEMES = [
-  "Sparks vs. Embers", "Dreamers vs. Doers", "Rookies vs. Renegades", "Salt & Smoke", "Hidden Currents", "Fault Lines",
-  "The Long Con", "Thunder & Tide", "Schemers vs. Steady Hands", "Night Owls vs. Early Birds", "Lone Wolves", "Fool's Gold",
-  "Wildfire", "Undertow", "Gamblers vs. Guardians", "Quiet Storm", "Paper Crowns", "Moon & Machete",
-  "Builders vs. Breakers", "Second Wind", "Crosswinds", "Smoke Signals", "Daredevils vs. Diplomats", "The Gilded Rope",
+  "Elimination Island", "Isolation Isle", "Snake Pit", "Judgement Rock", "Skull Cove", "Mutiny Bay",
+  "Treachery Shoals", "The Empty Throne", "Sudden Death", "Last Tribe Standing", "Burn the Boats",
+  "No Safe Harbor", "The Burning Tide", "Fire & Fate", "Duel Isle", "Crossfire Cove", "The Reckoning",
+  "War Paint", "The Wreckage", "Torched", "Tidal Wrath", "The Long Drop", "Ash & Bone", "Dead Water",
+  "Cursed Lagoon", "The Phantom Isle", "Castaway Crucible", "The Verdict", "Doomsday Reef", "The Bone Yard",
+  "The Last Stand", "Snake & Dagger",
+];
+/** Real Survivor (US) season names — these can never appear as a place or theme. */
+export const REAL_SEASON_NAMES = [
+  "Borneo", "The Australian Outback", "Africa", "Marquesas", "Thailand", "Amazon", "Pearl Islands",
+  "Vanuatu", "Palau", "Guatemala", "Panama", "Cook Islands", "Fiji", "China", "Micronesia", "Gabon",
+  "Tocantins", "Samoa", "Nicaragua", "Redemption Island", "South Pacific", "One World", "Philippines",
+  "Caramoan", "Blood vs. Water", "Cagayan", "San Juan del Sur", "Worlds Apart", "Cambodia",
+  "Kaôh Rōng", "Millennials vs. Gen X", "Game Changers", "Ghost Island", "David vs. Goliath",
+  "Edge of Extinction", "Island of the Idols", "Winners at War", "Heroes vs. Villains",
+  "Fans vs. Favorites", "Exile Island", "New Beginnings", "Hero Duel"? extends never — placeholder removed,
 ];
 export const USED_TITLES_KEY = "survivor-sim-used-season-titles-v1";
 
