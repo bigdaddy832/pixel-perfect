@@ -97,7 +97,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       jointTribals: joint, doubleTribals: double,
       edgeOfExtinction: edge, journeys, exileIsland: exile, bewareAdvantages: beware,
       controlledId: controlled === null ? null : `c${controlled}`,
-      seasonTitle: seasonTitle.trim() || randomSeasonTitle(readUsedTitles()),
+      seasonTitle: seasonTitle.trim() && !readUsedTitles().some((t) => t.toLowerCase() === seasonTitle.trim().toLowerCase()) ? seasonTitle.trim() : randomSeasonTitle(readUsedTitles()),
     };
     markTitleUsed(cfg.seasonTitle!);
     onStart(newGame(cfg, active, roster.map((r, i) => ({ ...r, tribeIndex: i % tribeCount }))));
