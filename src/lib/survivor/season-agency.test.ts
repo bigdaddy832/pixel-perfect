@@ -3,7 +3,7 @@ import { advantageSearchChance, allianceName, alive, canDiscoverIdol, makeRoster
 import { randomSeasonTwist, seasonTwistOptions, SEASON_PLACES, SEASON_THEMES, type SeasonTwist } from "./season-titles";
 
 const config: Config = { playerCount: 16, tribeCount: 2, jurySize: 7, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 12, mergeAt: 10, mergedName: "Test Merge", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false };
-const season = (twist?: SeasonTwist) => newGame({ ...config, ...(twist ? { themeTwist: twist } : {}), seasonTitle: "Survivor: Fire & Fate" }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2));
+const season = (twist?: SeasonTwist) => newGame({ ...config, ...(twist ? { themeTwist: twist } : {}), seasonTitle: "Survivor: Fire & Fate" }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i}` })));
 afterEach(() => vi.restoreAllMocks());
 
 describe("season agency rules", () => {
