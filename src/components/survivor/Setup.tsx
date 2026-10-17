@@ -8,7 +8,7 @@ import {
 import { StatPicker, TribeEditor } from "./shared";
 import { Button } from "@/components/ui/button";
 import { SettingsPresets } from "./SettingsPresets";
-import { markTitleUsed, randomSeasonTitle, readUsedTitles } from "@/lib/survivor/season-titles";
+import { markTitleUsed, randomSeasonTitle, readUsedTitles, randomSeasonTwist, seasonTwistOptions, SEASON_TWIST_LABEL } from "@/lib/survivor/season-titles";
 import type { SeasonSettings } from "@/lib/survivor/settings-presets";
 
 type Row = { name: string; stats: Record<StatKey, number>; tribeIndex: number };
@@ -23,6 +23,8 @@ function freshTribeNames() {
 export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [names] = useState(freshTribeNames);
   const [seasonTitle, setSeasonTitle] = useState(() => randomSeasonTitle(readUsedTitles()));
+  const [themeTwist, setThemeTwist] = useState(() => randomSeasonTwist(seasonTitle));
+  const changeTitle = (title: string) => { setSeasonTitle(title); setThemeTwist(randomSeasonTwist(title, finalSize)); };
   const [count, setCount] = useState(18);
   const [tribeCount, setTribeCount] = useState(2);
   const [finalSize, setFinalSize] = useState<2 | 3>(3);
@@ -88,6 +90,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   };
 
   const start = () => {
+    const title = seasonTitle.trim() && !readUsedTitles().some((t) => t.toLowerCase() === seasonTitle.trim().toLowerCase()) ? seasonTitle.trim() : randomSeasonTitle(readUsedTitles());
+    const twist = title === seasonTitle.trim() && seasonTwistOptions(title, finalSize).includes(themeTwist) ? themeTwist : randomSeasonTwist(title, finalSize);
     // With 3 starting tribes, the configured "swap tribe" IS the third starting tribe.
     const active = activeTribes.map((t) => ({ ...t }));
     const cfg: Config = {
@@ -97,9 +101,9 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       jointTribals: joint, doubleTribals: double,
       edgeOfExtinction: edge, journeys, exileIsland: exile, bewareAdvantages: beware,
       controlledId: controlled === null ? null : `c${controlled}`,
-      seasonTitle: seasonTitle.trim() && !readUsedTitles().some((t) => t.toLowerCase() === seasonTitle.trim().toLowerCase()) ? seasonTitle.trim() : randomSeasonTitle(readUsedTitles()),
+      seasonTitle: title, themeTwist: twist,
     };
-    markTitleUsed(cfg.seasonTitle!);
+    markTitleUsed(title);
     onStart(newGame(cfg, active, roster.map((r, i) => ({ ...r, tribeIndex: i % tribeCount }))));
   };
 
@@ -115,11 +119,11 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       <section className="mb-6 rounded-xl border bg-card p-5">
         <h2 className="text-2xl text-accent">Season Title</h2>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <input aria-label="Season title" className={`${sel} min-w-0 flex-1`} value={seasonTitle} onChange={(e) => setSeasonTitle(e.target.value)} />
-          <Button variant="secondary" onClick={() => setSeasonTitle(randomSeasonTitle([...readUsedTitles(), seasonTitle]))}>🎲 New title</Button>
+          <input aria-label="Season title" className={`${sel} min-w-0 flex-1`} value={seasonTitle} onChange={(e) => changeTitle(e.target.value)} />
+          <Button variant="secondary" onClick={() => changeTitle(randomSeasonTitle([...readUsedTitles(), seasonTitle]))}>🎲 New title</Button>
         </div>
         {readUsedTitles().some((t) => t.toLowerCase() === seasonTitle.trim().toLowerCase()) && <p className="mt-1 text-xs text-destructive">You've already used this title — pick another.</p>}
-        <p className="mt-1 text-xs text-muted-foreground">Original titles only. Once a season starts with a title, it's never offered again.</p>
+        <p className="mt-2 text-sm text-accent">Season twist: {SEASON_TWIST_LABEL[finalSize === 2 && themeTwist === "fire" ? "double" : themeTwist]}</p>
       </section>
 
       <SettingsPresets settings={settings} onLoad={loadSettings} />
