@@ -31,6 +31,29 @@ export const REAL_SEASON_NAMES = [
 ];
 export const USED_TITLES_KEY = "survivor-sim-used-season-titles-v1";
 
+export type SeasonTwist = "journey" | "exile" | "return" | "fire" | "double";
+export const SEASON_TWIST_LABEL: Record<SeasonTwist, string> = {
+  journey: "Cross-tribe summit journeys", exile: "Reward winners send a rival into isolation",
+  return: "Eliminated players compete for a return", fire: "Final-four fire-making showdown",
+  double: "A double-elimination night after the merge",
+};
+/** Choose among mechanics that fit the title; locations allow any island-season twist. */
+export function seasonTwistOptions(title: string, finalSize: 2 | 3 = 3): SeasonTwist[] {
+  const name = title.replace(/^Survivor:\s*/i, "").replace(/\s+\d+$/, "").toLowerCase();
+  let options: SeasonTwist[];
+  if (/fire|burn|torched|ash/.test(name)) options = ["fire", "double"];
+  else if (/isolation|phantom|cursed|no safe|dead water/.test(name)) options = ["exile", "return"];
+  else if (/elimination|duel|last stand|wreck|empty throne|bone/.test(name)) options = ["return", "double"];
+  else if (/judgement|verdict|reckoning|sudden death|crossfire|doomsday|long drop/.test(name)) options = ["double", "fire"];
+  else if (/snake|mutiny|treachery|war paint/.test(name)) options = ["journey", "exile"];
+  else options = ["journey", "exile", "return", "fire", "double"];
+  return options.filter((twist) => finalSize === 3 || twist !== "fire");
+}
+export function randomSeasonTwist(title: string, finalSize: 2 | 3 = 3, rand: () => number = Math.random): SeasonTwist {
+  const options = seasonTwistOptions(title, finalSize);
+  return options[Math.floor(rand() * options.length)] ?? "journey";
+}
+
 export function readUsedTitles(): string[] {
   try { const v: unknown = JSON.parse(localStorage.getItem(USED_TITLES_KEY) ?? "[]"); return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []; } catch { return []; }
 }
@@ -42,6 +65,6 @@ export function randomSeasonTitle(used: string[], rand: () => number = Math.rand
   const usedSet = new Set(used.map((t) => t.toLowerCase()));
   const all = [...SEASON_PLACES, ...SEASON_THEMES].map((x) => `Survivor: ${x}`);
   const free = all.filter((t) => !usedSet.has(t.toLowerCase()));
-  if (free.length) return free[Math.floor(rand() * free.length)]!;
+  if (free.length) return free[Math.floor(rand() * free.length)] ?? "Survivor: Bora Bora";
   for (let n = 2; ; n++) { const t = `${all[Math.floor(rand() * all.length)]} ${n}`; if (!usedSet.has(t.toLowerCase())) return t; }
 }
