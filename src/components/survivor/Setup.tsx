@@ -61,6 +61,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     setMergeTribe({ ...s.mergeTribe }); setSwapTribe({ ...s.swapTribe }); setTribes(s.tribes.map((t) => ({ ...t })));
     setAddSwapTribe(s.addSwapTribe); setJoint(s.joint); setDouble(s.double);
     setEdge(s.edge); setJourneys(s.journeys); setExile(s.exile); setBeware(s.beware);
+    if (!seasonTwistOptions(seasonTitle, s.finalSize).includes(themeTwist)) setThemeTwist(randomSeasonTwist(seasonTitle, s.finalSize));
     setRoster((r) => makeRoster(s.count, s.tribeCount, r).map((p, i) => ({ ...p, tribeIndex: i % s.tribeCount })));
     setControlled(null);
   };
@@ -134,7 +135,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           <Field label="Castaways"><select className={sel} value={count} onChange={(e) => recount(+e.target.value)}>{[12, 16, 18, 20].map((n) => <option key={n}>{n}</option>)}</select></Field>
           <Field label="Starting tribes"><select className={sel} value={tribeCount} onChange={(e) => { setTribeCount(+e.target.value); recount(count, +e.target.value); }}>{[2, 3, 4].map((n) => <option key={n}>{n}</option>)}</select></Field>
           <Field label="Jury size"><input type="number" min={3} max={count - 3} className={`${sel} w-20`} value={jury} onChange={(e) => setJury(+e.target.value)} /></Field>
-          <Field label="Final"><select className={sel} value={finalSize} onChange={(e) => { const f = +e.target.value as 2 | 3; setFinalSize(f); setMergeAt(defaultMergeAt(count, jury, f)); }}><option value={3}>Final 3</option><option value={2}>Final 2</option></select></Field>
+          <Field label="Final"><select className={sel} value={finalSize} onChange={(e) => { const f = +e.target.value as 2 | 3; setFinalSize(f); setMergeAt(defaultMergeAt(count, jury, f)); if (!seasonTwistOptions(seasonTitle, f).includes(themeTwist)) setThemeTwist(randomSeasonTwist(seasonTitle, f)); }}><option value={3}>Final 3</option><option value={2}>Final 2</option></select></Field>
           {finalSize === 3 && <Field label="Forced fire-making at F4"><input type="checkbox" checked={fire} onChange={(e) => setFire(e.target.checked)} className="accent-primary size-4" /></Field>}
         </div>
         <div className="rounded-xl border bg-card p-5 space-y-3">

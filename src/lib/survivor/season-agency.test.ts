@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { advantageSearchChance, alive, canDiscoverIdol, makeRoster, newGame, simulateToEnd, step, TALK_TOPICS, type Config } from "./engine";
+import { advantageSearchChance, allianceName, alive, canDiscoverIdol, makeRoster, newGame, simulateToEnd, step, TALK_TOPICS, type Config } from "./engine";
 import { randomSeasonTwist, seasonTwistOptions, SEASON_PLACES, SEASON_THEMES, type SeasonTwist } from "./season-titles";
 
 const config: Config = { playerCount: 16, tribeCount: 2, jurySize: 7, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 12, mergeAt: 10, mergedName: "Test Merge", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false };
-const season = (twist?: SeasonTwist) => newGame({ ...config, themeTwist: twist, seasonTitle: "Survivor: Fire & Fate" }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2));
+const season = (twist?: SeasonTwist) => newGame({ ...config, ...(twist ? { themeTwist: twist } : {}), seasonTitle: "Survivor: Fire & Fate" }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2));
 afterEach(() => vi.restoreAllMocks());
 
 describe("season agency rules", () => {
@@ -47,6 +47,13 @@ describe("season agency rules", () => {
     expect(advantageSearchChance(1)).toBeCloseTo(0.009);
     expect(advantageSearchChance(5)).toBeCloseTo(0.029);
     expect(advantageSearchChance(5)).toBeLessThan(0.035);
+  });
+
+  it("offers at least 120 distinct non-numbered alliance names without fallback", () => {
+    const names: string[] = [];
+    for (let i = 0; i < 120; i++) names.push(allianceName(8, names));
+    expect(new Set(names).size).toBe(120);
+    expect(names.some((name) => name.startsWith("The Alliance "))).toBe(false);
   });
 
   it("gives every generated title a compatible twist and excludes fire for final two", () => {
