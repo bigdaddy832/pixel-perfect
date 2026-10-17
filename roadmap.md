@@ -1,4 +1,6 @@
 # Survivor updates
+- [x] Random conversation partners and automatic topics; no idol finds at final four; slightly fewer advantages; more alliance names.
+- [x] Pair generated season titles with matching randomized twists and verify season flow.
 - [x] Limit Beware to one per season; add three first-reward amulets with shared play, evolving powers, and nonrepeating stage notes; verify.
 - [x] Save and load named season-settings presets, including four starting tribes; verify persistence and loading.
 - [x] Earlier: alliances, idols, advantages, tribe colors, naming.

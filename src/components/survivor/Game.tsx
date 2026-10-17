@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, getRel, amuletHolders, amuletDescription, TALK_TOPICS,
+  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, getRel, amuletHolders, amuletDescription,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -186,25 +186,22 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           <select className={sel} value={dec.allyWith ?? ""} onChange={(e) => setDec({ ...dec, allyWith: e.target.value || undefined })}>
             <option value="">— Lay low —</option><option value="__random__">Randomize who I approach</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select></label>
-          {[0, 1].map((i) => { const t = dec.talks?.[i]; const set = (v?: { with: string; topic: any }) => { const arr = [...(dec.talks ?? [])]; if (v) arr[i] = v; else arr.splice(i, 1); setDec({ ...dec, talks: arr.filter(Boolean) }); };
+          {[0, 1].map((i) => { const t = dec.talks?.[i]; const set = (v?: { with: string }) => { const arr = [...(dec.talks ?? [])]; if (v) arr[i] = v; else arr.splice(i, 1); setDec({ ...dec, talks: arr.filter(Boolean) }); };
             if (i === 1 && !dec.talks?.[0]) return null;
             return <div key={i} className="flex flex-wrap items-center gap-2 text-sm">{i === 0 ? "Have a conversation with" : "Second conversation with"}
-              <select className={sel} value={t?.with ?? ""} onChange={(e) => set(e.target.value ? { with: e.target.value, topic: t?.topic ?? "personal" } : undefined)}>
-                <option value="">— Nobody —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              <select aria-label={i === 0 ? "Conversation partner" : "Second conversation partner"} className={sel} value={t?.with ?? ""} onChange={(e) => set(e.target.value ? { with: e.target.value } : undefined)}>
+                <option value="">— Nobody —</option><option value="__random__">Randomize who I talk to</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
-              {t && <><span>about</span><select className={sel} value={t.topic} onChange={(e) => set({ ...t, topic: e.target.value })}>
-                {Object.entries(TALK_TOPICS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select><span className="text-xs text-muted-foreground">(can work or backfire)</span></>}
             </div>; })}
           {pending.bewareTask && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.bewareAttempt ?? false} onChange={(e) => setDec({ ...dec, bewareAttempt: e.target.checked })} className="size-4 accent-primary" />Try to unlock your Beware idol: {pending.bewareTask} (getting caught makes your tribe suspicious)</label>}
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+          {alive(game).length > 4 && <div className="flex flex-wrap items-center gap-3 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={dec.searchIdol ?? false} onChange={(e) => setDec({ ...dec, searchIdol: e.target.checked })} className="size-4 accent-primary" />Search for an idol</label>
             {dec.searchIdol && <label className="flex flex-wrap items-center gap-2">Search location:
               <select className={sel} value={dec.searchSpot ?? ""} onChange={(e) => setDec({ ...dec, searchSpot: e.target.value || undefined })}>
                 <option value="">Random location</option>{SEARCH_SPOTS.map((spot) => <option key={spot} value={spot}>{spot}</option>)}
               </select>
             </label>}
-          </div>
+          </div>}
           {pending.canSearchAtChallenge && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.challengeIdol ?? false} onChange={(e) => setDec({ ...dec, challengeIdol: e.target.checked })} className="size-4 accent-primary" />Look for an idol during the immunity challenge (risks slowing your tribe)</label>}
           {pending.giveables.length > 0 && <div className="flex flex-wrap items-center gap-2 text-sm">Give away:
             <select className={sel} value={dec.giveItem ?? ""} onChange={(e) => setDec({ ...dec, giveItem: e.target.value || undefined })}>
