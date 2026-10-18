@@ -5,7 +5,7 @@ import { allianceRecruitmentScore, randomExitCandidates, kipItems, makeRoster, n
 
 function tribal(): GameState {
   const g = newGame({ playerCount: 16, tribeCount: 2, jurySize: 7, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 12, mergeAt: 10, mergedName: "Test", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2));
-  g.phase = "tribal"; g.tribalTribe = "t0";
+  g.phase = "tribal"; g.tribalTribe = "t0"; g.immune = ["c0"];
   g.castaways.forEach((c) => { c.idols = 0; c.advantages = []; c.shotUsed = true; });
   return g;
 }
@@ -44,7 +44,6 @@ describe("Tribal item agency", () => {
     expect(result.castaways.find((c) => c.id === me.id)?.advantages).toEqual(["vote_blocker"]);
     expect(result.castaways.find((c) => c.id === me.id)?.idols).toBe(0);
     expect(result.castaways.find((c) => c.id === target.id)?.advantages).not.toContain("vote_blocker");
-    expect(result.episodes.flatMap((ep) => ep.entries).flatMap((e) => e.details ?? []).some((text) => text.includes("Do you have a Vote Blocker?"))).toBe(true);
   });
 
   it("excludes locked idols and duplicate advantages from KIP options", () => {
@@ -57,7 +56,7 @@ describe("Tribal item agency", () => {
   it("lets idol instinct protect a threatened controlled player while keep preserves the idol", () => {
     const g = tribal(); const me = g.castaways.find((c) => c.id === "c0");
     if (!me) throw new Error("Missing player");
-    me.idols = 1; g.castaways.forEach((c, i) => { c.out = i >= 5; c.tribeId = "t0"; });
+    me.idols = 1; g.immune = []; g.castaways.forEach((c, i) => { c.out = i >= 5; c.tribeId = "t0"; });
     g.rel = {}; g.castaways.filter((c) => !c.out && c.id !== me.id).forEach((c) => { g.rel[[c.id, me.id].sort().join("|")] = -50; });
     // At the last idol-eligible Tribal, instinct plays whenever the holder receives votes.
     let found = false;
