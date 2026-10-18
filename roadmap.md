@@ -1,4 +1,5 @@
 # Survivor updates
+- [ ] KIP item selection, revote-only parchment readings, and opt-in instinct for idols/advantages; verify controls and rules.
 - [x] Random conversation partners and automatic topics; no idol finds at final four; slightly fewer advantages; more alliance names.
 - [x] Pair generated season titles with matching randomized twists and verify season flow.
 - [x] Limit Beware to one per season; add three first-reward amulets with shared play, evolving powers, and nonrepeating stage notes; verify.
