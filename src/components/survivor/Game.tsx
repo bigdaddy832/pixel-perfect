@@ -1,7 +1,7 @@
 // @ts-nocheck -- indexing guarded by game invariants
 import { useState } from "react";
 import {
-  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, getRel, amuletHolders, amuletDescription,
+  ADVANTAGE_DESC, ADVANTAGE_LABEL, ADVANTAGE_NEEDS_TARGET, CHALLENGE_STATS, SOCIAL_STATS, STAT_LABEL, SEARCH_SPOTS, alive, byId, finalistSpeeches, pendingDecision, simulateToEnd, step, tribeOf, tribalTargets, attendees, getRel, amuletHolders, amuletDescription, kipItems,
   type Castaway, type Decision, type GameState, type LogEntry, type Vote,
 } from "@/lib/survivor/engine";
 import { StatPicker, TribeEditor } from "./shared";
@@ -19,6 +19,7 @@ export function Game({ game, setGame, onReset, readOnly = false }: { game: GameS
   const [reveals, setReveals] = useState<LogEntry[]>([]);
   const tribalCount = (g: GameState) => g.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal").length;
   const next = () => {
+    if (dec.quit && !window.confirm("Quit this season? Your torch will be snuffed and you will continue as a spectator.")) return;
     const ng = step(game, { ...dec, pauseOnRevote: true });
     const fresh = ng.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal").slice(tribalCount(game));
     setGame(ng); setDec({});
@@ -155,6 +156,8 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
   const sel = "rounded-md border border-input bg-secondary px-2 py-1.5 text-sm";
   if (!game.config.controlledId) return null;
   const me = byId(game, game.config.controlledId);
+  const kipTarget = attendees(game).find((c) => c.id === dec.advantageTarget);
+  const stealable = kipTarget ? kipItems(me, kipTarget) : [];
   return (
     <div className="mb-6 rounded-xl border-2 border-primary bg-card p-4">
       <h2 className="text-2xl text-primary">Your Decision, {me.name}</h2>
@@ -211,6 +214,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
               <option value="">— Choose —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select></>}
           </div>}
+          <label className="flex items-center gap-2 text-sm text-destructive"><input type="checkbox" checked={dec.quit ?? false} onChange={(e) => setDec({ ...dec, quit: e.target.checked })} className="size-4 accent-primary" />Choose to quit the game</label>
           {!pending.fakeStatus && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.craftFake ?? false} onChange={(e) => setDec({ ...dec, craftFake: e.target.checked })} className="size-4 accent-primary" />Craft a fake idol</label>}
           {(pending.fakeStatus === "own" || dec.craftFake) && pending.plantTargets.length > 0 && <label className="flex flex-wrap items-center gap-2 text-sm">Plant fake idol on:
             <select className={sel} value={dec.fakeTarget ?? ""} onChange={(e) => setDec({ ...dec, fakeTarget: e.target.value || undefined })}>
@@ -244,22 +248,31 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
           {pending.hasIdol && (
             <label className="flex items-center gap-2">🗿 Play idol on:
               <select className={sel} value={dec.idol ?? ""} onChange={(e) => setDec({ ...dec, idol: e.target.value })}>
-                <option value="">Keep it</option><option value="__random__">Random person</option>{az(pending.idolTargets).map((o) => <option key={o.id} value={o.id}>{o.id === me.id ? "Myself" : o.name}</option>)}
+                <option value="">Keep it</option><option value="__instinct__">— Let instinct decide —</option><option value="__random__">Random person</option>{az(pending.idolTargets).map((o) => <option key={o.id} value={o.id}>{o.id === me.id ? "Myself" : o.name}</option>)}
               </select></label>
           )}
           {pending.advantages.length > 0 && (
             <label className="flex items-center gap-2">Play advantage:
-              <select className={sel} value={dec.advantage ?? ""} onChange={(e) => setDec({ ...dec, advantage: e.target.value || undefined, advantageTarget: undefined })}>
-                <option value="">Keep it</option>{pending.advantages.map((a) => <option key={a} value={a}>{ADVANTAGE_LABEL[a]}</option>)}
+              <select className={sel} value={dec.advantage ?? ""} onChange={(e) => setDec({ ...dec, advantage: e.target.value || undefined, advantageTarget: undefined, kipItem: undefined })}>
+                <option value="">Keep it</option><option value="__instinct__">— Let instinct decide —</option>{pending.advantages.map((a) => <option key={a} value={a}>{ADVANTAGE_LABEL[a]}</option>)}
               </select></label>
           )}
           {dec.advantage && ADVANTAGE_NEEDS_TARGET.includes(dec.advantage) && (
             <label className="flex items-center gap-2">On:
-              <select className={sel} value={dec.advantageTarget ?? ""} onChange={(e) => setDec({ ...dec, advantageTarget: e.target.value || undefined })}>
-                <option value="">— Choose —</option><option value="__random__">Random person</option>{az(pending.idolTargets.concat(pending.options).filter((o, i, arr) => o.id !== me.id && arr.findIndex((x) => x.id === o.id) === i)).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              <select aria-label="Advantage target" className={sel} value={dec.advantageTarget ?? ""} onChange={(e) => {
+                const others = attendees(game).filter((c) => c.id !== me.id);
+                const value = dec.advantage === "knowledge_is_power" && e.target.value === "__random__" ? others[Math.floor(Math.random() * others.length)]?.id : e.target.value;
+                setDec({ ...dec, advantageTarget: value || undefined, kipItem: undefined });
+              }}>
+                <option value="">— Choose —</option>{dec.advantage !== "knowledge_is_power" && <option value="__instinct__">— Let instinct decide —</option>}<option value="__random__">Random person</option>{az(attendees(game).filter((o) => o.id !== me.id)).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select></label>
           )}
-          {dec.advantage && <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>}
+          {dec.advantage === "knowledge_is_power" && kipTarget && (stealable.length ? <label className="flex flex-wrap items-center gap-2">Take from {kipTarget.name}:
+            <select aria-label="KIP item to take" className={sel} value={dec.kipItem ?? ""} onChange={(e) => setDec({ ...dec, kipItem: e.target.value || undefined })}>
+              <option value="">— Let instinct decide —</option>{stealable.map((item) => <option key={item} value={item}>{item === "idol" ? "Hidden Immunity Idol" : ADVANTAGE_LABEL[item]}</option>)}
+            </select>
+          </label> : <p className="w-full text-muted-foreground">{kipTarget.name} has no item you can take.</p>)}
+          {dec.advantage && dec.advantage !== "__instinct__" && <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>}
           {pending.canShoot && <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={dec.shotInDark ?? false} onChange={(e) => setDec({ ...dec, shotInDark: e.target.checked })} />Play Shot in the Dark (1 in 6 chance of safety; you lose your vote either way, one use per season)</label>}
           {pending.canPlayAmulet && <>
             <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={dec.playAmulet ?? false} onChange={(e) => setDec({ ...dec, playAmulet: e.target.checked, amuletTarget: undefined })} />Play Advantage Amulet{amuletHolders(game).length > 1 ? " together" : ""}</label>
@@ -388,26 +401,27 @@ function revealOrder(votes: Vote[], out?: string) {
   const counted = votes.filter((v) => !v.nullified);
   const L = counted.filter((v) => v.target === out), O = counted.filter((v) => v.target !== out);
   const seq: Vote[] = [];
-  while (L.length || O.length) { if (O.length && (L.length <= 1 || seq.length % 2 === 0)) seq.push(O.shift()!); else seq.push(L.shift()!); }
+  while (L.length || O.length) { const vote = O.length && (L.length <= 1 || seq.length % 2 === 0) ? O.shift() : L.shift(); if (vote) seq.push(vote); }
   return [...votes.filter((v) => v.nullified), ...seq];
 }
-function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone: () => void }) {
-  const seq = [...revealOrder(e.votes ?? [], e.revote?.length ? undefined : e.out), ...(e.revote?.length ? revealOrder(e.revote, e.out).map((v) => ({ ...v, re: true })) : [])];
+export function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone: () => void }) {
+  const isRevote = !!e.revote?.length;
+  const seq = revealOrder(isRevote ? e.revote ?? [] : e.votes ?? [], e.out);
   const [n, setN] = useState(0);
   const shown = seq.slice(0, n);
   const counts: Record<string, number> = {};
-  shown.forEach((v: any) => { if (!v.nullified && (v.re || !e.revote?.length || true)) counts[`${v.re ? "R" : ""}${v.target}`] = (counts[`${v.re ? "R" : ""}${v.target}`] ?? 0) + 1; });
+  shown.forEach((v) => { if (!v.nullified) counts[v.target] = (counts[v.target] ?? 0) + 1; });
   const last: any = shown.at(-1);
   const finished = n >= seq.length;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-4 backdrop-blur">
       <div className="w-full max-w-lg rounded-2xl border-2 border-primary bg-card p-6 text-center torch-glow">
         <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{e.title}</p>
-        <p className="mt-2 text-sm text-muted-foreground">{n === 0 ? `"I'll read the votes." ${seq.length} parchment${seq.length === 1 ? "" : "s"}.` : last.re ? "Revote" : last.nullified ? "Does not count" : `Vote ${shown.filter((v: any) => !v.re && !v.nullified).length}`}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{n === 0 ? `"I'll read the ${isRevote ? "revote " : ""}votes." ${seq.length} parchment${seq.length === 1 ? "" : "s"}.` : last.nullified ? "Does not count" : `${isRevote ? "Revote · " : ""}Vote ${shown.filter((v) => !v.nullified).length}`}</p>
         <div className="my-6 flex min-h-32 items-center justify-center rounded-lg border bg-secondary/60 p-6">
           {last ? <span key={n} className={`font-display text-5xl tracking-wide ${last.nullified ? "line-through text-muted-foreground" : "text-primary"}`}>{byId(g, last.target).name}</span> : <span className="text-4xl">📜</span>}
         </div>
-        <div className="flex flex-wrap justify-center gap-2 text-sm">{Object.entries(counts).map(([k, c]) => <span key={k} className="rounded bg-secondary px-2 py-1">{k.startsWith("R") ? "Revote · " : ""}{byId(g, k.replace(/^R/, "")).name}: <b>{c}</b></span>)}</div>
+        <div className="flex flex-wrap justify-center gap-2 text-sm">{Object.entries(counts).map(([k, c]) => <span key={k} className="rounded bg-secondary px-2 py-1">{isRevote ? "Revote · " : ""}{byId(g, k).name}: <b>{c}</b></span>)}</div>
         {finished && <p className="mt-4 text-sm">{e.text}</p>}
         <div className="mt-5 flex justify-center gap-2">
           {!finished ? <Button onClick={() => setN(n + 1)}>Read next vote</Button> : <Button onClick={onDone}>Continue</Button>}
