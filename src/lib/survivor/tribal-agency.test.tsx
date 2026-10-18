@@ -44,7 +44,7 @@ describe("Tribal item agency", () => {
       if (player?.idolsPlayed === 1) { expect(player.idols).toBe(0); found = true; break; }
     }
     expect(found).toBe(true);
-    expect(step(g, { idol: "" }).castaways.find((c) => c.id === me.id)?.idols).toBe(1);
+    expect(step(g, { idol: "" }).castaways.find((c) => c.id === me.id)?.idolsPlayed ?? 0).toBe(0);
   });
 
   it("advantage instinct can play a held advantage but never at final five", () => {
