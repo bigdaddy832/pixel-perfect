@@ -96,7 +96,7 @@ describe("Tribal item agency", () => {
     fireEvent.change(screen.getByLabelText("KIP item to take"), { target: { value: "extra_vote" } });
     fireEvent.click(screen.getByRole("button", { name: /Next Phase/ }));
     const held: GameState = setGame.mock.calls[0]?.[0];
-    const result = held.pendingRevote ? step(held, { revoteVote: held.pendingRevote.options[0] }) : held;
+    const result = held.pendingRevote ? step(held) : held;
     expect(result.castaways.find((c) => c.id === me.id)?.advantages).toEqual(["extra_vote"]);
   });
 
