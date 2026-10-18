@@ -819,7 +819,7 @@ function doTribal(s: GameState, d: Decision) {
         else { t.advantages = t.advantages.filter((x) => x !== item); h.advantages.push(item); got = `a ${ADVANTAGE_LABEL[item]}`; }
       }
       addRel(s, t.id, h.id, got ? -15 : -5);
-      kipLog.push(`${h.name} plays Knowledge is Power on ${t.name}: "Do you have ${item === "idol" ? "a Hidden Immunity Idol" : `a ${ADVANTAGE_LABEL[item]}`}?" ${got ? `${t.name} must hand over ${got}!` : `${t.name} cannot hand over the requested item.`}`);
+      kipLog.push(`${h.name} plays Knowledge is Power on ${t.name}: "Do you have ${item === "idol" ? "a Hidden Immunity Idol" : `${/^[aeiou]/i.test(ADVANTAGE_LABEL[item]) ? "an" : "a"} ${ADVANTAGE_LABEL[item]}`}?" ${got ? `${t.name} must hand over ${got}!` : `${t.name} cannot hand over the requested item.`}`);
       continue;
     }
     plays.push({ who: h, adv, target });

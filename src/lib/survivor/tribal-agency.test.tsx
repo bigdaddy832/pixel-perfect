@@ -4,7 +4,7 @@ import { Game, VoteReveal } from "@/components/survivor/Game";
 import { allianceRecruitmentScore, randomExitCandidates, kipItems, makeRoster, newGame, step, type GameState, type LogEntry } from "./engine";
 
 function tribal(): GameState {
-  const g = newGame({ playerCount: 16, tribeCount: 2, jurySize: 7, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 12, mergeAt: 10, mergedName: "Test", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2));
+  const g = newGame({ playerCount: 16, tribeCount: 2, jurySize: 7, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 12, mergeAt: 10, mergedName: "Test", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i}` })));
   g.phase = "tribal"; g.tribalTribe = "t0"; g.immune = ["c0"];
   g.castaways.forEach((c) => { c.idols = 0; c.advantages = []; c.shotUsed = true; });
   return g;
@@ -95,7 +95,8 @@ describe("Tribal item agency", () => {
     fireEvent.change(screen.getByLabelText("Advantage target"), { target: { value: target.id } });
     fireEvent.change(screen.getByLabelText("KIP item to take"), { target: { value: "extra_vote" } });
     fireEvent.click(screen.getByRole("button", { name: /Next Phase/ }));
-    const result: GameState = setGame.mock.calls[0]?.[0];
+    const held: GameState = setGame.mock.calls[0]?.[0];
+    const result = held.pendingRevote ? step(held, { revoteVote: held.pendingRevote.options[0] }) : held;
     expect(result.castaways.find((c) => c.id === me.id)?.advantages).toEqual(["extra_vote"]);
   });
 
