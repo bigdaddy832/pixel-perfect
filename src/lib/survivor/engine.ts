@@ -84,7 +84,7 @@ export const TALK_TOPICS: Record<TalkTopic, { label: string; base: number; win: 
   vent: { label: "Vent about someone", base: 0.45, win: 12, lose: -8, ok: "agreed completely — you've got a shared enemy now", bad: "didn't share your gripe and may repeat what you said" },
   joke: { label: "Joke around", base: 0.65, win: 6, lose: -3, ok: "was cracking up — the mood at camp lifted", bad: "didn't find it funny at all" },
 };
-export interface Decision { vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey | "__instinct__"; advantageTarget?: string; kipItem?: "idol" | AdvantageKey; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; giveItem?: string; giveTo?: string; shotInDark?: boolean; revoteVote?: string; pauseOnRevote?: boolean; revoteDecided?: boolean; talks?: { with: string; topic?: TalkTopic }[]; whisper?: string; bewareAttempt?: boolean }
+export interface Decision { quit?: boolean; vote?: string; juryVote?: string; idol?: string; allyWith?: string; cut?: string; searchIdol?: boolean; searchSpot?: string; advantage?: AdvantageKey | "__instinct__"; advantageTarget?: string; kipItem?: "idol" | AdvantageKey; giveImmunity?: string; craftFake?: boolean; fakeTarget?: string; challengeIdol?: boolean; playAmulet?: boolean; amuletTarget?: string; giveItem?: string; giveTo?: string; shotInDark?: boolean; revoteVote?: string; pauseOnRevote?: boolean; revoteDecided?: boolean; talks?: { with: string; topic?: TalkTopic }[]; whisper?: string; bewareAttempt?: boolean }
 const BIG_TWISTS = ["joint", "double_pre", "double_post"];
 /** Joint tribals and double eliminations share a single once-per-season slot. */
 export const bigTwistUsed = (s: GameState) => (s.twistsUsed ?? []).some((x) => BIG_TWISTS.includes(x));
@@ -384,7 +384,16 @@ export function simulateToEnd(s: GameState): GameState {
 }
 
 // ---------- camp ----------
+export const randomExitCandidates = (s: GameState) => alive(s).filter((c) => c.id !== s.config.controlledId);
+export const allianceRecruitmentScore = (s: GameState, recruiter: string, candidate: string) => getRel(s, recruiter, candidate) + (candidate === s.config.controlledId ? 8 : 0);
+
 function doCamp(s: GameState, d: Decision) {
+  const controlled = alive(s).find((c) => c.id === s.config.controlledId);
+  if (d.quit && controlled) {
+    eliminate(s, controlled, "quit"); s.noTribal = true;
+    log(s, { kind: "drama", title: "A Castaway Quits", text: `${controlled.name} chooses to leave and asks for their torch to be snuffed. ${controlled.name} has quit the game.` });
+    return;
+  }
   if (!s.merged && s.config.journeys && groups(s).size >= 2 && (s.journeysDone ?? 0) < 2 && ((s.config.themeTwist === "journey" && !s.journeysDone) || r() < 0.3)) doJourney(s);
   for (const [tid, members] of groups(s)) {
     const t = tribeOf(s, tid)!;
@@ -416,8 +425,8 @@ function doCamp(s: GameState, d: Decision) {
       if (a.id === s.config.controlledId || mine.length >= 2 || members.length < 3) continue;
       if (r() < a.stats.strategy * 0.05) {
         const size = 1 + Math.floor(r() * Math.min(3, members.length - 2));
-        const partners = members.filter((x) => x.id !== a.id && x.id !== s.config.controlledId)
-          .sort((x, y) => getRel(s, a.id, y.id) - getRel(s, a.id, x.id)).slice(0, size);
+        const partners = members.filter((x) => x.id !== a.id)
+          .sort((x, y) => allianceRecruitmentScore(s, a.id, y.id) - allianceRecruitmentScore(s, a.id, x.id)).slice(0, size);
         if (!partners.length || getRel(s, a.id, partners[0].id) < 0) continue;
         const al: Alliance = { id: `a${s.alliances.length}${Date.now() % 1000}`, name: allianceName(partners.length + 1, s.alliances.map((x) => x.name)), members: [a.id, ...partners.map((p) => p.id)] };
         s.alliances.push(al);
@@ -475,9 +484,9 @@ function doCamp(s: GameState, d: Decision) {
   addConfessionals(s);
   // medevacs & quits (rare, at most one per episode)
   if (alive(s).length > s.config.finalSize + 3) {
-    const pool = alive(s);
-    const med = pool.filter((c) => c.id !== s.config.controlledId).find(() => r() < 0.0035);
-    const quitter = !med && pool.filter((c) => c.id !== s.config.controlledId && (c.mood < 45 && c.stats.temperament <= 3) || r() < 0.03).find(() => r() < 0.06);
+    const pool = randomExitCandidates(s);
+    const med = pool.find(() => r() < 0.0035);
+    const quitter = !med && pool.filter((c) => (c.mood < 45 && c.stats.temperament <= 3) || r() < 0.03).find(() => r() < 0.06);
     const gone = med || quitter;
     if (gone) {
       eliminate(s, gone, med ? "medevac" : "quit"); s.noTribal = true;
@@ -803,14 +812,14 @@ function doTribal(s: GameState, d: Decision) {
       const t = att.find((c) => c.id === target);
       if (!t) continue;
       const available = kipItems(h, t);
-      const item = h.id === ctrl && d.advantage !== "__instinct__" && d.kipItem ? d.kipItem : available[0];
+      const item = h.id === ctrl && d.advantage !== "__instinct__" && d.kipItem ? d.kipItem : available[0] ?? "idol";
       let got = "";
       if (item && available.includes(item)) {
         if (item === "idol") { t.idols--; h.idols = 1; got = "a Hidden Immunity Idol"; }
         else { t.advantages = t.advantages.filter((x) => x !== item); h.advantages.push(item); got = `a ${ADVANTAGE_LABEL[item]}`; }
       }
       addRel(s, t.id, h.id, got ? -15 : -5);
-      kipLog.push(`${h.name} plays Knowledge is Power on ${t.name}: "Do you have an idol or advantage?" ${got ? `${t.name} must hand over ${got}!` : `${t.name} has nothing to give.`}`);
+      kipLog.push(`${h.name} plays Knowledge is Power on ${t.name}: "Do you have ${item === "idol" ? "a Hidden Immunity Idol" : `a ${ADVANTAGE_LABEL[item]}`}?" ${got ? `${t.name} must hand over ${got}!` : `${t.name} cannot hand over the requested item.`}`);
       continue;
     }
     plays.push({ who: h, adv, target });

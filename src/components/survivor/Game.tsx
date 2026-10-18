@@ -19,6 +19,7 @@ export function Game({ game, setGame, onReset, readOnly = false }: { game: GameS
   const [reveals, setReveals] = useState<LogEntry[]>([]);
   const tribalCount = (g: GameState) => g.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal").length;
   const next = () => {
+    if (dec.quit && !window.confirm("Quit this season? Your torch will be snuffed and you will continue as a spectator.")) return;
     const ng = step(game, { ...dec, pauseOnRevote: true });
     const fresh = ng.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal").slice(tribalCount(game));
     setGame(ng); setDec({});
@@ -213,6 +214,7 @@ function DecisionPanel({ game, pending, dec, setDec }: { game: GameState; pendin
               <option value="">— Choose —</option>{az(pending.options).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select></>}
           </div>}
+          <label className="flex items-center gap-2 text-sm text-destructive"><input type="checkbox" checked={dec.quit ?? false} onChange={(e) => setDec({ ...dec, quit: e.target.checked })} className="size-4 accent-primary" />Choose to quit the game</label>
           {!pending.fakeStatus && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dec.craftFake ?? false} onChange={(e) => setDec({ ...dec, craftFake: e.target.checked })} className="size-4 accent-primary" />Craft a fake idol</label>}
           {(pending.fakeStatus === "own" || dec.craftFake) && pending.plantTargets.length > 0 && <label className="flex flex-wrap items-center gap-2 text-sm">Plant fake idol on:
             <select className={sel} value={dec.fakeTarget ?? ""} onChange={(e) => setDec({ ...dec, fakeTarget: e.target.value || undefined })}>

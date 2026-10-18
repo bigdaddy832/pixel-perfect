@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Game, VoteReveal } from "@/components/survivor/Game";
-import { kipItems, makeRoster, newGame, step, type GameState, type LogEntry } from "./engine";
+import { allianceRecruitmentScore, randomExitCandidates, kipItems, makeRoster, newGame, step, type GameState, type LogEntry } from "./engine";
 
 function tribal(): GameState {
-  const g = newGame({ playerCount: 16, tribeCount: 2, jurySize: 7, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 12, mergeAt: 10, mergedName: "Test", controlledId: "c0", jointTribals: false, doubleTribals: false }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2));
+  const g = newGame({ playerCount: 16, tribeCount: 2, jurySize: 7, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 12, mergeAt: 10, mergedName: "Test", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(16, 2));
   g.phase = "tribal"; g.tribalTribe = "t0";
   g.castaways.forEach((c) => { c.idols = 0; c.advantages = []; c.shotUsed = true; });
   return g;
@@ -12,6 +12,29 @@ function tribal(): GameState {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("Tribal item agency", () => {
+  it("never includes the controlled player among random quit or medevac candidates", () => {
+    const g = tribal();
+    expect(randomExitCandidates(g)).toHaveLength(15);
+    expect(randomExitCandidates(g).map((c) => c.id)).not.toContain("c0");
+  });
+
+  it("only quits the controlled player after an explicit choice and skips Tribal", () => {
+    const g = tribal(); g.phase = "camp";
+    const result = step(g, { quit: true });
+    expect(result.castaways.find((c) => c.id === "c0")?.out).toBe(true);
+    expect(result.episodes.flatMap((e) => e.entries).some((e) => e.title === "No Tribal Council")).toBe(true);
+    expect(result.episodes.flatMap((e) => e.entries).some((e) => e.kind === "tribal")).toBe(false);
+  });
+
+  it("prioritizes the controlled player when AI recruits equally friendly tribemates", () => {
+    const g = tribal(); g.rel = {};
+    expect(allianceRecruitmentScore(g, "c2", "c0")).toBeGreaterThan(allianceRecruitmentScore(g, "c2", "c1"));
+    g.phase = "camp";
+    g.castaways.forEach((c) => { c.stats.strategy = 5; c.stats.temperament = 5; });
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const result = step(g);
+    expect(result.alliances.some((a) => a.members.includes("c0"))).toBe(true);
+  });
   it("takes exactly the selected KIP advantage instead of the target's idol", () => {
     const g = tribal(); const me = g.castaways.find((c) => c.id === "c0"); const target = g.castaways.find((c) => c.id !== "c0" && c.tribeId === "t0");
     if (!me || !target) throw new Error("Missing players");
@@ -21,6 +44,7 @@ describe("Tribal item agency", () => {
     expect(result.castaways.find((c) => c.id === me.id)?.advantages).toEqual(["vote_blocker"]);
     expect(result.castaways.find((c) => c.id === me.id)?.idols).toBe(0);
     expect(result.castaways.find((c) => c.id === target.id)?.advantages).not.toContain("vote_blocker");
+    expect(result.episodes.flatMap((ep) => ep.entries).flatMap((e) => e.details ?? []).some((text) => text.includes("Do you have a Vote Blocker?"))).toBe(true);
   });
 
   it("excludes locked idols and duplicate advantages from KIP options", () => {
