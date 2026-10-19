@@ -69,7 +69,9 @@ export function Game({
   const [dec, setDec] = useState<Decision>({});
   const pending = pendingDecision(game);
   const [reveals, setReveals] = useState<LogEntry[]>([]);
-  const tribalCount = (g: GameState) => g.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal").length;
+  const voteLogCount = (g: GameState) =>
+    g.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal" || (e.kind === "finale" && e.votes?.length))
+      .length;
   const next = () => {
     if (
       dec.quit &&
@@ -79,8 +81,8 @@ export function Game({
     const ng = step(game, { ...dec, pauseOnRevote: true });
     const fresh = ng.episodes
       .flatMap((e) => e.entries)
-      .filter((e) => e.kind === "tribal")
-      .slice(tribalCount(game));
+      .filter((e) => e.kind === "tribal" || (e.kind === "finale" && e.votes?.length))
+      .slice(voteLogCount(game));
     setGame(ng);
     setDec({});
     if (fresh.length) setReveals(fresh);
@@ -1082,8 +1084,9 @@ function revealOrder(votes: Vote[], out?: string) {
   return [...votes.filter((v) => v.nullified), ...seq];
 }
 export function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone: () => void }) {
+  const isFinale = e.kind === "finale";
   const isRevote = !!e.revote?.length;
-  const seq = revealOrder(isRevote ? (e.revote ?? []) : (e.votes ?? []), e.out);
+  const seq = revealOrder(isRevote ? (e.revote ?? []) : (e.votes ?? []), isFinale ? g.winner : e.out);
   const [n, setN] = useState(0);
   const shown = seq.slice(0, n);
   const counts: Record<string, number> = {};
@@ -1098,10 +1101,12 @@ export function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone
         <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{e.title}</p>
         <p className="mt-2 text-sm text-muted-foreground">
           {n === 0
-            ? `"I'll read the ${isRevote ? "revote " : ""}votes." ${seq.length} parchment${seq.length === 1 ? "" : "s"}.`
+            ? isFinale
+              ? `"I'll read the votes to crown the Sole Survivor." ${seq.length} jury vote${seq.length === 1 ? "" : "s"}.`
+              : `"I'll read the ${isRevote ? "revote " : ""}votes." ${seq.length} parchment${seq.length === 1 ? "" : "s"}.`
             : last.nullified
               ? "Does not count"
-              : `${isRevote ? "Revote · " : ""}Vote ${shown.filter((v) => !v.nullified).length}`}
+              : `${isFinale ? "Jury " : isRevote ? "Revote · " : ""}Vote ${shown.filter((v) => !v.nullified).length}`}
         </p>
         <div className="my-6 flex min-h-32 items-center justify-center rounded-lg border bg-secondary/60 p-6">
           {last ? (
