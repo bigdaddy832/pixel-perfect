@@ -936,6 +936,14 @@ const addRel = (s: GameState, a: string, b: string, d: number) => {
 };
 export const alive = (s: GameState) => s.castaways.filter((c) => !c.out);
 export const canDiscoverIdol = (s: GameState) => alive(s).length > 4;
+export const isIdolInPlay = (s: GameState, tid: string) =>
+  alive(s).some((c) =>
+    c.idolOrigins?.length
+      ? c.idolOrigins.includes(tid)
+      : tid === "merged"
+      ? false
+      : !s.merged && c.tribeId === tid && (c.idols || 0) > 0,
+  );
 export const advantageSearchChance = (strategy: number) => 0.004 + strategy * 0.005;
 export const byId = (s: GameState, id: string) => s.castaways.find((c) => c.id === id)!;
 const nm = (s: GameState, id: string) => byId(s, id).name;
@@ -1087,7 +1095,7 @@ export function pendingDecision(s: GameState): Pending {
     return {
       kind: "camp",
       options,
-      canSearchAtChallenge: !s.merged && canDiscoverIdol(s),
+canSearchAtChallenge: !s.merged && canDiscoverIdol(s) && (s.hiddenIdols[me.tribeId] ?? 0) > 0 && !isIdolInPlay(s, me.tribeId),
       fakeStatus: me.fakeIdol,
       plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol),
       bewareTask: me.bewareTribals ? me.bewareTask : undefined,
@@ -1289,9 +1297,9 @@ function doCamp(s: GameState, d: Decision) {
     }
     // idol hunting
     // idol hunting
-    const mergeCapped = s.merged && alive(s).reduce((n, c) => n + (c.idols || 0), 0) >= 3;
-    if (canDiscoverIdol(s) && (s.hiddenIdols[tid] ?? 0) > 0 && !mergeCapped) {
-      for (const a of shuffle(members.filter((c) => c.id !== s.config.controlledId && c.idols === 0))) {
+      const idolInPlay = isIdolInPlay(s, tid);
+    if (canDiscoverIdol(s) && (s.hiddenIdols[tid] ?? 0) > 0 && !idolInPlay) {
+      for (const a of shuffle(members.filter((c) => c.id !== s.config.controlledId && c.idols === 0))) { 
         if (!a.clue && r() < 0.03 + a.stats.strategy * 0.01) {
           a.clue = true;
           log(s, {
@@ -1303,7 +1311,10 @@ function doCamp(s: GameState, d: Decision) {
         }
         if (r() < (a.clue ? 0.25 : 0.01) + a.stats.strategy * 0.015) {
           a.idols++;
-          s.hiddenIdols[tid]--;
+                  if (r() < (a.clue ? 0.25 : 0.01) + a.stats.strategy * 0.015) {
+          a.idols++;
+          a.idolOrigins = [...(a.idolOrigins || []), tid];
+          s.hiddenIdols[tid] = 0;
           if (a.clue) a.clue = false;
           const hidingPlace = pick(IDOL_HIDING_PLACES);
           if (canFindBeware(s)) {
@@ -1350,9 +1361,11 @@ function doCamp(s: GameState, d: Decision) {
         .sort((a, b) => getRel(s, holder.id, b.id) - getRel(s, holder.id, a.id))[0];
       const toMe = best?.id === s.config.controlledId;
       if (!best || getRel(s, holder.id, best.id) < (toMe ? 4 : 8) || r() >= (toMe ? 0.2 : 0.08)) continue;
-      if (holder.idols > 0 && best.idols === 0 && !holder.bewareTribals) {
+          if (holder.idols > 0 && best.idols === 0 && !holder.bewareTribals) {
         holder.idols--;
         best.idols++;
+        const orig = (holder.idolOrigins && holder.idolOrigins.pop()) || holder.tribeId;
+        best.idolOrigins = [...(best.idolOrigins || []), orig];
         log(s, {
           kind: "idol",
           title: `${t.name}: Idol Handed Over`,
@@ -1433,13 +1446,14 @@ function doCamp(s: GameState, d: Decision) {
     const meC = byId(s, s.config.controlledId);
     const spot = d.searchSpot && SEARCH_SPOTS.includes(d.searchSpot) ? d.searchSpot : pick(SEARCH_SPOTS);
     const roll = r() - meC.stats.strategy * 0.02;
-    const mergeCapped = s.merged && alive(s).reduce((n, c) => n + (c.idols || 0), 0) >= 3;
-    const idolHere = (s.hiddenIdols[meC.tribeId] ?? 0) > 0 && meC.idols === 0 && !mergeCapped;
+        const idolInPlay = isIdolInPlay(s, meC.tribeId);
+    const idolHere = (s.hiddenIdols[meC.tribeId] ?? 0) > 0 && meC.idols === 0 && !idolInPlay;
     let adv: AdvantageKey | null = null;
     if (idolHere && roll < (meC.clue ? 0.55 : 0.22)) {
-      meC.idols = 1;
+      meC.idols = (meC.idols || 0) + 1;
+      meC.idolOrigins = [...(meC.idolOrigins || []), meC.tribeId];
       meC.clue = false;
-      s.hiddenIdols[meC.tribeId]--;
+      s.hiddenIdols[meC.tribeId] = 0;;
       const hidingPlace = pick(IDOL_HIDING_PLACES);
       if (canFindBeware(s)) {
         s.bewareFound = true;
@@ -1484,9 +1498,11 @@ function doCamp(s: GameState, d: Decision) {
     if (d.challengeIdol && !s.merged && canDiscoverIdol(s)) s.challengeSearch = true;
     if (d.giveItem && d.giveTo) {
       const tg = alive(s).find((c) => c.id === d.giveTo && c.tribeId === meC.tribeId && c.id !== meC.id);
-      if (tg && d.giveItem === "idol" && meC.idols > 0 && tg.idols === 0 && !meC.bewareTribals) {
+           if (tg && d.giveItem === "idol" && meC.idols > 0 && tg.idols === 0 && !meC.bewareTribals) {
         meC.idols--;
         tg.idols++;
+        const orig = (meC.idolOrigins && meC.idolOrigins.pop()) || meC.tribeId;
+        tg.idolOrigins = [...(tg.idolOrigins || []), orig];
         addRel(s, meC.id, tg.id, 15);
         mood(tg, 8);
         log(s, {
@@ -2019,8 +2035,11 @@ function pickChallenge(s: GameState, avoidType?: StatKey) {
 
 function rewardAdvantage(s: GameState, winners: Castaway[]) {
   const clueable = canDiscoverIdol(s)
-    ? winners.filter((c) => !c.clue && c.idols === 0 && (s.hiddenIdols[c.tribeId] ?? 0) > 0)
+    ? winners.filter((c) => !c.clue && c.idols === 0 && function rewardAdvantage(s: GameState, winners: Castaway[]) {
+  const clueable = canDiscoverIdol(s)
+    ? winners.filter((c) => !c.clue && c.idols === 0 && (s.hiddenIdols[c.tribeId] ?? 0) > 0 && !isIdolInPlay(s, c.tribeId))
     : [];
+
   if (clueable.length && r() < 0.35) {
     const c = pick(clueable);
     c.clue = true;
@@ -2074,11 +2093,44 @@ function doChallenge(s: GameState) {
       doExile(s, rs[0].tid);
     let penTid: string | null = null;
     const ctrlC = s.config.controlledId ? byId(s, s.config.controlledId) : null;
-    if (canDiscoverIdol(s) && s.challengeSearch && ctrlC && !ctrlC.out) {
+       if (canDiscoverIdol(s) && s.challengeSearch && ctrlC && !ctrlC.out) {
       penTid = ctrlC.tribeId;
-      if ((s.hiddenIdols[ctrlC.tribeId] ?? 0) > 0 && ctrlC.idols === 0 && r() - ctrlC.stats.strategy * 0.03 < 0.3) {
-        ctrlC.idols = 1;
-        s.hiddenIdols[ctrlC.tribeId]--;
+      const tid = ctrlC.tribeId;
+      if ((s.hiddenIdols[tid] ?? 0) > 0 && !isIdolInPlay(s, tid) && ctrlC.idols === 0 && r() - ctrlC.stats.strategy * 0.03 < 0.3) {
+        ctrlC.idols = (ctrlC.idols || 0) + 1;
+        ctrlC.idolOrigins = [...(ctrlC.idolOrigins || []), tid];
+        s.hiddenIdols[tid] = 0;
+        log(s, {
+          kind: "idol",
+          title: "Challenge Idol Grab!",
+          text: `Mid-challenge you spotted an idol ${pick(CHALLENGE_IDOL_PLACES)} and snatched it — at a cost to your tribe's time.`,
+        });
+      } else
+        log(s, {
+          kind: "idol",
+          title: "Challenge Search: Nothing",
+          text: "You scanned the course for a hidden idol but found nothing, and your tribe lost precious seconds.",
+        });
+    } else {
+      const lucky = canDiscoverIdol(s)
+        ? shuffle(
+            alive(s).filter(
+              (c) => c.id !== s.config.controlledId && c.idols === 0 && (s.hiddenIdols[c.tribeId] ?? 0) > 0 && !isIdolInPlay(s, c.tribeId),
+            ),
+          ).find(() => r() < 0.03)
+        : undefined;
+      if (lucky) {
+        lucky.idols = (lucky.idols || 0) + 1;
+        lucky.idolOrigins = [...(lucky.idolOrigins || []), lucky.tribeId];
+        s.hiddenIdols[lucky.tribeId] = 0;
+        penTid = lucky.tribeId;
+        log(s, {
+          kind: "idol",
+          title: "Idol at the Challenge!",
+          text: `${lucky.name} spotted an idol ${pick(CHALLENGE_IDOL_PLACES)} and grabbed it mid-challenge.`,
+        });
+      }
+    } 
         log(s, {
           kind: "idol",
           title: "Challenge Idol Grab!",
@@ -2398,9 +2450,11 @@ function doTribal(s: GameState, d: Decision) {
       const item = h.id === ctrl && d.advantage !== "__instinct__" && d.kipItem ? d.kipItem : (available[0] ?? "idol");
       let got = "";
       if (item && available.includes(item)) {
-        if (item === "idol") {
+              if (item === "idol") {
           t.idols--;
           h.idols = (h.idols ?? 0) + 1;
+          const orig = (t.idolOrigins && t.idolOrigins.pop()) || t.tribeId;
+          h.idolOrigins = [...(h.idolOrigins || []), orig];
           got = "a Hidden Immunity Idol";
         } else if (item === "amulet") {
           t.amulet = false;
@@ -2655,13 +2709,20 @@ function doTribal(s: GameState, d: Decision) {
         if (ally && r() < 0.3 + h.stats.strategy * 0.08) target = ally.id;
       }
     }
-    if (target) {
+        if (target) {
       h.idols--;
       h.idolsPlayed = (h.idolsPlayed ?? 0) + 1;
-      const held = alive(s).reduce((n, c) => n + (c.idols || 0), 0);
-      if (!s.merged || held + (s.hiddenIdols[h.tribeId] ?? 0) < 3) {
-        s.hiddenIdols[h.tribeId] = (s.hiddenIdols[h.tribeId] ?? 0) + 1;
-      }
+      const playedOrig = (h.idolOrigins && h.idolOrigins.pop()) || (s.merged ? "merged" : h.tribeId);
+      if (canDiscoverIdol(s)) {
+        if (s.merged) {
+          // At merge, only re-hide the merge idol if the played idol was from merge and no other merge idol exists
+          if (playedOrig === "merged" && !isIdolInPlay(s, "merged")) {
+            s.hiddenIdols.merged = 1;
+          }
+        } else if (!isIdolInPlay(s, playedOrig)) {
+          s.hiddenIdols[playedOrig] = 1;
+        }
+      } 
       if (target !== h.id) addRel(s, h.id, target, 20);
       idolLog.push(
         target === h.id
@@ -2843,7 +2904,44 @@ function eliminate(s: GameState, c: Castaway, _how: string) {
   c.juror = left <= s.config.finalSize + s.config.jurySize;
   s.alliances.forEach((a) => (a.members = a.members.filter((m) => m !== c.id)));
   s.alliances = s.alliances.filter((a) => a.members.length >= 2);
-  c.idols = 0;
+    c.alliances = s.alliances.filter((a) => a.members.length >= 2);
+  if (c.idols > 0) {
+    const origs = c.idolOrigins?.length ? c.idolOrigins : [s.merged ? "merged" : c.tribeId];
+      c.alliances = s.alliances.filter((a) => a.members.length >= 2);
+  if (c.idols > 0) {
+    const origs = c.idolOrigins?.length ? c.idolOrigins : [s.merged ? "merged" : c.tribeId];
+    c.idols = 0;
+    c.idolOrigins = [];
+    if (canDiscoverIdol(s)) {
+      origs.forEach((orig) => {
+        if (s.merged) {
+          if (orig === "merged" && !isIdolInPlay(s, "merged")) s.hiddenIdols.merged = 1;
+        } else if (!isIdolInPlay(s, orig)) {
+          s.hiddenIdols[orig] = 1;
+        }
+      });
+    }
+  } else {
+    c.idols = 0;
+    c.idolOrigins = [];
+  }
+  c.advantages = [];
+    c.idolOrigins = [];
+    if (canDiscoverIdol(s)) {
+      origs.forEach((orig) => {
+        if (s.merged) {
+          if (orig === "merged" && !isIdolInPlay(s, "merged")) s.hiddenIdols.merged = 1;
+        } else if (!isIdolInPlay(s, orig)) {
+          s.hiddenIdols[orig] = 1;
+        }
+      });
+    }
+  } else {
+    c.idols = 0;
+    c.idolOrigins = [];
+  }
+  c.advantages = [];
+
   c.advantages = [];
   c.amulet = false;
   noteAmuletStage(s);
@@ -2914,7 +3012,7 @@ function doSwap(s: GameState) {
         .map((c) => `${c.name} (formerly ${tribeOf(s, prev[c.id])?.name ?? "?"})`)
         .join(", ")}`,
   );
-  for (const tid of Object.keys(s.hiddenIdols)) s.hiddenIdols[tid] = Math.max(1, s.hiddenIdols[tid]);
+    for (const tid of Object.keys(s.hiddenIdols)) s.hiddenIdols[tid] = isIdolInPlay(s, tid) ? 0 : 1;
   log(s, {
     kind: "twist",
     title: "Drop Your Buffs! Tribe Swap",
@@ -2958,8 +3056,7 @@ function doMerge(s: GameState) {
     c.tribeId = "merged";
     c.clue = false;
   });
-  const heldAtMerge = alive(s).reduce((n, c) => n + (c.idols || 0), 0);
-  s.hiddenIdols.merged = heldAtMerge >= 3 ? 0 : 1;
+   s.hiddenIdols.merged = isIdolInPlay(s, "merged") ? 0 : 1;
   log(s, {
     kind: "twist",
     title: `The Merge — ${t.name}`,
