@@ -2810,7 +2810,16 @@ function doTribal(s: GameState, d: Decision) {
   log(s, {
     kind: "tribal",
     title: `Tribal Council — ${tname}`,
-    text: `${loser.name} has been ${rocks ? "eliminated by drawing the wrong rock" : "voted out"}${loser.juror ? " and becomes a member of the jury" : ""}${loser.edge ? " — and heads to the Edge of Extinction, still fighting for a way back" : ""}. ${blindside ? "A massive blindside — with an idol in their pocket!" : ""} The tribe has spoken.`,
+        text: `${loser.name} has been ${rocks ? "eliminated by drawing the wrong rock" : "voted out"}${loser.juror ? " and becomes a member of the jury" : ""}${loser.edge ? " — and heads to the Edge of Extinction, still fighting for a way back" : ""}. ${blindside ? "A massive blindside — with an idol in their pocket!" : ""} Jeff snuffs their torch: "The tribe has spoken." ${
+      blindside
+        ? `"${loser.name}: 'Ouch... I literally had an idol in my pocket. Good blindside guys!'"`
+        : [
+            `"${loser.name}: 'Well played, you got me good!'"` ,
+            `"${loser.name}: 'Keep playing ruthless, don't let the snakes win.'"` ,
+            `"${loser.name}: 'I should've trusted my gut tonight.'"` ,
+            `"${loser.name}: 'Good luck to whoever is left, go win this thing.'"` ,
+          ][Math.floor(s.rng() * 4)]
+    }`,`,
     details: [
       `Final count: ${vc}`,
       ...details,

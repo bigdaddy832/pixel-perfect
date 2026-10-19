@@ -280,7 +280,22 @@ function getArchetype(s: Castaway["stats"]) {
   if (s.mental >= 8) return "Puzzle Wizard";
   return "The Underdog";
 }
-
+function getThreatBadge(c: Castaway) {
+  const score = c.stats.physical * 1.0 + c.stats.social * 1.3 + c.stats.strategy * 1.5 + c.idols * 3;
+  if (score >= 28)
+    return (
+      <span className="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] font-bold text-destructive">🔴 Target</span>
+    );
+  if (score >= 23)
+    return <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">🟠 High</span>;
+  if (score >= 18)
+    return (
+      <span className="rounded bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-bold text-yellow-600 dark:text-yellow-400">
+        🟡 Mid
+      </span>
+    );
+  return <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500">🟢 Low</span>;
+}
 function Card({ g, c }: { g: GameState; c: Castaway }) {
   const als = g.alliances.filter((a) => a.members.includes(c.id));
   const me = g.config.controlledId === c.id;
@@ -289,9 +304,10 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
       className={`rounded-lg border bg-card p-3 ${me ? "border-primary torch-glow" : ""} ${g.immune.includes(c.id) ? "ring-2 ring-idol" : ""}`}
     >
       <div className="flex items-center justify-between">
-        <span className="font-semibold">
+        <span className="font-semibold flex items-center gap-1.5">
           {c.name}
-          {me && <span className="ml-1 text-xs text-primary">(YOU)</span>}
+          {me && <span className="text-xs text-primary">(YOU)</span>}
+          {getThreatBadge(c)}
         </span>
         <span className="flex flex-wrap items-center justify-end gap-1 text-sm">
           {g.immune.includes(c.id) && "🛡️"}
