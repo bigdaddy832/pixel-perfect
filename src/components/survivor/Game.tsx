@@ -145,25 +145,25 @@ export function Game({
             </Button>
             <Button
               variant="secondary"
+              disabled={game.merged || game.phase === "done"}
+              onClick={skipToMergeVote}
+              className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted disabled:opacity-40"
+            >
+              Skip to Merge Vote 🤝
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={game.phase === "ftc" || game.phase === "done"}
+              onClick={skipToFTC}
+              className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted disabled:opacity-40"
+            >
+              Skip to FTC 👑
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => setEditing(true)}
               className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted"
             >
-              <Button
-                variant="secondary"
-                disabled={game.merged || game.phase === "done"}
-                onClick={skipToMergeVote}
-                className="rounded-md bg-secondary px-3 py-2 text-xs hover:bg-muted disabled:opacity-40"
-              >
-                Skip to Merge Vote 🤝
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={game.phase === "ftc" || game.phase === "done"}
-                onClick={skipToFTC}
-                className="rounded-md bg-secondary px-3 py-2 text-xs hover:bg-muted disabled:opacity-40"
-              >
-                Skip to FTC 👑
-              </Button>
               Edit Stats / Tribes ✏️
             </Button>
             <Button
