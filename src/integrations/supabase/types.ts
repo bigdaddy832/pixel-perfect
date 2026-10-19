@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      generated_season_twists: {
+        Row: {
+          created_at: string
+          id: string
+          name_key: string
+          rules_key: string
+          season_title: string
+          twist: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name_key: string
+          rules_key: string
+          season_title: string
+          twist: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name_key?: string
+          rules_key?: string
+          season_title?: string
+          twist?: Json
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

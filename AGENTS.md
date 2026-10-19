@@ -17,5 +17,5 @@
 - Reuse the shared tribe editor for starting, merge, swap, and in-season editing so name and color controls behave consistently.
 - Finished seasons are saved to the signed-in user's history from the season page; history pages live under the signed-in-only area and reuse the Game view in read-only mode, so past seasons look identical to live ones.
 - Named settings presets use a validated browser-local format separate from saved seasons and exclude cast and controlled-player choices, so loading a format does not overwrite a customized cast.
-- Store the title-matched twist in season configuration and activate it in the pure engine, with theme-to-mechanic selection in the title module, so saved seasons retain the same twist and behavior is testable.
+- Generate title-inspired twist programs through a server function, validate a bounded effect schema, reserve canonical names/rules in a server-only unique ledger, and execute persisted effects in the pure engine; never execute AI-written code or mutate settings to imitate a unique twist. Legacy themeTwist remains readable for existing seasons only.
 - Keep KIP item eligibility in a shared pure selector and encode opt-in instinct in tribal decisions so controls, transfers, and deterministic revote replay agree.

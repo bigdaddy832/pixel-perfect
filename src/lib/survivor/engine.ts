@@ -1,6 +1,7 @@
 // @ts-nocheck -- array indexing is guarded by game invariants
 // Survivor simulation engine — pure client-side state machine.
 import { SEASON_TWIST_LABEL, type SeasonTwist } from "./season-titles";
+import { twistRules, targetLabels, type GeneratedTwist, type TwistEffect } from "./generated-twists";
 export type StatKey =
   | "strategy" | "social" | "loyalty" | "temperament"
   | "general" | "physical" | "endurance" | "mental";
@@ -46,6 +47,7 @@ export interface Config {
   controlledId: string | null;
   seasonTitle?: string;
   themeTwist?: SeasonTwist;
+  generatedTwist?: GeneratedTwist;
 }
 export interface Vote { voter: string; target: string; nullified?: boolean }
 export interface LogEntry {
@@ -59,6 +61,7 @@ export interface GameState {
   config: Config; castaways: Castaway[]; tribes: Tribe[]; alliances: Alliance[];
   rel: Record<string, number>; episodes: Episode[]; day: number; phase: Phase;
   noTribal?: boolean; merged: boolean; swapped: boolean; immune: string[]; tribalTribe: string | null;
+  generatedTwistRound?: number; generatedTwistBoosts?: Record<string, number>;
   hiddenIdols: Record<string, number>; finalImmune?: string; usedChallenges: string[]; rewardAdvantageGiven: boolean;
   tribalTribes?: string[]; tribalQueue?: string[][]; doubleElim?: boolean; twistsUsed?: string[];
   challengeSearch?: boolean; edgeDone?: boolean; journeysDone?: number;
@@ -241,7 +244,7 @@ export function newGame(config: Config, tribes: Tribe[], roster: { name: string;
   return {
     config, castaways, tribes, alliances: [], rel, day: 1, phase: "camp", merged: false, swapped: false,
     immune: [], tribalTribe: null, hiddenIdols, usedChallenges: [], rewardAdvantageGiven: false,
-    episodes: [{ n: 1, title: pick(EP_TITLES.slice(0, 20)), entries: [{ kind: "twist", title: "The Adventure Begins", text: `${castaways.length} castaways are marooned and divided into ${tribes.length} tribes: ${tribes.map((t) => t.name).join(", ")}.` }, ...(config.themeTwist ? [{ kind: "twist" as const, title: "This Season’s Twist", text: `${config.seasonTitle ?? "This season"}: ${SEASON_TWIST_LABEL[config.themeTwist]}.` }] : [])] }],
+    episodes: [{ n: 1, title: pick(EP_TITLES.slice(0, 20)), entries: [{ kind: "twist", title: "The Adventure Begins", text: `${castaways.length} castaways are marooned and divided into ${tribes.length} tribes: ${tribes.map((t) => t.name).join(", ")}.` }, ...(config.generatedTwist ? [{ kind: "twist" as const, title: `This Season’s Twist: ${config.generatedTwist.name}`, text: config.generatedTwist.inspiration, details: twistRules(config.generatedTwist) }] : config.themeTwist ? [{ kind: "twist" as const, title: "This Season’s Twist", text: `${config.seasonTitle ?? "This season"}: ${SEASON_TWIST_LABEL[config.themeTwist]}.` }] : [])] }],
   };
 }
 
@@ -619,6 +622,40 @@ const CH_TYPES: { type: StatKey; names: string[] }[] = [
 ];
 const indScore = (c: Castaway, t: StatKey) => c.stats.general * 0.5 + c.stats[t] * 1.2 + r() * 3.5;
 
+export function generatedTwistTarget(s: GameState, members: Castaway[], effect: TwistEffect): Castaway | undefined {
+  const connections = (c: Castaway) => members.reduce((sum, other) => sum + (c.id === other.id ? 0 : getRel(s, c.id, other.id)), 0);
+  const value = (c: Castaway) => effect.target.includes("mood") ? c.mood : effect.target.includes("wins") ? c.immunityWins + (c.rewardWins ?? 0) : connections(c);
+  const lowest = ["lowest_mood", "fewest_wins", "least_connected"].includes(effect.target);
+  return [...members].sort((a,b) => (lowest ? value(a)-value(b) : value(b)-value(a)) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))[0];
+}
+export function applyGeneratedTwist(s: GameState) {
+  s.generatedTwistRound = (s.generatedTwistRound ?? 0) + 1;
+  s.generatedTwistBoosts = {};
+  const twist = s.config.generatedTwist;
+  if (!twist || alive(s).length <= 5) return;
+  const details: string[] = [];
+  for (const effect of twist.effects) {
+    if (!effect.rounds.includes(s.generatedTwistRound) || (effect.scope === "tribes" && s.merged) || (effect.scope === "merged" && !s.merged)) continue;
+    for (const members of groups(s).values()) {
+      const target = generatedTwistTarget(s, members, effect);
+      if (!target) continue;
+      if (effect.kind === "challenge_boost") {
+        const boost = effect.amount * target.stats[effect.stat] / 5;
+        s.generatedTwistBoosts[target.id] = (s.generatedTwistBoosts[target.id] ?? 0) + boost;
+        details.push(`${target.name}, ${targetLabels[effect.target]}, gets +${boost.toFixed(2)} on today's reward and immunity scores (${effect.stat}).`);
+      } else if (effect.kind === "morale_shift") {
+        target.mood = clamp(target.mood + effect.amount * 5, 0, 100);
+        details.push(`${target.name} gains ${effect.amount * 5} morale.`);
+      } else {
+        const partner = members.filter((c) => c.id !== target.id).sort((a,b) => getRel(s,target.id,a.id)-getRel(s,target.id,b.id) || a.name.localeCompare(b.name))[0];
+        if (partner) { addRel(s,target.id,partner.id,effect.amount*2); details.push(`${target.name} and ${partner.name} gain +${effect.amount*2} relationship.`); }
+      }
+    }
+  }
+  if (details.length) log(s, { kind: "twist", title: `${twist.name} — Round ${s.generatedTwistRound}`, text: "Jeff announces this round's season rules before the challenges begin.", details });
+}
+const seasonChallengeScore = (s: GameState, c: Castaway, t: StatKey) => indScore(c,t) + (s.generatedTwistBoosts?.[c.id] ?? 0);
+
 // Picks a never-before-used challenge; endurance stays locked until the merge.
 function freshTitle(s: GameState) {
   const used = s.episodes.map((e) => e.title);
@@ -654,11 +691,12 @@ function rewardAdvantage(s: GameState, winners: Castaway[]) {
 
 function doChallenge(s: GameState) {
   s.immune = [];
+  applyGeneratedTwist(s);
   awardAmulets(s);
   const rew = pickChallenge(s); const ch = pickChallenge(s, rew.type);
   if (!s.merged) {
     const g = [...groups(s).entries()];
-    const tscore = (ms: Castaway[], t: StatKey) => ms.reduce((a, c) => a + indScore(c, t), 0) / ms.length + r() * 3.5;
+    const tscore = (ms: Castaway[], t: StatKey) => ms.reduce((a, c) => a + seasonChallengeScore(s, c, t), 0) / ms.length + r() * 3.5;
     const rs = g.map(([tid, ms]) => ({ tid, sc: tscore(ms, rew.type) })).sort((a, b) => b.sc - a.sc);
     log(s, { kind: "challenge", title: `Reward Challenge: ${rew.name} (${STAT_LABEL[rew.type]})`, text: `${tribeOf(s, rs[0].tid)!.name} win reward — ${pick(["fishing gear", "a feast of pizza", "tarp and blankets", "chickens"])}!`, details: rs.map((x, i) => `${i + 1}. ${tribeOf(s, x.tid)!.name} — ${x.sc.toFixed(2)}`) });
     rs[0] && groups(s).get(rs[0].tid)!.forEach((c) => (c.mood = clamp(c.mood + 8, 0, 100)));
@@ -702,14 +740,14 @@ function doChallenge(s: GameState) {
     } else immLog(`${is.slice(0, -1).map((x) => tribeOf(s, x.tid)!.name).join(" & ")} win immunity! ${tribeOf(s, loser.tid)!.name} will face Tribal Council.`);
   } else {
     const ms = alive(s);
-    const rr = ms.map((c) => ({ c, sc: indScore(c, rew.type) })).sort((a, b) => b.sc - a.sc);
+    const rr = ms.map((c) => ({ c, sc: seasonChallengeScore(s, c, rew.type) })).sort((a, b) => b.sc - a.sc);
     rr[0].c.mood = clamp(rr[0].c.mood + 10, 0, 100);
     rr[0].c.rewardWins = (rr[0].c.rewardWins ?? 0) + 1;
     const buddy = ms.filter((x) => x.id !== rr[0].c.id).sort((a, b) => getRel(s, rr[0].c.id, b.id) - getRel(s, rr[0].c.id, a.id))[0];
     if (buddy) addRel(s, rr[0].c.id, buddy.id, 6);
     log(s, { kind: "challenge", title: `Reward Challenge: ${rew.name} (${STAT_LABEL[rew.type]})`, text: `${rr[0].c.name} wins reward${buddy ? ` and brings ${buddy.name} along` : ""}.`, details: rr.slice(0, 5).map((x, i) => `${i + 1}. ${x.c.name} — ${x.sc.toFixed(2)}`) });
     rewardAdvantage(s, [rr[0].c]);
-    const ir = ms.map((c) => ({ c, sc: indScore(c, ch.type) - (c.id === rr[0].c.id ? 1.5 : 0) - (buddy && c.id === buddy.id ? 0.7 : 0) })).sort((a, b) => b.sc - a.sc);
+    const ir = ms.map((c) => ({ c, sc: seasonChallengeScore(s, c, ch.type) - (c.id === rr[0].c.id ? 1.5 : 0) - (buddy && c.id === buddy.id ? 0.7 : 0) })).sort((a, b) => b.sc - a.sc);
     ir[0].c.immunityWins++; s.immune = [ir[0].c.id];
     s.tribalTribe = ms[0].tribeId; s.tribalTribes = [ms[0].tribeId]; s.tribalQueue = [];
     s.twistsUsed ??= [];
