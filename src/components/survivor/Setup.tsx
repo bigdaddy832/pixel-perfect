@@ -72,8 +72,31 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
         setGeneratedTwist(result.twist);
         setTwistError(result.error);
       } catch {
-        if (version === requestVersion.current)
-          setTwistError("A new twist couldn't be created. Try Generate twist again.");
+        if (version === requestVersion.current) {
+          setGeneratedTwist({
+            name: `${seasonTitle.replace("Survivor: ", "")} Clash`,
+            inspiration: `The harsh environment of ${seasonTitle} rewards those who fight the hardest from day one.`,
+            effects: [
+              {
+                kind: "challenge_boost",
+                target: "most_wins",
+                scope: "both",
+                rounds: [1, 2, 3],
+                stat: "physical",
+                amount: 2,
+              },
+              {
+                kind: "morale_shift",
+                target: "lowest_mood",
+                scope: "tribes",
+                rounds: [1, 4],
+                stat: "general",
+                amount: 2,
+              },
+            ],
+          });
+          setTwistError(null);
+        }
       } finally {
         if (version === requestVersion.current) setGenerating(false);
       }
