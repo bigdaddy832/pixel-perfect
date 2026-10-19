@@ -4,15 +4,17 @@ import { Button } from "@/components/ui/button";
 import { PRESETS_KEY, readPresets, settingsSchema, type SeasonSettings, type SettingsPreset } from "@/lib/survivor/settings-presets";
 
 export function SettingsPresets({ settings, onLoad }: { settings: SeasonSettings; onLoad: (settings: SeasonSettings) => void }) {
-  const [presets, setPresets] = useState<SettingsPreset[]>([]);
+  const [presets, setPresets] = useState<SettingsPreset[]>(() => {
+    try {
+      return typeof window !== "undefined" ? readPresets(localStorage.getItem(PRESETS_KEY)) : [];
+    } catch {
+      return [];
+    }
+  });
   const [selected, setSelected] = useState("");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
-  useEffect(() => {
-    try { setPresets(readPresets(localStorage.getItem(PRESETS_KEY))); }
-    catch { setMessage("Saved presets aren’t available in this browser."); }
-  }, []);
-
+;
   const persist = (next: SettingsPreset[]) => {
     try { localStorage.setItem(PRESETS_KEY, JSON.stringify(next)); setPresets(next); return true; }
     catch { setMessage("Couldn’t save. Your browser’s storage may be full or disabled."); return false; }
@@ -40,7 +42,28 @@ export function SettingsPresets({ settings, onLoad }: { settings: SeasonSettings
     <div className="flex flex-wrap items-end gap-3">
       <label className="flex min-w-0 flex-col gap-1 text-sm"><span className="text-muted-foreground">Preset name</span><input className="w-60 max-w-full rounded-md border border-input bg-secondary px-3 py-2" placeholder="My favorite season" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} /></label>
       <Button variant="secondary" disabled={!name.trim()} onClick={save}><Save className="size-4" />Save preset</Button>
-      <label className="flex min-w-0 flex-col gap-1 text-sm"><span className="text-muted-foreground">Saved presets</span><select className="w-60 max-w-full rounded-md border border-input bg-secondary px-3 py-2" value={selected} onChange={(e) => setSelected(e.target.value)}><option value="">Select a preset</option>{presets.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
+      <label className="flex min-w-0 flex-col gap-1 text-sm"><span className="text-muted-foreground">Saved presets</span><select
+  className="w-60 max-w-full rounded-md border border-input bg-secondary px-3 py-2"
+  value={selected}
+  onChange={(e) => {
+    const chosen = e.target.value;
+    setSelected(chosen);
+    if (!chosen) return;
+    const preset = presets.find((p) => p.name === chosen);
+    if (preset) {
+      onLoad(preset.settings);
+      setName(preset.name);
+      setMessage(`Loaded “${preset.name}”.`);
+    }
+  }}
+>
+  <option value="">Select a preset</option>
+  {presets.map((p) => (
+    <option key={p.name} value={p.name}>
+      {p.name}
+    </option>
+  ))}
+</select>
       <Button variant="secondary" disabled={!selected} onClick={load}><FolderOpen className="size-4" />Load preset</Button>
       <Button variant="ghost" size="icon" aria-label="Delete preset" title="Delete preset" disabled={!selected} onClick={remove}><Trash2 className="size-4" /></Button>
     </div>
