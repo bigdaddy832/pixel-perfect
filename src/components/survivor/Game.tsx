@@ -87,6 +87,27 @@ export function Game({
     setDec({});
     if (fresh.length) setReveals(fresh);
   };
+  const skipToMergeVote = () => {
+    let g = game;
+    let guard = 0;
+    // Step until we reach Tribal Council on the merged tribe
+    while (!(g.merged && g.phase === "tribal") && g.phase !== "done" && guard++ < 300) {
+      g = step(g);
+    }
+    setGame(g);
+    setDec({});
+  };
+
+  const skipToFTC = () => {
+    let g = game;
+    let guard = 0;
+    // Step until the start of FTC (speeches & questions ready, before votes are read)
+    while (g.phase !== "ftc" && g.phase !== "done" && guard++ < 500) {
+      g = step(g);
+    }
+    setGame(g);
+    setDec({});
+  };
   const winner = game.winner ? byId(game, game.winner) : null;
   const groups = [...new Set(alive(game).map((c) => c.tribeId))];
   const jury = game.castaways.filter((c) => c.juror);
@@ -127,6 +148,22 @@ export function Game({
               onClick={() => setEditing(true)}
               className="rounded-md bg-secondary px-4 py-2 text-sm hover:bg-muted"
             >
+              <Button
+                variant="secondary"
+                disabled={game.merged || game.phase === "done"}
+                onClick={skipToMergeVote}
+                className="rounded-md bg-secondary px-3 py-2 text-xs hover:bg-muted disabled:opacity-40"
+              >
+                Skip to Merge Vote 🤝
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={game.phase === "ftc" || game.phase === "done"}
+                onClick={skipToFTC}
+                className="rounded-md bg-secondary px-3 py-2 text-xs hover:bg-muted disabled:opacity-40"
+              >
+                Skip to FTC 👑
+              </Button>
               Edit Stats / Tribes ✏️
             </Button>
             <Button
