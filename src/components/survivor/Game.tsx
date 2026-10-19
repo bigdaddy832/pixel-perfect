@@ -810,7 +810,11 @@ function DecisionPanel({
                   <option value="">— Let instinct decide —</option>
                   {stealable.map((item) => (
                     <option key={item} value={item}>
-                      {item === "idol" ? "Hidden Immunity Idol" : ADVANTAGE_LABEL[item]}
+                      {item === "idol"
+                        ? "Hidden Immunity Idol"
+                        : item === "amulet"
+                          ? "Advantage Amulet"
+                          : ADVANTAGE_LABEL[item as AdvantageKey]}
                     </option>
                   ))}
                 </select>

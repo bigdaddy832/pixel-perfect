@@ -269,7 +269,7 @@ export interface Decision {
   searchSpot?: string;
   advantage?: AdvantageKey | "__instinct__";
   advantageTarget?: string;
-  kipItem?: "idol" | AdvantageKey;
+  kipItem?: "idol" | "amulet" | AdvantageKey;
   giveImmunity?: string;
   craftFake?: boolean;
   fakeTarget?: string;
@@ -1057,10 +1057,11 @@ export const attendees = (s: GameState) => {
   return alive(s).filter((c) => g.includes(c.tribeId));
 };
 
-/** KIP can take one transferable item, without creating duplicate holdings. */
-export function kipItems(holder: Castaway, target: Castaway): ("idol" | AdvantageKey)[] {
+/** KIP can take one transferable item, including amulets and idols even if the user holds one. */
+export function kipItems(holder: Castaway, target: Castaway): ("idol" | "amulet" | AdvantageKey)[] {
   return [
-    ...(target.idols > 0 && holder.idols === 0 && !(target.bewareTribals > 0) ? ["idol" as const] : []),
+    ...(target.idols > 0 && !(target.bewareTribals > 0) ? ["idol" as const] : []),
+    ...(target.amulet ? ["amulet" as const] : []),
     ...target.advantages.filter((a) => !holder.advantages.includes(a) || a === "knowledge_is_power"),
   ];
 }
@@ -2399,8 +2400,12 @@ function doTribal(s: GameState, d: Decision) {
       if (item && available.includes(item)) {
         if (item === "idol") {
           t.idols--;
-          h.idols = 1;
+          h.idols = (h.idols ?? 0) + 1;
           got = "a Hidden Immunity Idol";
+        } else if (item === "amulet") {
+          t.amulet = false;
+          h.amulet = true;
+          got = "an Advantage Amulet";
         } else {
           t.advantages = t.advantages.filter((x) => x !== item);
           h.advantages.push(item);
@@ -2409,7 +2414,13 @@ function doTribal(s: GameState, d: Decision) {
       }
       addRel(s, t.id, h.id, got ? -15 : -5);
       kipLog.push(
-        `${h.name} plays Knowledge is Power on ${t.name}: "Do you have ${item === "idol" ? "a Hidden Immunity Idol" : `${/^[aeiou]/i.test(ADVANTAGE_LABEL[item]) ? "an" : "a"} ${ADVANTAGE_LABEL[item]}`}?" ${got ? `${t.name} must hand over ${got}!` : `${t.name} cannot hand over the requested item.`}`,
+        `${h.name} plays Knowledge is Power on ${t.name}: "Do you have ${
+          item === "idol"
+            ? "a Hidden Immunity Idol"
+            : item === "amulet"
+              ? "an Advantage Amulet"
+              : `${/^[aeiou]/i.test(ADVANTAGE_LABEL[item]) ? "an" : "a"} ${ADVANTAGE_LABEL[item]}`
+        }?" ${got ? `${t.name} must hand over ${got}!` : `${t.name} cannot hand over the requested item.`}`,
       );
       continue;
     }
