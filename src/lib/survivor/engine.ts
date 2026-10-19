@@ -2818,7 +2818,7 @@ function doTribal(s: GameState, d: Decision) {
             `"${loser.name}: 'Keep playing ruthless, don't let the snakes win.'"`,
             `"${loser.name}: 'I should've trusted my gut tonight.'"`,
             `"${loser.name}: 'Good luck to whoever is left, go win this thing.'"`,
-          ][Math.floor(s.rng() * 4)]
+          ][Math.floor(r() * 4)]
     }`,
     details: [
       `Final count: ${vc}`,
