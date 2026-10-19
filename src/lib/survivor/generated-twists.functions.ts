@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { twistRulesKey, validateGeneratedTwist, twistRules } from "./generated-twists";
+import { twistRulesKey, validateGeneratedTwist } from "./generated-twists";
 
 export const generateSeasonTwist = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ title: z.string().trim().min(3).max(120) }).parse(input))
@@ -30,7 +30,8 @@ Previous reserved names and mechanics (avoid these): ${JSON.stringify(previous ?
       if (reserveError?.code === "23505") return { twist: null, error: "That twist has already been used. Choose Generate twist to request a different one." };
       if (reserveError) throw reserveError;
       return { twist, error: null };
-    } catch {
+    } catch (error) {
+      console.error("Season twist generation failed", error instanceof Error ? error.message : "Unexpected generation error");
       return { twist: null, error: "A new twist couldn't be created. Try Generate twist again; your settings are unchanged." };
     }
   });

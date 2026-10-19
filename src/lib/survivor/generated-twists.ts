@@ -21,11 +21,11 @@ export const targetLabels: Record<TwistEffect["target"], string> = {
   least_connected: "the player with the weakest combined relationships", most_connected: "the player with the strongest combined relationships",
 };
 export function twistRules(twist: GeneratedTwist): string[] {
-  return twist.effects.map((e) => `On challenge rounds ${[...new Set(e.rounds)].sort((a,b) => a-b).join(", ")} ${e.scope === "tribes" ? "before the merge, in each tribe" : e.scope === "merged" ? "after the merge" : "in each active tribe"}, ${targetLabels[e.target]} ${e.kind === "challenge_boost" ? `gets +${e.amount} on ${e.stat} challenge scores that round` : e.kind === "morale_shift" ? `gains ${e.amount * 5} morale` : `builds +${e.amount * 2} relationship with their least-close tribemate`}. Ties go alphabetically. Ends before final five.`);
+  return twist.effects.map((e) => `On challenge rounds ${[...new Set(e.rounds)].sort((a,b) => a-b).join(", ")} ${e.scope === "tribes" ? "before the merge, in each tribe" : e.scope === "merged" ? "after the merge" : "in each active tribe"}, ${targetLabels[e.target]} ${e.kind === "challenge_boost" ? `gets a reward and immunity score bonus of ${e.amount} × their ${e.stat} stat ÷ 5 that round` : e.kind === "morale_shift" ? `gains ${e.amount * 5} morale` : `builds +${e.amount * 2} relationship with their least-close tribemate`}. Ties go alphabetically. Ends before final five.`);
 }
 // Ignore cosmetic text and effect order: renaming identical gameplay is not a new twist.
 export function twistRulesKey(twist: GeneratedTwist): string {
-  return JSON.stringify(twist.effects.map((e) => ({ ...e, rounds: [...new Set(e.rounds)].sort((a,b) => a-b) })).map((e) => JSON.stringify(e)).sort());
+  return JSON.stringify(twist.effects.map((e) => JSON.stringify({ kind: e.kind, target: e.target, scope: e.scope, rounds: [...new Set(e.rounds)].sort((a,b) => a-b), stat: e.kind === "challenge_boost" ? e.stat : "general", amount: e.amount })).sort());
 }
 export function validateGeneratedTwist(value: unknown): GeneratedTwist {
   const twist = generatedTwistSchema.parse(value);
