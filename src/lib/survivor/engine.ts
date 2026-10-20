@@ -3564,8 +3564,53 @@ function doFTC(s: GameState, d: Decision) {
   });
   const counts: Record<string, number> = {};
   s.juryVotes.forEach((v) => (counts[v.finalist] = (counts[v.finalist] ?? 0) + 1));
-  const sorted = fin.sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0) || threat(b) - threat(a));
-  s.winner = sorted[0].id;
+
+  // Sort finalists by jury votes received
+  const sorted = [...fin].sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0));
+
+  const topVoteCount = counts[sorted[0].id] ?? 0;
+  const secondVoteCount = counts[sorted[1].id] ?? 0;
+
+  // Find everyone tied for 1st place
+  const tiedForFirst = sorted.filter((f) => (counts[f.id] ?? 0) === topVoteCount);
+
+  // CASE 1: Clean winner (no tie)
+  if (tiedForFirst.length === 1) {
+    s.winner = tiedForFirst[0].id;
+  }
+  // CASE 2: Final 3 Tiebreaker (e.g. 4-4-2 or 3-3-0)
+  else if (fin.length === 3 && tiedForFirst.length === 2) {
+    // Find the 3rd place finalist with the fewest votes
+    const tiebreakerFinalist = fin.find((f) => !tiedForFirst.some((tf) => tf.id === f.id))!;
+
+    // The 3rd place finalist casts the decisive vote between the top 2
+    // Score both tied finalists using the tiebreaker's evaluation logic
+    const tiebreakerScore = tiedForFirst
+      .map((f) => {
+        const relT = getRel(s, tiebreakerFinalist.id, f.id) * 0.09;
+        const strat = f.stats.strategy * 0.55 + f.immunityWins * 0.35 + (f.correctVotes ?? 0) * 0.12;
+        const soc = f.stats.social * 0.7;
+        return { finalist: f, score: relT + strat + soc + r() * 1.5 };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const tiebrokenWinner = tiebreakerScore[0].finalist;
+
+    // Update winner and record the tiebreaker vote
+    counts[tiebrokenWinner.id] = (counts[tiebrokenWinner.id] ?? 0) + 1;
+    s.winner = tiebrokenWinner.id;
+
+    log(s, {
+      kind: "twist",
+      title: "FTC Tiebreaker",
+      text: `It's a ${topVoteCount}-${topVoteCount} tie between ${tiedForFirst[0].name} and ${tiedForFirst[1].name}! As the finalist with the fewest votes, ${tiebreakerFinalist.name} casts the sole tie-breaking vote for ${tiebrokenWinner.name}!`,
+    });
+  }
+  // FALLBACK: Deadlock / Dead-Heat Tiebreaker
+  else {
+    const fallbackWinner = sorted.sort((a, b) => threat(b) - threat(a))[0];
+    s.winner = fallbackWinner.id;
+  }
   log(s, {
     kind: "finale",
     title: "The Reunion — Sole Survivor",
