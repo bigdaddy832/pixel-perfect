@@ -280,7 +280,8 @@ function getArchetype(s: Castaway["stats"]) {
   if (s.mental >= 8) return "Puzzle Wizard";
   return "The Underdog";
 }
-function getThreatBadge(c: Castaway, g: GameState) {
+function getThreatBadge(c: Castaway, g?: GameState) {
+  if (!g || !g.alliances) return null;
   const allianceCount = g.alliances.filter((a) => a.members.includes(c.id)).length;
   const immWins = c.immunityWins ?? 0;
   const rewWins = c.rewardWins ?? 0;
@@ -348,7 +349,7 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
         <span className="font-semibold flex items-center gap-1.5">
           {c.name}
           {me && <span className="text-xs text-primary">(YOU)</span>}
-          {getThreatBadge(c)}
+          {getThreatBadge(c, g)}
         </span>
         <span className="flex flex-wrap items-center justify-end gap-1 text-sm">
           {g.immune.includes(c.id) && "🛡️"}
