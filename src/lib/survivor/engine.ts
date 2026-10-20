@@ -1296,8 +1296,7 @@ function doCamp(s: GameState, d: Decision) {
       }
     }
     // idol hunting
-    // idol hunting
-      const idolInPlay = isIdolInPlay(s, tid);
+    const idolInPlay = isIdolInPlay(s, tid);
     if (canDiscoverIdol(s) && (s.hiddenIdols[tid] ?? 0) > 0 && !idolInPlay) {
       for (const a of shuffle(members.filter((c) => c.id !== s.config.controlledId && c.idols === 0))) { 
         if (!a.clue && r() < 0.03 + a.stats.strategy * 0.01) {
@@ -1310,8 +1309,6 @@ function doCamp(s: GameState, d: Decision) {
           continue;
         }
         if (r() < (a.clue ? 0.25 : 0.01) + a.stats.strategy * 0.015) {
-          a.idols++;
-                  if (r() < (a.clue ? 0.25 : 0.01) + a.stats.strategy * 0.015) {
           a.idols++;
           a.idolOrigins = [...(a.idolOrigins || []), tid];
           s.hiddenIdols[tid] = 0;
