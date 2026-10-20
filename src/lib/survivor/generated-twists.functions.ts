@@ -51,7 +51,7 @@ Previous reserved names and mechanics (avoid these): ${JSON.stringify(previous ?
         };
       if (reserveError) throw reserveError;
       return { twist, error: null };
-           } catch (error) {
+            } catch (error) {
       console.error(
         "Season twist generation failed, using fallback",
         error instanceof Error ? error.message : "Unexpected generation error",
@@ -73,6 +73,16 @@ Previous reserved names and mechanics (avoid these): ${JSON.stringify(previous ?
           rules_key: twistRulesKey(twist),
           twist,
         });
+        if (reserveError) throw reserveError;
+        return { twist, error: null };
+      } catch {
+        return {
+          twist: null,
+          error: "A new twist couldn't be created. Try Generate twist again; your settings are unchanged.",
+        };
+      }
+    }
+  });
         if (reserveError) throw reserveError;
         return { twist, error: null };
       } catch {

@@ -86,12 +86,12 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
                 amount: 2,
               },
               {
-                kind: "morale_shift",
-                target: "lowest_mood",
+                kind: "safety",
+                target: "fewest_wins",
                 scope: "tribes",
                 rounds: [1, 4],
                 stat: "general",
-                amount: 2,
+                amount: 1,
               },
             ],
           });
