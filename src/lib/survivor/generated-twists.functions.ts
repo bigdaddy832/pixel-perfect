@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { twistRulesKey, validateGeneratedTwist } from "./generated-twists";
+import { buildFallbackTwist, twistRulesKey, validateGeneratedTwist } from "./generated-twists";
 
 export const generateSeasonTwist = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ title: z.string().trim().min(3).max(120) }).parse(input))
@@ -51,14 +51,46 @@ Previous reserved names and mechanics (avoid these): ${JSON.stringify(previous ?
         };
       if (reserveError) throw reserveError;
       return { twist, error: null };
-    } catch (error) {
+           } catch (error) {
       console.error(
-        "Season twist generation failed",
+        "Season twist generation failed, using fallback",
         error instanceof Error ? error.message : "Unexpected generation error",
       );
-      return {
-        twist: null,
-        error: "A new twist couldn't be created. Try Generate twist again; your settings are unchanged.",
-      };
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: prev } = await supabaseAdmin
+          .from("generated_season_twists")
+          .select("name_key,rules_key")
+          .limit(1000);
+        const twist = buildFallbackTwist(
+          data.title,
+          (prev ?? []).map((p) => p.rules_key),
+          (prev ?? []).map((p) => p.name_key),
+        );
+        const { error: reserveError } = await supabaseAdmin.from("generated_season_twists").insert({
+          season_title: data.title,
+          name_key: twist.name.toLowerCase().replace(/[^a-z0-9]/g, ""),
+          rules_key: twistRulesKey(twist),
+          twist,
+        });
+        if (reserveError) throw reserveError;
+        return { twist, error: null };
+      } catch {
+        return {
+          twist: null,
+          error: "A new twist couldn't be created. Try Generate twist again; your settings are unchanged.",
+        };
+      }
     }
+
+        });
+        if (reserveError) throw reserveError;
+        return { twist, error: null };
+      } catch {
+        return {
+          twist: null,
+          error: "A new twist couldn't be created. Try Generate twist again; your settings are unchanged.",
+        };
+      }
+    } 
   });
