@@ -280,21 +280,62 @@ function getArchetype(s: Castaway["stats"]) {
   if (s.mental >= 8) return "Puzzle Wizard";
   return "The Underdog";
 }
-function getThreatBadge(c: Castaway) {
-  const score = c.stats.physical * 1.0 + c.stats.social * 1.3 + c.stats.strategy * 1.5 + c.idols * 3;
-  if (score >= 28)
+function getThreatBadge(c: Castaway, g: GameState) {
+  const allianceCount = g.alliances.filter((a) => a.members.includes(c.id)).length;
+  const immWins = c.immunityWins ?? 0;
+  const rewWins = c.rewardWins ?? 0;
+  const correctVotes = c.correctVotes ?? 0;
+
+  // Visible challenge threats
+  const challengeThreat = immWins * 3.5 + rewWins * 1.5 + c.stats.physical * 0.8;
+  // Visible social connections (alliances + social ability)
+  const socialThreat = allianceCount * 2.0 + c.stats.social * 1.0;
+  // Visible strategic / voting control (orchestrated majority votes)
+  const strategicThreat = correctVotes * 2.5 + c.stats.strategy * 1.0;
+  // Threat ramps up once players reach the merge
+  const mergeBonus = g.merged ? 3.0 : 0;
+
+  const score = challengeThreat + socialThreat + strategicThreat + mergeBonus;
+  const tooltip = `Perceived Threat: ${score.toFixed(1)} | ${immWins} Immunities, ${correctVotes} Majority Votes, ${allianceCount} Alliances`;
+
+  if (score >= 35) {
     return (
-      <span className="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] font-bold text-destructive">🔴 Target</span>
+      <span
+        title={tooltip}
+        className="cursor-help rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] font-bold text-destructive"
+      >
+        🔴 Target
+      </span>
     );
-  if (score >= 23)
-    return <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">🟠 High</span>;
-  if (score >= 18)
+  }
+  if (score >= 27) {
     return (
-      <span className="rounded bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-bold text-yellow-600 dark:text-yellow-400">
+      <span
+        title={tooltip}
+        className="cursor-help rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-500"
+      >
+        🟠 High
+      </span>
+    );
+  }
+  if (score >= 20) {
+    return (
+      <span
+        title={tooltip}
+        className="cursor-help rounded bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-bold text-yellow-600 dark:text-yellow-400"
+      >
         🟡 Mid
       </span>
     );
-  return <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500">🟢 Low</span>;
+  }
+  return (
+    <span
+      title={tooltip}
+      className="cursor-help rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500"
+    >
+      🟢 Low
+    </span>
+  );
 }
 function Card({ g, c }: { g: GameState; c: Castaway }) {
   const als = g.alliances.filter((a) => a.members.includes(c.id));
