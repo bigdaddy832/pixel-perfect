@@ -1095,7 +1095,7 @@ export function pendingDecision(s: GameState): Pending {
     return {
       kind: "camp",
       options,
- (s.hiddenIdols[me.tribeId] ?? 0) > 0 && !isIdolInPlay(s, me.tribeId),
+ canSearchAtChallenge: (s.hiddenIdols[me.tribeId] ?? 0) > 0 && !isIdolInPlay(s, me.tribeId),
       fakeStatus: me.fakeIdol,
       plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol),
       bewareTask: me.bewareTribals ? me.bewareTask : undefined,
