@@ -2372,6 +2372,31 @@ export function tribalTargets(s: GameState): { individual: TargetPlan[]; groups:
     .filter(Boolean) as TargetPlan[];
   return { individual, groups };
 }
+// --- 50/50 COIN LOGIC ---
+att.forEach((castaway) => {
+  // Check if player played a 50/50 Coin
+  if (castaway.hasFiftyFiftyCoin && castaway.playedFiftyFiftyCoin) {
+    const coinResult = resolveFiftyFiftyCoin(castaway);
+
+    if (coinResult.isSafe) {
+      // Nullify all votes cast against this player!
+      votes.forEach((v) => {
+        if (v.target === castaway.id) {
+          v.nullified = true;
+        }
+      });
+      // Log the successful safe roll
+      immLog.push(coinResult.message);
+    } else {
+      // Log that the coin landed on NOT SAFE
+      immLog.push(coinResult.message);
+    }
+
+    // Consume the coin so it can't be used again
+    castaway.hasFiftyFiftyCoin = false;
+    castaway.playedFiftyFiftyCoin = false;
+  }
+});
 
 function tally(votes: Vote[]) {
   const m: Record<string, number> = {};
@@ -3749,4 +3774,105 @@ function doExile(s: GameState, winTid: string) {
     title: "Exile Island",
     text: `${tribeOf(s, winTid)!.name} send ${ex.name} to Exile Island for the night — alone, hungry, and out of the loop.${found || " The clue leads nowhere."}`,
   });
+}
+
+export interface Castaway {
+  id: string;
+  name: string;
+  tribeId: string;
+  isEliminated: boolean;
+}
+
+export interface Tribe {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface GameState {
+  tribes: Tribe[];
+  castaways: Castaway[];
+  isPreMerge: boolean;
+  mergeThreshold: number; // e.g. 11 or 12
+  log: string[];
+}
+
+/**
+ * Dissolves a tribe if its active membership drops to 2 during a 3-tribe pre-merge,
+ * absorbing those 2 remaining players into the other 2 surviving tribes.
+ */
+export function checkAndDissolveSmallTribe(state: GameState): GameState {
+  const { tribes, castaways, isPreMerge, mergeThreshold } = state;
+
+  // 1. Only run during pre-merge with exactly 3 tribes, above merge threshold
+  const activeCastaways = castaways.filter((c) => !c.isEliminated);
+  if (!isPreMerge || tribes.length !== 3 || activeCastaways.length <= mergeThreshold) {
+    return state;
+  }
+
+  // 2. Count active players per tribe
+  const tribeMemberCounts = tribes.map((tribe) => {
+    const members = activeCastaways.filter((c) => c.tribeId === tribe.id);
+    return { tribe, members, count: members.length };
+  });
+
+  // 3. Find if any tribe has reached 2 members
+  const tribeToDissolve = tribeMemberCounts.find((t) => t.count === 2);
+  if (!tribeToDissolve) return state;
+
+  const receivingTribes = tribeMemberCounts.filter((t) => t.tribe.id !== tribeToDissolve.tribe.id);
+  if (receivingTribes.length !== 2) return state;
+
+  // 4. Randomly assign 1 member to each of the 2 remaining tribes
+  const playersToReassign = [...tribeToDissolve.members].sort(() => Math.random() - 0.5);
+
+  const updatedCastaways = castaways.map((castaway) => {
+    if (castaway.id === playersToReassign[0].id) {
+      return { ...castaway, tribeId: receivingTribes[0].tribe.id };
+    }
+    if (castaway.id === playersToReassign[1].id) {
+      return { ...castaway, tribeId: receivingTribes[1].tribe.id };
+    }
+    return castaway;
+  });
+
+  const updatedTribes = tribes.filter((t) => t.id !== tribeToDissolve.tribe.id);
+
+  const logEntry = `🚨 TRIBE DISSOLUTION: ${tribeToDissolve.tribe.name} has dissolved! ${playersToReassign[0].name} joins ${receivingTribes[0].tribe.name}, and ${playersToReassign[1].name} joins ${receivingTribes[1].tribe.name}.`;
+
+  return {
+    ...state,
+    tribes: updatedTribes,
+    castaways: updatedCastaways,
+    log: [...state.log, logEntry],
+  };
+}
+
+/**
+ * Resolves a player's 50/50 Coin play at Tribal Council.
+ * Gives a 50% chance of granting immunity for that vote.
+ */
+export function resolveFiftyFiftyCoin(castaway: {
+  name: string;
+  hasFiftyFiftyCoin?: boolean;
+  playedFiftyFiftyCoin?: boolean;
+}) {
+  if (!castaway.hasFiftyFiftyCoin || !castaway.playedFiftyFiftyCoin) {
+    return { isSafe: false, message: "" };
+  }
+
+  // 50% chance (Math.random < 0.5)
+  const isSafe = Math.random() < 0.5;
+
+  if (isSafe) {
+    return {
+      isSafe: true,
+      message: `🪙 **50/50 COIN:** ${castaway.name} plays their 50/50 coin, flips it, and hits **SAFE**! Any votes cast against them will not count!`,
+    };
+  } else {
+    return {
+      isSafe: false,
+      message: `🪙 **50/50 COIN:** ${castaway.name} plays their 50/50 coin, flips it, and hits **NOT SAFE**! Their votes will count normally.`,
+    };
+  }
 }
