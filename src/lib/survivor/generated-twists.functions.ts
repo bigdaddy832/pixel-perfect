@@ -36,14 +36,12 @@ Previous reserved names and mechanics (avoid these): ${JSON.stringify(previous ?
       const twist = validateGeneratedTwist(JSON.parse(text));
       if (!twist.effects.some((e) => e.scope === "both" && e.rounds.includes(1)))
         throw new Error("Missing opening-round effect");
-      const { error: reserveError } = await supabaseAdmin
-        .from("generated_season_twists")
-        .insert({
-          season_title: data.title,
-          name_key: twist.name.toLowerCase().replace(/[^a-z0-9]/g, ""),
-          rules_key: twistRulesKey(twist),
-          twist,
-        });
+      const { error: reserveError } = await supabaseAdmin.from("generated_season_twists").insert({
+        season_title: data.title,
+        name_key: twist.name.toLowerCase().replace(/[^a-z0-9]/g, ""),
+        rules_key: twistRulesKey(twist),
+        twist,
+      });
       if (reserveError?.code === "23505")
         return {
           twist: null,
@@ -51,7 +49,7 @@ Previous reserved names and mechanics (avoid these): ${JSON.stringify(previous ?
         };
       if (reserveError) throw reserveError;
       return { twist, error: null };
-            } catch (error) {
+    } catch (error) {
       console.error(
         "Season twist generation failed, using fallback",
         error instanceof Error ? error.message : "Unexpected generation error",
@@ -82,25 +80,4 @@ Previous reserved names and mechanics (avoid these): ${JSON.stringify(previous ?
         };
       }
     }
-  });
-        if (reserveError) throw reserveError;
-        return { twist, error: null };
-      } catch {
-        return {
-          twist: null,
-          error: "A new twist couldn't be created. Try Generate twist again; your settings are unchanged.",
-        };
-      }
-    }
-
-        });
-        if (reserveError) throw reserveError;
-        return { twist, error: null };
-      } catch {
-        return {
-          twist: null,
-          error: "A new twist couldn't be created. Try Generate twist again; your settings are unchanged.",
-        };
-      }
-    } 
   });
