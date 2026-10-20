@@ -1,7 +1,7 @@
 // @ts-nocheck -- array indexing is guarded by game invariants
 // Survivor simulation engine — pure client-side state machine.
 import { SEASON_TWIST_LABEL, type SeasonTwist } from "./season-titles";
-import { twistRules, targetLabels, type GeneratedTwist, type TwistEffect } from "./generated-twists";
+import { twistRules, targetLabels, TOKENS_FOR_SAFETY, type GeneratedTwist, type TwistEffect } from "./generated-twists";
 export type StatKey =
   "strategy" | "social" | "loyalty" | "temperament" | "general" | "physical" | "endurance" | "mental";
 
@@ -151,6 +151,9 @@ export interface GameState {
   tribalTribe: string | null;
   generatedTwistRound?: number;
   generatedTwistBoosts?: Record<string, number>;
+  generatedTwistSafe?: string[];
+  generatedTwistMuted?: string[];
+  twistTokens?: Record<string, number>;
   hiddenIdols: Record<string, number>;
   finalImmune?: string;
   usedChallenges: string[];
@@ -1159,6 +1162,7 @@ export function step(prev: GameState, d: Decision = {}): GameState {
     }
     case "challenge":
       doChallenge(s);
+      applyGeneratedTwistSafety(s);
       s.phase = "tribal";
       break;
     case "tribal": {
@@ -1940,25 +1944,24 @@ const CH_TYPES: { type: StatKey; names: string[] }[] = [
 const indScore = (c: Castaway, t: StatKey) => c.stats.general * 0.5 + c.stats[t] * 1.2 + r() * 3.5;
 
 export function generatedTwistTarget(s: GameState, members: Castaway[], effect: TwistEffect): Castaway | undefined {
-  const connections = (c: Castaway) =>
-    members.reduce((sum, other) => sum + (c.id === other.id ? 0 : getRel(s, c.id, other.id)), 0);
-  const value = (c: Castaway) =>
-    effect.target.includes("mood")
-      ? c.mood
-      : effect.target.includes("wins")
-        ? c.immunityWins + (c.rewardWins ?? 0)
-        : connections(c);
-  const lowest = ["lowest_mood", "fewest_wins", "least_connected"].includes(effect.target);
-  return [...members].sort(
-    (a, b) =>
-      (lowest ? value(a) - value(b) : value(b) - value(a)) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
-  )[0];
+  const sorted = [...members].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  if (effect.target === "random") return sorted[Math.floor(r() * sorted.length)];
+  const wins = (c: Castaway) => c.immunityWins + (c.rewardWins ?? 0);
+  const lowest = effect.target === "fewest_wins";
+  return sorted.sort((a, b) => (lowest ? wins(a) - wins(b) : wins(b) - wins(a)))[0];
 }
 export function applyGeneratedTwist(s: GameState) {
   s.generatedTwistRound = (s.generatedTwistRound ?? 0) + 1;
   s.generatedTwistBoosts = {};
+  s.generatedTwistSafe = [];
+  for (const id of s.generatedTwistMuted ?? []) {
+    const c = s.castaways.find((x) => x.id === id);
+    if (c) c.lostVote = false;
+  }
+  s.generatedTwistMuted = [];
   const twist = s.config.generatedTwist;
   if (!twist || alive(s).length <= 5) return;
+  s.twistTokens ??= {};
   const details: string[] = [];
   for (const effect of twist.effects) {
     if (
@@ -1970,22 +1973,27 @@ export function applyGeneratedTwist(s: GameState) {
     for (const members of groups(s).values()) {
       const target = generatedTwistTarget(s, members, effect);
       if (!target) continue;
+      const who = `${target.name} (${targetLabels[effect.target] ?? "chosen"})`;
       if (effect.kind === "challenge_boost") {
         const boost = (effect.amount * target.stats[effect.stat]) / 5;
         s.generatedTwistBoosts[target.id] = (s.generatedTwistBoosts[target.id] ?? 0) + boost;
-        details.push(
-          `${target.name}, ${targetLabels[effect.target]}, gets +${boost.toFixed(2)} on today's reward and immunity scores (${effect.stat}).`,
-        );
-      } else if (effect.kind === "morale_shift") {
-        target.mood = clamp(target.mood + effect.amount * 5, 0, 100);
-        details.push(`${target.name} gains ${effect.amount * 5} morale.`);
-      } else {
-        const partner = members
-          .filter((c) => c.id !== target.id)
-          .sort((a, b) => getRel(s, target.id, a.id) - getRel(s, target.id, b.id) || a.name.localeCompare(b.name))[0];
-        if (partner) {
-          addRel(s, target.id, partner.id, effect.amount * 2);
-          details.push(`${target.name} and ${partner.name} gain +${effect.amount * 2} relationship.`);
+        details.push(`${who} gets a +${boost.toFixed(2)} head start in today's challenges.`);
+      } else if (effect.kind === "safety") {
+        s.generatedTwistSafe.push(target.id);
+        details.push(`${who} is safe at Tribal Council tonight.`);
+      } else if (effect.kind === "lost_vote") {
+        target.lostVote = true;
+        s.generatedTwistMuted.push(target.id);
+        details.push(`${who} loses their vote at Tribal Council tonight.`);
+      } else if (effect.kind === "fire_tokens") {
+        const total = (s.twistTokens[target.id] ?? 0) + effect.amount;
+        if (total >= TOKENS_FOR_SAFETY) {
+          s.twistTokens[target.id] = total - TOKENS_FOR_SAFETY;
+          s.generatedTwistSafe.push(target.id);
+          details.push(`${who} earns ${effect.amount} Fire Token(s) and cashes in ${TOKENS_FOR_SAFETY} for safety tonight.`);
+        } else {
+          s.twistTokens[target.id] = total;
+          details.push(`${who} earns ${effect.amount} Fire Token(s) — now holding ${total}.`);
         }
       }
     }
@@ -1997,6 +2005,10 @@ export function applyGeneratedTwist(s: GameState) {
       text: "Jeff announces this round's season rules before the challenges begin.",
       details,
     });
+}
+/** Twist safety is granted after challenge results so it stacks with individual immunity. */
+export function applyGeneratedTwistSafety(s: GameState) {
+  for (const id of s.generatedTwistSafe ?? []) if (!s.immune.includes(id)) s.immune.push(id);
 }
 const seasonChallengeScore = (s: GameState, c: Castaway, t: StatKey) =>
   indScore(c, t) + (s.generatedTwistBoosts?.[c.id] ?? 0);
