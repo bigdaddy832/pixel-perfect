@@ -3611,6 +3611,7 @@ function doFTC(s: GameState, d: Decision) {
     const fallbackWinner = sorted.sort((a, b) => threat(b) - threat(a))[0];
     s.winner = fallbackWinner.id;
   }
+
   log(s, {
     kind: "finale",
     title: "The Reunion — Sole Survivor",
