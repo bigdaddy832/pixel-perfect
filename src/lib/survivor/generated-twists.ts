@@ -47,3 +47,38 @@ export function validateGeneratedTwist(value: unknown): GeneratedTwist {
   if (new Set(twist.effects.map((e) => JSON.stringify(e))).size !== twist.effects.length) throw new Error("Repeated effect.");
   return twist;
 }
+
+const KINDS: TwistEffect["kind"][] = ["challenge_boost", "safety", "lost_vote", "fire_tokens"];
+const TARGETS: TwistEffect["target"][] = ["most_wins", "fewest_wins", "random"];
+const NOUNS: Record<TwistEffect["kind"], string[]> = {
+  challenge_boost: ["Head Start", "Running Start", "Edge"],
+  safety: ["Sanctuary", "Shelter", "Reprieve"],
+  lost_vote: ["Silence", "Muzzle", "Gag Order"],
+  fire_tokens: ["Tokens", "Coin", "Embers"],
+};
+/** Offline twist builder used when AI generation is unavailable; reuses the same bounded effects. */
+export function buildFallbackTwist(title: string, avoidRules: string[], avoidNames: string[], rand: () => number = Math.random): GeneratedTwist {
+  const place = title.replace(/^Survivor:\s*/i, "").replace(/\s+\d+$/, "").trim() || "Island";
+  const pickOne = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)] as T;
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const count = 2 + Math.floor(rand() * 2);
+    const kinds = [...KINDS].sort(() => rand() - 0.5).slice(0, count);
+    const effects: TwistEffect[] = kinds.map((kind, i) => {
+      const n = 1 + Math.floor(rand() * 3);
+      const rounds = [...new Set(Array.from({ length: n }, () => 1 + Math.floor(rand() * 8)))];
+      if (i === 0 && !rounds.includes(1)) rounds.push(1);
+      return {
+        kind, target: pickOne(TARGETS), scope: i === 0 ? "both" : pickOne(["tribes", "merged", "both"] as const),
+        rounds: rounds.sort((a, b) => a - b).slice(0, 4), stat: kind === "challenge_boost" ? pickOne(["general", "physical", "mental"] as const) : "general",
+        amount: 1 + Math.floor(rand() * 3),
+      };
+    });
+    const name = `${place} ${pickOne(NOUNS[kinds[0]])}`.slice(0, 70);
+    const twist: GeneratedTwist = { name: name.length >= 4 ? name : `${name} Twist`, inspiration: `A ${place} season where ${kinds.map((k) => ({ challenge_boost: "head starts", safety: "surprise safety", lost_vote: "lost votes", fire_tokens: "Fire Tokens" })[k]).join(", ")} shape every Tribal.`.slice(0, 240), effects };
+    const nameKey = twist.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (avoidRules.includes(twistRulesKey(twist))) continue;
+    if (avoidNames.includes(nameKey)) twist.name = `${twist.name.slice(0, 64)} ${attempt + 2}`;
+    return validateGeneratedTwist(twist);
+  }
+  throw new Error("No unique fallback twist available");
+}
