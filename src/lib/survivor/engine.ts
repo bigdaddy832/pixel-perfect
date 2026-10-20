@@ -2032,8 +2032,6 @@ function pickChallenge(s: GameState, avoidType?: StatKey) {
 
 function rewardAdvantage(s: GameState, winners: Castaway[]) {
   const clueable = canDiscoverIdol(s)
-    ? winners.filter((c) => !c.clue && c.idols === 0 && function rewardAdvantage(s: GameState, winners: Castaway[]) {
-  const clueable = canDiscoverIdol(s)
     ? winners.filter((c) => !c.clue && c.idols === 0 && (s.hiddenIdols[c.tribeId] ?? 0) > 0 && !isIdolInPlay(s, c.tribeId))
     : [];
 
@@ -2120,36 +2118,6 @@ function doChallenge(s: GameState) {
         lucky.idols = (lucky.idols || 0) + 1;
         lucky.idolOrigins = [...(lucky.idolOrigins || []), lucky.tribeId];
         s.hiddenIdols[lucky.tribeId] = 0;
-        penTid = lucky.tribeId;
-        log(s, {
-          kind: "idol",
-          title: "Idol at the Challenge!",
-          text: `${lucky.name} spotted an idol ${pick(CHALLENGE_IDOL_PLACES)} and grabbed it mid-challenge.`,
-        });
-      }
-    } 
-        log(s, {
-          kind: "idol",
-          title: "Challenge Idol Grab!",
-          text: `Mid-challenge you spotted an idol ${pick(CHALLENGE_IDOL_PLACES)} and snatched it — at a cost to your tribe's time.`,
-        });
-      } else
-        log(s, {
-          kind: "idol",
-          title: "Challenge Search: Nothing",
-          text: "You scanned the course for a hidden idol but found nothing, and your tribe lost precious seconds.",
-        });
-    } else {
-      const lucky = canDiscoverIdol(s)
-        ? shuffle(
-            alive(s).filter(
-              (c) => c.id !== s.config.controlledId && c.idols === 0 && (s.hiddenIdols[c.tribeId] ?? 0) > 0,
-            ),
-          ).find(() => r() < 0.03)
-        : undefined;
-      if (lucky) {
-        lucky.idols = 1;
-        s.hiddenIdols[lucky.tribeId]--;
         penTid = lucky.tribeId;
         log(s, {
           kind: "idol",
