@@ -43,23 +43,33 @@ const presetSchema = z.object({
 export type SettingsPreset = z.infer<typeof presetSchema>;
 export const PRESETS_KEY = "survivor-sim-settings-presets-v1";
 
-/** Read presets safely with healing so older or partial presets are never lost */
+/** Read presets safely with healing so older, flat, or partial presets are never lost */
 export function readPresets(raw: string | null): SettingsPreset[] {
   try {
     const data: unknown = JSON.parse(raw ?? "[]");
     if (!Array.isArray(data)) return [];
     return data.flatMap((entry) => {
-      if (
-        !entry ||
-        typeof entry !== "object" ||
-        !("name" in entry) ||
-        typeof entry.name !== "string" ||
-        !entry.name.trim()
-      ) {
-        return [];
+      if (!entry || typeof entry !== "object") return [];
+      const rec = entry as Record<string, unknown>;
+      const rawName = rec.name ?? rec.title ?? rec.label ?? rec.presetName ?? "Saved Preset";
+      const name = String(rawName).trim().slice(0, 60);
+      if (!name) return [];
+
+      let rawSettings = rec.settings ?? entry;
+      if (typeof rawSettings === "string") {
+        try {
+          rawSettings = JSON.parse(rawSettings);
+        } catch {
+          rawSettings = {};
+        }
       }
-      const parsed = presetSchema.safeParse(entry);
-      return parsed.success ? [parsed.data] : [];
+      if (!rawSettings || typeof rawSettings !== "object") {
+        rawSettings = {};
+      }
+
+      const parsed = settingsSchema.safeParse(rawSettings);
+      const settings = parsed.success ? parsed.data : settingsSchema.parse({});
+      return [{ name, settings }];
     });
   } catch {
     return [];

@@ -8,7 +8,21 @@ import {
   type SeasonSettings,
   type SettingsPreset,
 } from "@/lib/survivor/settings-presets";
-
+function getStoredPresets(): SettingsPreset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const primary = readPresets(localStorage.getItem(PRESETS_KEY));
+    if (primary.length > 0) return primary;
+    // Check legacy fallback keys if primary is empty
+    for (const altKey of ["survivor-sim-settings-presets", "survivor-settings-presets", "presets"]) {
+      const alt = readPresets(localStorage.getItem(altKey));
+      if (alt.length > 0) return alt;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
 export function SettingsPresets({
   settings,
   onLoad,
@@ -16,13 +30,11 @@ export function SettingsPresets({
   settings: SeasonSettings;
   onLoad: (settings: SeasonSettings) => void;
 }) {
-  const [presets, setPresets] = useState<SettingsPreset[]>(() => {
-    try {
-      return typeof window !== "undefined" ? readPresets(localStorage.getItem(PRESETS_KEY)) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [presets, setPresets] = useState<SettingsPreset[]>(() => getStoredPresets());
+
+  useEffect(() => {
+    setPresets(getStoredPresets());
+  }, []);
   const [selected, setSelected] = useState("");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
@@ -90,6 +102,7 @@ export function SettingsPresets({
           <select
             className="w-60 max-w-full rounded-md border border-input bg-secondary px-3 py-2"
             value={selected}
+            onFocus={() => setPresets(getStoredPresets())}
             onChange={(e) => {
               const chosen = e.target.value;
               setSelected(chosen);
