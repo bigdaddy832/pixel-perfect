@@ -49,7 +49,7 @@ export interface Castaway {
   amulet?: boolean;
 }
 export type AdvantageKey =
-  "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power";
+  "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power" | "fifty_fifty";
 export const ADVANTAGES: AdvantageKey[] = [
   "extra_vote",
   "steal_vote",
@@ -57,6 +57,7 @@ export const ADVANTAGES: AdvantageKey[] = [
   "safety",
   "idol_nullifier",
   "knowledge_is_power",
+  "fifty_fifty",
 ];
 export const ADVANTAGE_LABEL: Record<AdvantageKey, string> = {
   extra_vote: "Extra Vote",
@@ -65,6 +66,7 @@ export const ADVANTAGE_LABEL: Record<AdvantageKey, string> = {
   safety: "Safety Without Power",
   idol_nullifier: "Idol Nullifier",
   knowledge_is_power: "Knowledge is Power",
+  fifty_fifty: "50/50 Coin",
 };
 export const ADVANTAGE_DESC: Record<AdvantageKey, string> = {
   extra_vote: "Cast a second vote at Tribal Council.",
@@ -73,6 +75,7 @@ export const ADVANTAGE_DESC: Record<AdvantageKey, string> = {
   safety: "Leave Tribal Council safe — but you don't vote.",
   idol_nullifier: "Cancel any idol played for the person you name.",
   knowledge_is_power: "Ask someone if they have an idol or advantage — if they do, it's yours.",
+  fifty_fifty: "Flip a coin at Tribal Council: 50% chance of immunity, 50% chance it fails.",
 };
 export const ADVANTAGE_NEEDS_TARGET: AdvantageKey[] = [
   "steal_vote",
@@ -2967,6 +2970,32 @@ function afterTribal(s: GameState) {
   }
   const n = alive(s).length;
   s.episodes.push({ n: s.episodes.length + 1, title: freshTitle(s), entries: [] });
+  // Dissolve any pre-merge tribe down to 2 people during a 3-tribe stage
+  if (!s.merged) {
+    const activeTribes = s.tribes.filter((t) => t.id !== "merged");
+    const living = alive(s);
+    if (activeTribes.length === 3 && living.length > s.config.mergeAt) {
+      const counts = activeTribes.map((t) => ({
+        tribe: t,
+        members: living.filter((c) => c.tribeId === t.id),
+      }));
+      const small = counts.find((c) => c.members.length === 2);
+      if (small) {
+        const others = counts.filter((c) => c.tribe.id !== small.tribe.id);
+        if (others.length === 2) {
+          const [p1, p2] = small.members.sort(() => r() - 0.5);
+          p1.tribeId = others[0].tribe.id;
+          p2.tribeId = others[1].tribe.id;
+          s.tribes = s.tribes.filter((t) => t.id !== small.tribe.id);
+          log(s, {
+            kind: "twist",
+            title: "Tribe Dissolved!",
+            text: `🚨 ${small.tribe.name} is down to 2 members and has dissolved! ${p1.name} joins ${others[0].tribe.name}, and ${p2.name} joins ${others[1].tribe.name}.`,
+          });
+        }
+      }
+    }
+  }
   if (!s.merged) {
     const g = groups(s);
     const tiny = [...g.values()].some((m) => m.length <= 1) || g.size < 2;
@@ -3575,7 +3604,7 @@ function doFTC(s: GameState, d: Decision) {
   log(s, {
     kind: "finale",
     title: "The Reunion — Sole Survivor",
-    text: `${sorted[0].name} wins Survivor by a vote of ${fin
+    text: `${byId(s, s.winner).name} wins Survivor by a vote of ${fin
       .map((f) => counts[f.id] ?? 0)
       .sort((a, b) => b - a)
       .join("-")}!`,
