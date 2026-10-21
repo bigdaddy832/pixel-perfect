@@ -2645,11 +2645,6 @@ function doTribal(s: GameState, d: Decision) {
       else protectedIds.push(target);
     }
   }
-      if (nullifyFor.includes(target))
-        idolLog.push(`But the idol was nullified! Votes against ${nm(s, target)} still count.`);
-      else protectedIds.push(target);
-    }
-  }
 
   // 50/50 Coin plays
   for (const p of plays.filter((x) => x.adv === "fifty_fifty")) {
@@ -2662,7 +2657,6 @@ function doTribal(s: GameState, d: Decision) {
     }
   }
 
-  votes = votes.map((v) => (protectedIds.includes(v.target) ? { ...v, nullified: true } : v));  
   votes = votes.map((v) => (protectedIds.includes(v.target) ? { ...v, nullified: true } : v));
   let t = tally(votes);
   const details: string[] = [
