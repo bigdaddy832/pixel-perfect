@@ -80,10 +80,32 @@ export function Game({
     )
       return;
     const ng = step(game, { ...dec, pauseOnRevote: true });
+    const myId = game.config.controlledId;
+    const meBefore = myId ? byId(game, myId) : null;
+
     const fresh = ng.episodes
       .flatMap((e) => e.entries)
       .filter((e) => e.kind === "tribal" || (e.kind === "finale" && e.votes?.length))
-      .slice(voteLogCount(game));
+      .slice(voteLogCount(game))
+      .filter((e) => {
+        // Spectating from the start (no controlled player)
+        if (!meBefore) return false;
+
+        // Finale / Jury vote: show if you are a finalist or on the jury
+        if (e.kind === "finale") return !meBefore.out || !!meBefore.juror;
+
+        // Already voted out in an earlier round: skip popup
+        if (meBefore.out) return false;
+
+        // Tribal Council: only popup if your tribe was there or you were involved
+        const voters = (e.votes ?? []).map((v) => byId(ng, v.voter)).filter(Boolean);
+        const userTribeAtTribal = voters.some((v) => v.tribeId === meBefore.tribeId);
+        const userInvolved =
+          (e.votes ?? []).some((v) => v.voter === meBefore.id || v.target === meBefore.id) || e.out === meBefore.id;
+
+        return userTribeAtTribal || userInvolved;
+      });
+
     setGame(ng);
     setDec({});
     if (fresh.length) setReveals(fresh);
