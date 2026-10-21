@@ -49,6 +49,10 @@ describe("Season settings presets", () => {
   it("safely ignores broken saved data", () => {
     expect(readPresets("not json")).toEqual([]);
     expect(readPresets('{"not":"a list"}')).toEqual([]);
-    expect(readPresets('[{"name":"bad","settings":{}}]')).toEqual([]);
+  });
+  it("heals a preset with broken settings instead of dropping it", () => {
+    const healed = readPresets('[{"name":"bad","settings":{}}]');
+    expect(healed).toHaveLength(1);
+    expect(healed[0]?.settings.count).toBe(18);
   });
 });
