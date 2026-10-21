@@ -51,11 +51,11 @@ export function readPresets(raw: string | null): SettingsPreset[] {
     return data.flatMap((entry) => {
       if (!entry || typeof entry !== "object") return [];
       const rec = entry as Record<string, unknown>;
-      const rawName = rec.name ?? rec.title ?? rec.label ?? rec.presetName ?? "Saved Preset";
+      const rawName = rec["name"] ?? rec["title"] ?? rec["label"] ?? rec["presetName"] ?? "Saved Preset";
       const name = String(rawName).trim().slice(0, 60);
       if (!name) return [];
 
-      let rawSettings = rec.settings ?? entry;
+      let rawSettings = rec["settings"] ?? entry;
       if (typeof rawSettings === "string") {
         try {
           rawSettings = JSON.parse(rawSettings);
