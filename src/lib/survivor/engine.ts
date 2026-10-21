@@ -3421,7 +3421,63 @@ function prepareFTC(s: GameState) {
   });
 }
 
-const JURY_Q: Record<string, string[]> = {
+const JURY_Q: Record<string, string[]> = { 
+  function finalistAnswer(s: GameState, f: Castaway, j: Castaway, category: string): { reply: string; reaction: string } {
+  const isBetrayed = j.betrayedBy.includes(f.id);
+  const correct = f.correctVotes ?? 0;
+  const imm = f.immunityWins;
+  const strat = f.stats.strategy;
+  const soc = f.stats.social;
+
+  let reply = "";
+  if (category === "betrayed" || isBetrayed) {
+    if (strat >= soc) {
+      reply = `I won't pretend it was easy. It wasn't personal, but you were too respected by this jury. If I sat beside you today, I'd lose. I made the move to give myself a fighting chance.`;
+    } else {
+      reply = `Our bond out here was 100% genuine. When the vote shifted against you, my heart broke, but out here you have to separate heart from head to reach Day 39.`;
+    }
+  } else if (category === "strategy") {
+    if (f.idolsPlayed && f.idolsPlayed > 0) {
+      reply = `Staying adaptable and timing my idol play at the exact right moment gave me full control of my destiny when others were scrambling.`;
+    } else if (correct >= 4) {
+      reply = `I never drifted in the backseat. I voted on the right side of the numbers ${correct} times and positioned myself in the core of every majority.`;
+    } else {
+      reply = `My game was intentional: keeping shields in front of me so the biggest threats took the hits while I steered the endgame.`;
+    }
+  } else if (category === "challenge") {
+    if (imm >= 2) {
+      reply = `My immunity wins weren't just trophies — they were clutch when my back was against the wall. Without that necklace, you would have voted me out long ago.`;
+    } else {
+      reply = `Physical challenges get attention, but social awareness and knowing where the votes were landing is what truly kept my torch lit.`;
+    }
+  } else if (category === "angry") {
+    if (f.stats.temperament >= 4) {
+      reply = `You have every right to feel hurt. But I came here to play aggressively, I never took a night off, and I fought for my survival every single day.`;
+    } else {
+      reply = `Survivor is a cutthroat game. You're on that bench because I adapted and seized the numbers. I'm sitting here because I made the hard calls.`;
+    }
+  } else {
+    // Social / default
+    if (soc >= 6) {
+      reply = `My strategy was authentic connection. When you take the time to truly listen to people out here, they trust you with information before they write your name.`;
+    } else {
+      reply = `I may not have been the loudest voice at camp, but I was observant, steady, and dependable when people needed a loyal vote.`;
+    }
+  }
+
+  // Juror reaction based on relationship & temperament
+  const rel = getRel(s, j.id, f.id);
+  const reaction =
+    rel > 6
+      ? `${j.name} nods approvingly`
+      : isBetrayed && j.stats.temperament <= 2
+        ? `${j.name} rolls their eyes skeptically`
+        : strat >= 6
+          ? `${j.name} takes notes thoughtfully`
+          : `${j.name} listens intently`;
+
+  return { reply, reaction };
+} 
   betrayed: [
     "You looked me in the eye and lied. Why should I reward that?",
     "Was our friendship ever real, or was I just a number?",
