@@ -69,6 +69,7 @@ export function Game({
   const [dec, setDec] = useState<Decision>({});
   const pending = pendingDecision(game);
   const [reveals, setReveals] = useState<LogEntry[]>([]);
+  const [expandEpisodes, setExpandEpisodes] = useState(false);
   const voteLogCount = (g: GameState) =>
     g.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal" || (e.kind === "finale" && e.votes?.length))
       .length;
@@ -235,11 +236,23 @@ export function Game({
           {boots.length > 0 && (
             <section className="rounded-xl border bg-card p-4">
               <h2 className="text-2xl text-accent">Boot Order</h2>
-              <ol className="mt-2 space-y-0.5 text-sm text-muted-foreground">
+              <ol className="mt-2 space-y-1 text-sm">
                 {boots.map((b) => (
-                  <li key={b.id}>
-                    {b.placement}th — {b.name}
-                    {b.juror ? " (juror)" : ""}
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between border-b border-border/40 py-1 text-xs last:border-0"
+                  >
+                    <span className="font-medium text-foreground">
+                      {b.placement}th — {b.name}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      {b.juror && (
+                        <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                          ⚖️ Jury
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">🕯️ Snuffed</span>
+                    </span>
                   </li>
                 ))}
               </ol>
@@ -247,11 +260,20 @@ export function Game({
           )}
         </div>
         <div className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setExpandEpisodes((prev) => !prev)}
+              className="text-xs font-medium text-primary hover:underline cursor-pointer"
+            >
+              {expandEpisodes ? "Collapse Past Episodes" : "Expand All Episodes"}
+            </button>
+          </div>
           {[...game.episodes]
             .reverse()
             .filter((e) => e.entries.length)
             .map((e, i) => (
-              <details key={e.n} open={i < 2} className="rounded-xl border bg-card">
+              <details key={e.n} open={expandEpisodes || i < 2} className="rounded-xl border bg-card">
                 <summary className="cursor-pointer px-4 py-3 font-display text-2xl tracking-wide">
                   Episode {e.n}: "{e.title}"
                 </summary>
