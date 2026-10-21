@@ -1,5 +1,5 @@
 // @ts-nocheck -- indexing guarded by game invariants
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ADVANTAGE_DESC,
   ADVANTAGE_LABEL,
@@ -55,6 +55,16 @@ const KIND_ICON: Record<string, string> = {
 
 const az = <T extends { name: string }>(xs: T[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
 export function Game({
+    // Warn before closing or reloading tab during an active season
+  useEffect(() => {
+    if (readOnly || game.phase === "done") return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [readOnly, game.phase]);
   game,
   setGame,
   onReset,
@@ -144,9 +154,14 @@ export function Game({
           {game.config.seasonTitle && (
             <p className="font-display text-lg tracking-wide text-accent">{game.config.seasonTitle}</p>
           )}
-          <p className="text-sm text-muted-foreground">
-            Day {game.day} · {PHASE_LABEL[game.phase]} · {alive(game).length} remain
-          </p>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Day {game.day} · {PHASE_LABEL[game.phase]} · {alive(game).length} remain</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-500">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Autosaved
+            </span>
+          </div>
+
         </div>
         {!readOnly && (
           <div className="flex flex-wrap gap-2">

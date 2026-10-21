@@ -43,6 +43,15 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [seasonTitle, setSeasonTitle] = useState(() => randomSeasonTitle(readUsedTitles()));
   const changeTitle = (title: string) => {
     setSeasonTitle(title);
+    const [savedGame, setSavedGame] = useState<GameState | null>(() => {
+      try {
+        const raw = localStorage.getItem("survivor-sim-backup") || localStorage.getItem("survivor-sim-season");
+        const parsed = raw ? (JSON.parse(raw) as GameState) : null;
+        return parsed && parsed.phase !== "done" ? parsed : null;
+      } catch {
+        return null;
+      }
+    });
   };
   const [count, setCount] = useState(18);
   const [tribeCount, setTribeCount] = useState(2);
@@ -199,6 +208,42 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const sel = "rounded-md border border-input bg-secondary px-2 py-1.5 text-sm";
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      {savedGame && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="flex h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />
+            <div>
+              <p className="font-semibold text-emerald-400">
+                Autosaved Season Found: {savedGame.config?.seasonTitle || "In-Progress Season"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Day {savedGame.day} · Episode {savedGame.episode} ·{" "}
+                {savedGame.castaways.filter((c) => !c.eliminated && !c.out).length} castaways remaining
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => onStart(savedGame)}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+            >
+              Resume Season ▶
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem("survivor-sim-backup");
+                localStorage.removeItem("survivor-sim-season");
+                setSavedGame(null);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Discard Autosave ✕
+            </Button>
+          </div>
+        </div>
+      )}
       <header className="mb-8 text-center">
         <p className="text-sm uppercase tracking-[0.3em] text-primary">Outwit · Outplay · Outlast</p>
         <h1 className="text-6xl md:text-7xl">Survivor Simulator</h1>
