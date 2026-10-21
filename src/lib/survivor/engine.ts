@@ -2440,17 +2440,19 @@ function doTribal(s: GameState, d: Decision) {
   }
   const blocked = plays.filter((p) => p.adv === "steal_vote" || p.adv === "vote_blocker").map((p) => p.target!);
   const nullifyFor = plays.filter((p) => p.adv === "idol_nullifier").map((p) => p.target!);
-  const advLog = plays.filter((p) => p.adv !== "fifty_fifty").map((p) =>
-    p.adv === "safety"
-      ? `${p.who.name} plays Safety Without Power and leaves Tribal Council.`
-      : p.adv === "extra_vote"
-        ? `${p.who.name} plays an Extra Vote advantage and casts a second vote.`
-        : p.adv === "steal_vote"
-          ? `${p.who.name} plays Steal a Vote — ${nm(s, p.target!)} loses their vote.`
-          : p.adv === "vote_blocker"
-            ? `${p.who.name} plays a Vote Blocker on ${nm(s, p.target!)}.`
-            : `${p.who.name} secretly plays an Idol Nullifier on ${nm(s, p.target!)}.`,
-  );
+  const advLog = plays
+    .filter((p) => p.adv !== "fifty_fifty")
+    .map((p) =>
+      p.adv === "safety"
+        ? `${p.who.name} plays Safety Without Power and leaves Tribal Council.`
+        : p.adv === "extra_vote"
+          ? `${p.who.name} plays an Extra Vote advantage and casts a second vote.`
+          : p.adv === "steal_vote"
+            ? `${p.who.name} plays Steal a Vote — ${nm(s, p.target!)} loses their vote.`
+            : p.adv === "vote_blocker"
+              ? `${p.who.name} plays a Vote Blocker on ${nm(s, p.target!)}.`
+              : `${p.who.name} secretly plays an Idol Nullifier on ${nm(s, p.target!)}.`,
+    );
   const cands = (v: Castaway, excl: string[] = []) =>
     att.filter((c) => c.id !== v.id && !s.immune.includes(c.id) && !safe.includes(c.id) && !excl.includes(c.id));
   const noVote = att.filter((v) => v.lostVote || shooters.includes(v.id)).map((v) => v.id);
@@ -3507,18 +3509,50 @@ function doFTC(s: GameState, d: Decision) {
         const relT = getRel(s, tiebreakerFinalist.id, f.id) * 0.09;
         const strat = f.stats.strategy * 0.55 + f.immunityWins * 0.35 + (f.correctVotes ?? 0) * 0.12;
         const soc = f.stats.social * 0.7;
-        return { finalist: f, score: relT + strat + soc + r() * 1.5 };
+        const bitter = tiebreakerFinalist.betrayedBy?.includes(f.id)
+          ? -(1 + (6 - tiebreakerFinalist.stats.temperament) * 0.6)
+          : 0;
+        return {
+          finalist: f,
+          score: relT + strat + soc + bitter + r() * 1.5,
+          parts: { relT, strat, soc, bitter },
+        };
       })
       .sort((a, b) => b.score - a.score);
 
-    const tiebrokenWinner = tiebreakerScore[0].finalist;
+    const best = tiebreakerScore[0];
+    const userChoice = tiedForFirst.find((f) => f.id === d.juryVote);
+    const tiebrokenWinner = tiebreakerFinalist.id === s.config.controlledId && userChoice ? userChoice : best.finalist;
+
     counts[tiebrokenWinner.id] = (counts[tiebrokenWinner.id] ?? 0) + 1;
     s.winner = tiebrokenWinner.id;
+
+    // Determine why the 3rd place finalist chose this finalist
+    const p = best.parts;
+    const top = Math.max(p.relT, p.strat, p.soc);
+    const whyReason =
+      top === p.strat
+        ? "respected their strategic gameplay and resume"
+        : top === p.soc
+          ? "valued their stronger social connections"
+          : "shared a closer personal bond";
+    const reason =
+      tiebreakerFinalist.id === s.config.controlledId
+        ? "your tie-breaking vote — chose to reward their game"
+        : `broke the tie — ${whyReason}${p.bitter < 0 ? " (bitter toward a betrayer)" : ""}`;
+
+    // Add their vote to juryVotes so it displays in the Jury Votes chart and vote details
+    s.juryVotes.push({
+      juror: tiebreakerFinalist.id,
+      finalist: tiebrokenWinner.id,
+      reason,
+    });
 
     log(s, {
       kind: "twist",
       title: "FTC Tiebreaker",
       text: `It's a ${topVoteCount}-${topVoteCount} tie between ${tiedForFirst[0].name} and ${tiedForFirst[1].name}! As the finalist with the fewest votes, ${tiebreakerFinalist.name} casts the sole tie-breaking vote for ${tiebrokenWinner.name}!`,
+      details: [`${tiebreakerFinalist.name} voted for ${tiebrokenWinner.name} — ${reason}`],
     });
   } else {
     const fallbackWinner = sorted.sort((a, b) => threat(b) - threat(a))[0];
