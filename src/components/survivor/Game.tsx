@@ -1226,6 +1226,52 @@ function revealOrder(votes: Vote[], out?: string) {
   }
   return [...votes.filter((v) => v.nullified), ...seq];
 }
+function getVotingConfessional(g: GameState, vote: Vote, isFinale: boolean): string {
+  const voter = byId(g, vote.voter);
+  const target = byId(g, vote.target);
+  if (!voter || !target) return "My vote is locked in.";
+
+  if (isFinale) {
+    const finaleQuotes = [
+      "You played the most complete, dominant game out here. You earned this.",
+      "From day one, you adapted to every twist and never quit. My vote is yours.",
+      "Outwit, outplay, outlast. You checked every single box.",
+      "You owned every move you made at final tribal council. Full respect.",
+      "You didn't hide behind anyone. You made the hard decisions.",
+      "I respect the game you played, even the move that sent me to the jury.",
+    ];
+    const idx = Math.abs((vote.voter.charCodeAt(0) + vote.target.charCodeAt(0)) % finaleQuotes.length);
+    return finaleQuotes[idx];
+  }
+
+  if (vote.nullified) {
+    const nullQuotes = [
+      "I had a gut feeling you were holding something, but I had to shoot my shot.",
+      "If this flushes your idol, it's worth it. See what happens.",
+      "Hoping this counts tonight, but you're too slippery to trust.",
+    ];
+    const idx = Math.abs((vote.voter.charCodeAt(0) + vote.target.charCodeAt(0)) % nullQuotes.length);
+    return nullQuotes[idx];
+  }
+
+  const quotes = [
+    "Nothing personal, strictly numbers tonight.",
+    "You're way too dangerous to keep around. If we don't take you out now, you win.",
+    "I made a promise to my alliance, and I stick to my word.",
+    "You got caught whispering five minutes before tribal. Bad move.",
+    "You've been steering votes from the shadows. Time for a blindside.",
+    "You thought you had the numbers tonight. Surprise.",
+    "You're a massive threat in challenges and everyone knows it.",
+    "You broke trust earlier, and tonight it finally catches up to you.",
+    "You're too charming. No one beats you if you make it to the end.",
+    "Payback for last week.",
+    "The lines were drawn, and you ended up on the wrong side.",
+    "Masterminds don't make it to Day 39. Time to go.",
+  ];
+  const seed = vote.voter.charCodeAt(0) * 7 + vote.target.charCodeAt(0) * 13;
+  return quotes[Math.abs(seed % quotes.length)];
+}
+
 export function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone: () => void }) {
   const isFinale = e.kind === "finale";
   const isRevote = !!e.revote?.length;
@@ -1251,14 +1297,22 @@ export function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone
               ? "Does not count"
               : `${isFinale ? "Jury " : isRevote ? "Revote · " : ""}Vote ${shown.filter((v) => !v.nullified).length}`}
         </p>
-        <div className="my-6 flex min-h-32 items-center justify-center rounded-lg border bg-secondary/60 p-6">
+        <div className="my-6 flex min-h-36 items-center justify-center rounded-lg border bg-secondary/60 p-6">
           {last ? (
-            <span
-              key={n}
-              className={`font-display text-5xl tracking-wide ${last.nullified ? "line-through text-muted-foreground" : "text-primary"}`}
-            >
-              {byId(g, last.target).name}
-            </span>
+            <div className="flex flex-col items-center gap-1.5 animate-in fade-in zoom-in-95 duration-200">
+              <span
+                key={n}
+                className={`font-display text-5xl tracking-wide ${last.nullified ? "line-through text-muted-foreground" : "text-primary"}`}
+              >
+                {byId(g, last.target).name}
+              </span>
+              <p className="max-w-md italic text-xs md:text-sm text-foreground/80 mt-1 px-4">
+                “{getVotingConfessional(g, last, isFinale)}”
+              </p>
+              <span className="text-[11px] text-muted-foreground">
+                — {byId(g, last.voter)?.name || "Castaway"} {isFinale ? "(Jury Vote)" : "in the voting booth"}
+              </span>
+            </div>
           ) : (
             <span className="text-4xl">📜</span>
           )}
