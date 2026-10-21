@@ -1,7 +1,7 @@
 # Survivor updates
-- [ ] KIP item selection, revote-only parchment readings, and opt-in instinct for idols/advantages; verify controls and rules.
-- [ ] Never randomly quit or medevac the controlled player; offer voluntary quitting; specific-item KIP questions; increase AI alliance invitations.
-- [ ] Generate new playable title-specific twists after naming the season; exclude settings mechanics, reject previously used names/rules, persist and test effects.
+- [x] KIP item selection, revote-only parchment readings, and opt-in instinct for idols/advantages; verify controls and rules.
+- [x] Never randomly quit or medevac the controlled player; offer voluntary quitting; specific-item KIP questions; increase AI alliance invitations.
+- [x] Remove AI-generated title twists entirely; titles are flavor only, twists come solely from settings toggles.
 - [x] Random conversation partners and automatic topics; no idol finds at final four; slightly fewer advantages; more alliance names.
 - [x] Pair generated season titles with matching randomized twists and verify season flow.
 - [x] Limit Beware to one per season; add three first-reward amulets with shared play, evolving powers, and nonrepeating stage notes; verify.
