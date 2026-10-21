@@ -3411,7 +3411,6 @@ function prepareFTC(s: GameState) {
       pick(all.filter((x) => !used.has(x))) ??
       `If you had to vote out one finalist, ${f.name}, would you vote yourself out?`;
     used.add(q);
-      used.add(q);
     const cat = j.betrayedBy.includes(f.id)
       ? "betrayed"
       : j.stats.temperament <= 2
@@ -3432,8 +3431,7 @@ function prepareFTC(s: GameState) {
   });
 }
 
-const JURY_Q: Record<string, string[]> = { 
-  function finalistAnswer(s: GameState, f: Castaway, j: Castaway, category: string): { reply: string; reaction: string } {
+function finalistAnswer(s: GameState, f: Castaway, j: Castaway, category: string): { reply: string; reaction: string } {
   const isBetrayed = j.betrayedBy.includes(f.id);
   const correct = f.correctVotes ?? 0;
   const imm = f.immunityWins;
@@ -3488,7 +3486,9 @@ const JURY_Q: Record<string, string[]> = {
           : `${j.name} listens intently`;
 
   return { reply, reaction };
-} 
+}
+
+const JURY_Q: Record<string, string[]> = {
   betrayed: [
     "You looked me in the eye and lied. Why should I reward that?",
     "Was our friendship ever real, or was I just a number?",
