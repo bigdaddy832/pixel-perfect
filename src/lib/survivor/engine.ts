@@ -3411,8 +3411,19 @@ function prepareFTC(s: GameState) {
       pick(all.filter((x) => !used.has(x))) ??
       `If you had to vote out one finalist, ${f.name}, would you vote yourself out?`;
     used.add(q);
-    qa.push(`${j.name} → ${f.name}: "${q}"`);
-  }
+      used.add(q);
+    const cat = j.betrayedBy.includes(f.id)
+      ? "betrayed"
+      : j.stats.temperament <= 2
+        ? "angry"
+        : j.stats.strategy >= 4
+          ? "strategy"
+          : f.immunityWins > 0
+            ? "challenge"
+            : "social";
+    const { reply, reaction } = finalistAnswer(s, f, j, cat);
+    qa.push(`${j.name} asks ${f.name}: "${q}"\n↳ ${f.name}: "${reply}" (${reaction})`);
+  } 
   log(s, {
     kind: "finale",
     title: `Final Tribal Council — Day ${s.day}`,

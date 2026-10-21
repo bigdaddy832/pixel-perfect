@@ -1231,6 +1231,17 @@ function getVotingConfessional(g: GameState, vote: Vote, isFinale: boolean): str
   const target = byId(g, vote.target);
   if (!voter || !target) return "My vote is locked in.";
 
+  // Makes each parchment's quote vary by the full voter/target IDs,
+  // the current episode, and the vote's position in that episode.
+  const currentEpisode = g.episodes[g.episodes.length - 1];
+  const voteNumber =
+    currentEpisode?.entries
+      .flatMap((entry) => [...(entry.votes ?? []), ...(entry.revote ?? [])])
+      .findIndex((entryVote) => entryVote === vote) ?? 0;
+
+  const hashText = `${vote.voter}-${vote.target}-${g.day}-${g.episodes.length}-${voteNumber}`;
+  const seed = [...hashText].reduce((total, character, index) => total + character.charCodeAt(0) * (index + 1), 0);
+
   if (isFinale) {
     const finaleQuotes = [
       "You played the most complete, dominant game out here. You earned this.",
@@ -1239,9 +1250,12 @@ function getVotingConfessional(g: GameState, vote: Vote, isFinale: boolean): str
       "You owned every move you made at final tribal council. Full respect.",
       "You didn't hide behind anyone. You made the hard decisions.",
       "I respect the game you played, even the move that sent me to the jury.",
+      "Your story was messy, but your recovery was impressive.",
+      "You built real relationships while still making the moves that mattered.",
+      "I came in wanting an explanation, and you gave me one.",
+      "You survived every round when your name was on the line. That matters.",
     ];
-    const idx = Math.abs((vote.voter.charCodeAt(0) + vote.target.charCodeAt(0)) % finaleQuotes.length);
-    return finaleQuotes[idx];
+    return finaleQuotes[Math.abs(seed) % finaleQuotes.length];
   }
 
   if (vote.nullified) {
@@ -1249,9 +1263,11 @@ function getVotingConfessional(g: GameState, vote: Vote, isFinale: boolean): str
       "I had a gut feeling you were holding something, but I had to shoot my shot.",
       "If this flushes your idol, it's worth it. See what happens.",
       "Hoping this counts tonight, but you're too slippery to trust.",
+      "Even if this vote gets wiped out, it tells me where the lines are.",
+      "I knew this might be blocked, but I could not let you feel comfortable.",
+      "You forced my hand tonight. Idol or not, I had to take the swing.",
     ];
-    const idx = Math.abs((vote.voter.charCodeAt(0) + vote.target.charCodeAt(0)) % nullQuotes.length);
-    return nullQuotes[idx];
+    return nullQuotes[Math.abs(seed) % nullQuotes.length];
   }
 
   const quotes = [
@@ -1267,9 +1283,21 @@ function getVotingConfessional(g: GameState, vote: Vote, isFinale: boolean): str
     "Payback for last week.",
     "The lines were drawn, and you ended up on the wrong side.",
     "Masterminds don't make it to Day 39. Time to go.",
+    "I cannot keep letting you control the conversation around camp.",
+    "This is the move that gives me a better path forward.",
+    "You were not expecting my name on this vote, and that is exactly the point.",
+    "I need to prove I can make a decision instead of just following one.",
+    "We have worked together, but tonight our games are going in different directions.",
+    "You are too connected. If I wait any longer, it will be too late.",
+    "I respect you, which is exactly why I need you gone.",
+    "The plan changed, and I had to decide where I stood.",
+    "You have been playing both sides for too long.",
+    "This vote is for my game, not for camp friendships.",
+    "I do not want to sit next to you at the end. Simple as that.",
+    "Everyone sees how well-positioned you are. Tonight, that catches up to you.",
   ];
-  const seed = vote.voter.charCodeAt(0) * 7 + vote.target.charCodeAt(0) * 13;
-  return quotes[Math.abs(seed % quotes.length)];
+
+  return quotes[Math.abs(seed) % quotes.length];
 }
 
 export function VoteReveal({ g, e, onDone }: { g: GameState; e: LogEntry; onDone: () => void }) {
