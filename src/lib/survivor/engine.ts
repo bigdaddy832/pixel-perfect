@@ -2372,31 +2372,6 @@ export function tribalTargets(s: GameState): { individual: TargetPlan[]; groups:
     .filter(Boolean) as TargetPlan[];
   return { individual, groups };
 }
-// --- 50/50 COIN LOGIC ---
-att.forEach((castaway) => {
-  // Check if player played a 50/50 Coin
-  if (castaway.hasFiftyFiftyCoin && castaway.playedFiftyFiftyCoin) {
-    const coinResult = resolveFiftyFiftyCoin(castaway);
-
-    if (coinResult.isSafe) {
-      // Nullify all votes cast against this player!
-      votes.forEach((v) => {
-        if (v.target === castaway.id) {
-          v.nullified = true;
-        }
-      });
-      // Log the successful safe roll
-      immLog.push(coinResult.message);
-    } else {
-      // Log that the coin landed on NOT SAFE
-      immLog.push(coinResult.message);
-    }
-
-    // Consume the coin so it can't be used again
-    castaway.hasFiftyFiftyCoin = false;
-    castaway.playedFiftyFiftyCoin = false;
-  }
-});
 
 function tally(votes: Vote[]) {
   const m: Record<string, number> = {};
