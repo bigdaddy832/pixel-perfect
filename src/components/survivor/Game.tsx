@@ -69,7 +69,7 @@ export function Game({
   const [dec, setDec] = useState<Decision>({});
   const pending = pendingDecision(game);
   const [reveals, setReveals] = useState<LogEntry[]>([]);
-  const [expandEpisodes, setExpandEpisodes] = useState(false);
+  const [expandEpisodes, setExpandEpisodes] = useState<boolean | null>(null);
   const voteLogCount = (g: GameState) =>
     g.episodes.flatMap((e) => e.entries).filter((e) => e.kind === "tribal" || (e.kind === "finale" && e.votes?.length))
       .length;
