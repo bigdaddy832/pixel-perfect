@@ -1,7 +1,6 @@
 // @ts-nocheck -- array indexing is guarded by game invariants
 // Survivor simulation engine — pure client-side state machine.
 import { SEASON_TWIST_LABEL, type SeasonTwist } from "./season-titles";
-import { twistRules, targetLabels, TOKENS_FOR_SAFETY, type GeneratedTwist, type TwistEffect } from "./generated-twists";
 export type StatKey =
   "strategy" | "social" | "loyalty" | "temperament" | "general" | "physical" | "endurance" | "mental";
 
@@ -114,7 +113,6 @@ export interface Config {
   controlledId: string | null;
   seasonTitle?: string;
   themeTwist?: SeasonTwist;
-  generatedTwist?: GeneratedTwist;
 }
 export interface Vote {
   voter: string;
@@ -152,11 +150,6 @@ export interface GameState {
   swapped: boolean;
   immune: string[];
   tribalTribe: string | null;
-  generatedTwistRound?: number;
-  generatedTwistBoosts?: Record<string, number>;
-  generatedTwistSafe?: string[];
-  generatedTwistMuted?: string[];
-  twistTokens?: Record<string, number>;
   hiddenIdols: Record<string, number>;
   finalImmune?: string;
   usedChallenges: string[];
@@ -911,24 +904,15 @@ export function newGame(
             title: "The Adventure Begins",
             text: `${castaways.length} castaways are marooned and divided into ${tribes.length} tribes: ${tribes.map((t) => t.name).join(", ")}.`,
           },
-          ...(config.generatedTwist
+          ...(config.themeTwist
             ? [
                 {
                   kind: "twist" as const,
-                  title: `This Season’s Twist: ${config.generatedTwist.name}`,
-                  text: config.generatedTwist.inspiration,
-                  details: twistRules(config.generatedTwist),
+                  title: "This Season’s Twist",
+                  text: `${config.seasonTitle ?? "This season"}: ${SEASON_TWIST_LABEL[config.themeTwist]}.`,
                 },
               ]
-            : config.themeTwist
-              ? [
-                  {
-                    kind: "twist" as const,
-                    title: "This Season’s Twist",
-                    text: `${config.seasonTitle ?? "This season"}: ${SEASON_TWIST_LABEL[config.themeTwist]}.`,
-                  },
-                ]
-              : []),
+            : []),
         ],
       },
     ],
@@ -1165,7 +1149,6 @@ export function step(prev: GameState, d: Decision = {}): GameState {
     }
     case "challenge":
       doChallenge(s);
-      applyGeneratedTwistSafety(s);
       s.phase = "tribal";
       break;
     case "tribal": {
@@ -1946,77 +1929,7 @@ const CH_TYPES: { type: StatKey; names: string[] }[] = [
 ];
 const indScore = (c: Castaway, t: StatKey) => c.stats.general * 0.5 + c.stats[t] * 1.2 + r() * 3.5;
 
-export function generatedTwistTarget(s: GameState, members: Castaway[], effect: TwistEffect): Castaway | undefined {
-  const sorted = [...members].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-  if (effect.target === "random") return sorted[Math.floor(r() * sorted.length)];
-  const wins = (c: Castaway) => c.immunityWins + (c.rewardWins ?? 0);
-  const lowest = effect.target === "fewest_wins";
-  return sorted.sort((a, b) => (lowest ? wins(a) - wins(b) : wins(b) - wins(a)))[0];
-}
-export function applyGeneratedTwist(s: GameState) {
-  s.generatedTwistRound = (s.generatedTwistRound ?? 0) + 1;
-  s.generatedTwistBoosts = {};
-  s.generatedTwistSafe = [];
-  for (const id of s.generatedTwistMuted ?? []) {
-    const c = s.castaways.find((x) => x.id === id);
-    if (c) c.lostVote = false;
-  }
-  s.generatedTwistMuted = [];
-  const twist = s.config.generatedTwist;
-  if (!twist || alive(s).length <= 5) return;
-  s.twistTokens ??= {};
-  const details: string[] = [];
-  for (const effect of twist.effects) {
-    if (
-      !effect.rounds.includes(s.generatedTwistRound) ||
-      (effect.scope === "tribes" && s.merged) ||
-      (effect.scope === "merged" && !s.merged)
-    )
-      continue;
-    for (const members of groups(s).values()) {
-      const target = generatedTwistTarget(s, members, effect);
-      if (!target) continue;
-      const who = `${target.name} (${targetLabels[effect.target] ?? "chosen"})`;
-      if (effect.kind === "challenge_boost") {
-        const boost = (effect.amount * target.stats[effect.stat]) / 5;
-        s.generatedTwistBoosts[target.id] = (s.generatedTwistBoosts[target.id] ?? 0) + boost;
-        details.push(`${who} gets a +${boost.toFixed(2)} head start in today's challenges.`);
-      } else if (effect.kind === "safety") {
-        s.generatedTwistSafe.push(target.id);
-        details.push(`${who} is safe at Tribal Council tonight.`);
-      } else if (effect.kind === "lost_vote") {
-        target.lostVote = true;
-        s.generatedTwistMuted.push(target.id);
-        details.push(`${who} loses their vote at Tribal Council tonight.`);
-      } else if (effect.kind === "fire_tokens") {
-        const total = (s.twistTokens[target.id] ?? 0) + effect.amount;
-        if (total >= TOKENS_FOR_SAFETY) {
-          s.twistTokens[target.id] = total - TOKENS_FOR_SAFETY;
-          s.generatedTwistSafe.push(target.id);
-          details.push(
-            `${who} earns ${effect.amount} Fire Token(s) and cashes in ${TOKENS_FOR_SAFETY} for safety tonight.`,
-          );
-        } else {
-          s.twistTokens[target.id] = total;
-          details.push(`${who} earns ${effect.amount} Fire Token(s) — now holding ${total}.`);
-        }
-      }
-    }
-  }
-  if (details.length)
-    log(s, {
-      kind: "twist",
-      title: `${twist.name} — Round ${s.generatedTwistRound}`,
-      text: "Jeff announces this round's season rules before the challenges begin.",
-      details,
-    });
-}
-/** Twist safety is granted after challenge results so it stacks with individual immunity. */
-export function applyGeneratedTwistSafety(s: GameState) {
-  for (const id of s.generatedTwistSafe ?? []) if (!s.immune.includes(id)) s.immune.push(id);
-}
-const seasonChallengeScore = (s: GameState, c: Castaway, t: StatKey) =>
-  indScore(c, t) + (s.generatedTwistBoosts?.[c.id] ?? 0);
+const seasonChallengeScore = (s: GameState, c: Castaway, t: StatKey) => indScore(c, t);
 
 // Picks a never-before-used challenge; endurance stays locked until the merge.
 function freshTitle(s: GameState) {
@@ -2078,7 +1991,6 @@ function rewardAdvantage(s: GameState, winners: Castaway[]) {
 
 function doChallenge(s: GameState) {
   s.immune = [];
-  applyGeneratedTwist(s);
   awardAmulets(s);
   const rew = pickChallenge(s);
   const ch = pickChallenge(s, rew.type);

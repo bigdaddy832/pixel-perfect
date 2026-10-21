@@ -1,6 +1,5 @@
 // @ts-nocheck -- indexing guarded by game invariants
-import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import {
   CHALLENGE_STATS,
   SOCIAL_STATS,
@@ -24,8 +23,6 @@ import { StatPicker, TribeEditor } from "./shared";
 import { Button } from "@/components/ui/button";
 import { SettingsPresets } from "./SettingsPresets";
 import { markTitleUsed, randomSeasonTitle, readUsedTitles } from "@/lib/survivor/season-titles";
-import { generateSeasonTwist } from "@/lib/survivor/generated-twists.functions";
-import { twistRules, type GeneratedTwist } from "@/lib/survivor/generated-twists";
 import type { SeasonSettings } from "@/lib/survivor/settings-presets";
 
 type Row = { name: string; stats: Record<StatKey, number>; tribeIndex: number };
@@ -44,68 +41,9 @@ function freshTribeNames() {
 export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [names] = useState(freshTribeNames);
   const [seasonTitle, setSeasonTitle] = useState(() => randomSeasonTitle(readUsedTitles()));
-  const [generatedTwist, setGeneratedTwist] = useState<GeneratedTwist | null>(null);
-  const [twistError, setTwistError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [generationAttempt, setGenerationAttempt] = useState(0);
-  const generateTwist = useServerFn(generateSeasonTwist);
-  const requestVersion = useRef(0);
   const changeTitle = (title: string) => {
-    requestVersion.current++;
     setSeasonTitle(title);
-    setGeneratedTwist(null);
-    setTwistError(null);
   };
-  useEffect(() => {
-    const version = ++requestVersion.current;
-    setGeneratedTwist(null);
-    if (seasonTitle.trim().length < 3) {
-      setGenerating(false);
-      return;
-    }
-    setGenerating(true);
-    setTwistError(null);
-    const timer = setTimeout(async () => {
-      try {
-        const result = await generateTwist({ data: { title: seasonTitle.trim() } });
-        if (version !== requestVersion.current) return;
-        setGeneratedTwist(result.twist);
-        setTwistError(result.error);
-      } catch {
-        if (version === requestVersion.current) {
-          setGeneratedTwist({
-            name: `${seasonTitle.replace("Survivor: ", "")} Clash`,
-            inspiration: `The harsh environment of ${seasonTitle} rewards those who fight the hardest from day one.`,
-            effects: [
-              {
-                kind: "challenge_boost",
-                target: "most_wins",
-                scope: "both",
-                rounds: [1, 2, 3],
-                stat: "physical",
-                amount: 2,
-              },
-              {
-                kind: "safety",
-                target: "fewest_wins",
-                scope: "tribes",
-                rounds: [1, 4],
-                stat: "general",
-                amount: 1,
-              },
-            ],
-          });
-          setTwistError(null);
-        }
-      } finally {
-        if (version === requestVersion.current) setGenerating(false);
-      }
-    }, 1000);
-    return () => {
-      clearTimeout(timer);
-      requestVersion.current++;
-    };
-  }, [seasonTitle, generationAttempt, generateTwist]);
   const [count, setCount] = useState(18);
   const [tribeCount, setTribeCount] = useState(2);
   const [finalSize, setFinalSize] = useState<2 | 3>(3);
@@ -217,7 +155,6 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   };
 
   const start = () => {
-    if (!generatedTwist || generating) return;
     if (readUsedTitles().some((t) => t.toLowerCase() === seasonTitle.trim().toLowerCase())) {
       changeTitle(randomSeasonTitle(readUsedTitles()));
       return;
@@ -248,7 +185,6 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       bewareAdvantages: beware,
       controlledId: controlled === null ? null : `c${controlled}`,
       seasonTitle: title,
-      generatedTwist,
     };
     markTitleUsed(title);
     onStart(
@@ -288,36 +224,6 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
         {readUsedTitles().some((t) => t.toLowerCase() === seasonTitle.trim().toLowerCase()) && (
           <p className="mt-1 text-xs text-destructive">You've already used this title — pick another.</p>
         )}
-        {generating && (
-          <p className="mt-2 text-sm text-muted-foreground" role="status">
-            Creating this season’s unique twist…
-          </p>
-        )}
-        {twistError && (
-          <p className="mt-2 text-sm text-destructive" role="alert">
-            {twistError}
-          </p>
-        )}
-        {generatedTwist && (
-          <div className="mt-3 space-y-2">
-            <h3 className="text-xl text-accent">{generatedTwist.name}</h3>
-            <p className="text-sm text-muted-foreground">{generatedTwist.inspiration}</p>
-            <ul className="list-disc space-y-1 pl-5 text-sm">
-              {twistRules(generatedTwist).map((rule) => (
-                <li key={rule}>{rule}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mt-3"
-          disabled={generating || seasonTitle.trim().length < 3}
-          onClick={() => setGenerationAttempt((n) => n + 1)}
-        >
-          Generate twist
-        </Button>
       </section>
 
       <SettingsPresets settings={settings} onLoad={loadSettings} />
