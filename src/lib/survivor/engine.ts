@@ -2440,7 +2440,7 @@ function doTribal(s: GameState, d: Decision) {
   }
   const blocked = plays.filter((p) => p.adv === "steal_vote" || p.adv === "vote_blocker").map((p) => p.target!);
   const nullifyFor = plays.filter((p) => p.adv === "idol_nullifier").map((p) => p.target!);
-  const advLog = plays.map((p) =>
+  const advLog = plays.filter((p) => p.adv !== "fifty_fifty").map((p) =>
     p.adv === "safety"
       ? `${p.who.name} plays Safety Without Power and leaves Tribal Council.`
       : p.adv === "extra_vote"
@@ -2645,6 +2645,24 @@ function doTribal(s: GameState, d: Decision) {
       else protectedIds.push(target);
     }
   }
+      if (nullifyFor.includes(target))
+        idolLog.push(`But the idol was nullified! Votes against ${nm(s, target)} still count.`);
+      else protectedIds.push(target);
+    }
+  }
+
+  // 50/50 Coin plays
+  for (const p of plays.filter((x) => x.adv === "fifty_fifty")) {
+    const isSafe = r() < 0.5;
+    if (isSafe) {
+      protectedIds.push(p.who.id);
+      idolLog.push(`${p.who.name} flips their 50/50 Coin... It lands on SAFE! All votes against them are negated!`);
+    } else {
+      idolLog.push(`${p.who.name} flips their 50/50 Coin... It lands on NOT SAFE! The coin has no power.`);
+    }
+  }
+
+  votes = votes.map((v) => (protectedIds.includes(v.target) ? { ...v, nullified: true } : v));  
   votes = votes.map((v) => (protectedIds.includes(v.target) ? { ...v, nullified: true } : v));
   let t = tally(votes);
   const details: string[] = [
