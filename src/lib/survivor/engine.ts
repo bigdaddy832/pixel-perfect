@@ -3449,8 +3449,11 @@ function prepareFTC(s: GameState) {
     const question = pick(prefs) ?? pick(all);
     if (!question) continue;
     used.add(question.id);
-    const { reply, reaction } = answerJuryQuestion(s, f, j, question);
-    qa.push(`${j.name} asks ${f.name}: "${question.text}"\n↳ ${f.name}: "${reply}" (${reaction})`);
+    const { reply, reaction, answerQuality, directlyAnswered } = answerJuryQuestion(s, f, j, question);
+    qa.push(
+        ${j.name} asks ${f.name}: "${question.text}"\n↳ ${f.name}: "${reply}" (${reaction}; ${answerQuality} answer${directlyAnswered ? "" : ", did not directly answer the question"})`,
+);
+
   }
   log(s, {
     kind: "finale",
