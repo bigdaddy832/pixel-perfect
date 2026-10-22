@@ -168,6 +168,17 @@ export interface GameState {
   amuletsConsumed?: boolean;
   winner?: string;
   finalists?: string[];
+  juryLeans?: {
+    jurorId: string;
+    finalistId: string;
+    score: number;
+    reasons: string[];
+  }[];
+  juryHouseLog?: {
+    arrivingJurorId: string;
+    text: string;
+    shifts: { jurorId: string; finalistId: string; amount: number }[];
+  }[];
   juryVotes?: { juror: string; finalist: string; reason: string }[];
   fanFavorite?: string;
 }
@@ -1407,8 +1418,7 @@ function doCamp(s: GameState, d: Decision) {
   if (alive(s).length > s.config.finalSize + 3) {
     const pool = randomExitCandidates(s);
     const med = pool.find(() => r() < 0.0008);
-    const quitter =
-      !med && pool.filter((c) => c.mood < 20 && c.stats.temperament <= 2).find(() => r() < 0.015);
+    const quitter = !med && pool.filter((c) => c.mood < 20 && c.stats.temperament <= 2).find(() => r() < 0.015);
     const gone = med || quitter;
     if (gone) {
       eliminate(s, gone, med ? "medevac" : "quit");
@@ -3428,12 +3438,13 @@ function prepareFTC(s: GameState) {
   for (const j of jury) {
     const f = [...fin].sort((a, b) => getRel(s, j.id, a.id) - getRel(s, j.id, b.id))[r() < 0.6 ? 0 : fin.length - 1];
     const all = eligibleJuryQuestions(j, f).filter((q) => !used.has(q.id));
-    const prefs = all.filter((q) =>
-      (q.topic === "betrayed" && j.betrayedBy.includes(f.id)) ||
-      (q.topic === "strategy" && j.stats.strategy >= 4) ||
-      (q.topic === "angry" && j.stats.temperament <= 2) ||
-      (q.topic === "social" && j.stats.social >= 4) ||
-      (q.topic === "challenge" && f.immunityWins > 0),
+    const prefs = all.filter(
+      (q) =>
+        (q.topic === "betrayed" && j.betrayedBy.includes(f.id)) ||
+        (q.topic === "strategy" && j.stats.strategy >= 4) ||
+        (q.topic === "angry" && j.stats.temperament <= 2) ||
+        (q.topic === "social" && j.stats.social >= 4) ||
+        (q.topic === "challenge" && f.immunityWins > 0),
     );
     const question = pick(prefs) ?? pick(all);
     if (!question) continue;
