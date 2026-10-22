@@ -70,6 +70,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [journeys, setJourneys] = useState(true);
   const [exile, setExile] = useState(false);
   const [beware, setBeware] = useState(true);
+  const [sitd, setSitd] = useState(true);
   const [tribes, setTribes] = useState<Tribe[]>(() =>
     [0, 1, 2, 3].map((i) => ({ id: `t${i}`, name: names.starting[i], color: TRIBE_COLORS[i] })),
   );
@@ -106,6 +107,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     journeys,
     exile,
     beware,
+    sitd,
   };
   const loadSettings = (s: SeasonSettings) => {
     setCount(s.count);
@@ -126,6 +128,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     setJourneys(s.journeys);
     setExile(s.exile);
     setBeware(s.beware);
+    setSitd (s.sitd);
     setRoster((r) => makeRoster(s.count, s.tribeCount, r).map((p, i) => ({ ...p, tribeIndex: i % s.tribeCount })));
     setControlled(null);
   };
@@ -192,6 +195,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       journeys,
       exileIsland: exile,
       bewareAdvantages: beware,
+      shotInTheDark: sitd,
       controlledId: controlled === null ? null : `c${controlled}`,
       seasonTitle: title,
     };
@@ -399,6 +403,20 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
               checked={beware}
               onChange={(e) => setBeware(e.target.checked)}
               className="accent-primary size-4"
+            />
+          </Field>
+          <Field label="Shot in the Dark">
+            <input
+              type="checkbox"
+              checked={sitd}
+              onChange={(e) => setSitd(e.target.checked)}
+              className="accent-primary size-4"
+            />
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            Everyone begins with one chance at safety in exchange for their vote.
+          </p>
+
             />
           </Field>
           <Field label="Merge at (remaining)">

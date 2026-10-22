@@ -31,6 +31,7 @@ export const settingsSchema = z.object({
   journeys: z.boolean().catch(true),
   exile: z.boolean().catch(false),
   beware: z.boolean().catch(true),
+  sitd: z.boolean().catch(true),
 });
 
 export type SeasonSettings = z.infer<typeof settingsSchema>;
