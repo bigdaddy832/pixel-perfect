@@ -12,6 +12,7 @@
 - Keep season mechanics in the pure Survivor state machine and controls in the Survivor components so season behavior stays independently testable.
 - Track shared amulet ownership, consumption, and announced stages in season state, separately from randomly discoverable advantages, so shared powers and saved-season notes stay consistent.
 - Prepare finalist statements before the jury-vote step and derive résumé claims from season evidence so controlled jurors can review the finalists before voting.
+- Pair FTC questions and answers by stable question IDs in the pure jury-dialogue module; use recorded evidence and acknowledge missing facts so personality-based selection cannot mismatch the reply.
 - Keep finale statistics in a shared pure selector and record merge eligibility in season state so live and saved seasons share accurate totals and award eligibility.
 - Configure a future third swap tribe separately from active starting tribes and only activate it during the swap so cast assignment and hidden idols stay consistent.
 - Reuse the shared tribe editor for starting, merge, swap, and in-season editing so name and color controls behave consistently.
