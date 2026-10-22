@@ -211,26 +211,23 @@ export function answerJuryQuestion(s: GameState, f: Castaway, j: Castaway, quest
       : j.betrayedBy.includes(f.id) && j.stats.temperament <= 2
         ? `${j.name} rolls their eyes skeptically`
         : `${j.name} listens intently`;
-  const directlyAnswered =
-  question.topic === "betrayed"
-    ? Boolean(jurorExit)
-    : true;
+  const directlyAnswered = question.topic === "betrayed" ? Boolean(jurorExit) : true;
 
-const answerQuality: "strong" | "mixed" | "weak" =
-  directlyAnswered && (evidenceEntryTitle || evidencePlayerId || evidenceCount !== undefined)
-    ? "strong"
-    : directlyAnswered
-      ? "mixed"
-      : "weak";
+  const answerQuality: "strong" | "mixed" | "weak" =
+    directlyAnswered && (evidenceEntryTitle || evidencePlayerId || evidenceCount !== undefined)
+      ? "strong"
+      : directlyAnswered
+        ? "mixed"
+        : "weak";
 
-return {
-  reply,
-  reaction,
-  questionId: question.id,
-  evidencePlayerId,
-  evidenceEntryTitle,
-  evidenceCount,
-  directlyAnswered,
-  answerQuality,
-};
-
+  return {
+    reply,
+    reaction,
+    questionId: question.id,
+    evidencePlayerId,
+    evidenceEntryTitle,
+    evidenceCount,
+    directlyAnswered,
+    answerQuality,
+  };
+}
