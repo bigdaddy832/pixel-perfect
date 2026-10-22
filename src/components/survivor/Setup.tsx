@@ -128,7 +128,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     setJourneys(s.journeys);
     setExile(s.exile);
     setBeware(s.beware);
-    setSitd (s.sitd);
+    setSitd(s.sitd);
     setRoster((r) => makeRoster(s.count, s.tribeCount, r).map((p, i) => ({ ...p, tribeIndex: i % s.tribeCount })));
     setControlled(null);
   };
@@ -416,9 +416,6 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           <p className="text-xs text-muted-foreground">
             Everyone begins with one chance at safety in exchange for their vote.
           </p>
-
-            />
-          </Field>
           <Field label="Merge at (remaining)">
             <input
               type="number"

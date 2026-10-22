@@ -1125,11 +1125,11 @@ export function pendingDecision(s: GameState): Pending {
       idolTargets: att.filter((c) => !s.immune.includes(c.id)).sort(byName),
       canGiveImmunity: s.merged && s.immune.includes(me.id),
       canShoot:
-  s.config.shotInTheDark !== false &&
-  !me.shotUsed &&
-  !me.lostVote &&
-  !s.immune.includes(me.id) &&
-  alive(s).length > 5,,
+        s.config.shotInTheDark !== false &&
+        !me.shotUsed &&
+        !me.lostVote &&
+        !s.immune.includes(me.id) &&
+        alive(s).length > 5,
       canPlayAmulet:
         !!me.amulet && alive(s).length >= 6 && amuletHolders(s).every((c) => att.some((a) => a.id === c.id)),
     };
@@ -2434,7 +2434,7 @@ function doTribal(s: GameState, d: Decision) {
   // Shot in the Dark: one per castaway per season, 1-in-6 safety, vote forfeited either way
   const shooters: string[] = [];
   const shotLog: string[] = [];
-  if (s.config.shotInTheDark !== false && alive(s).length > 5) 
+  if (s.config.shotInTheDark !== false && alive(s).length > 5)
     for (const c of att) {
       if (c.shotUsed || c.lostVote || s.immune.includes(c.id) || safe.includes(c.id)) continue;
       const others = att.filter((o) => o.id !== c.id);
