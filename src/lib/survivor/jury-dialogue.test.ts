@@ -3,7 +3,7 @@ import { makeRoster, newGame, simulateToEnd } from "./engine";
 import { answerJuryQuestion, eligibleJuryQuestions, JURY_QUESTIONS, type JuryQuestion } from "./jury-dialogue";
 
 function fixture() {
-  const game = newGame({ playerCount: 12, tribeCount: 2, jurySize: 6, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 10, mergeAt: 8, mergedName: "Test", mergedColor: "#123456", controlledId: null }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(12, 2));
+  const game = newGame({ playerCount: 12, tribeCount: 2, jurySize: 6, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 10, mergeAt: 8, mergedName: "Test", mergedColor: "#123456", controlledId: null }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(12, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i}` })));
   const f = game.castaways[0], j = game.castaways[1];
   if (!f || !j) throw new Error("Missing cast");
   return { game, f, j };
@@ -64,7 +64,7 @@ describe("question-specific jury answers", () => {
       const ftc = done.episodes.flatMap((e) => e.entries).find((e) => e.title.startsWith("Final Tribal Council —"));
       expect(ftc?.details).toHaveLength(done.castaways.filter((c) => c.juror).length);
       const questions = ftc?.details?.map((d) => d.split("\n")[0]);
-      expect(new Set(questions?.map((q) => q.split(': "')[1])).size).toBe(questions?.length);
+      expect(new Set(questions?.map((q) => q?.split(': "')[1])).size).toBe(questions?.length);
     }
   });
 });
