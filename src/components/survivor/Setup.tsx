@@ -39,19 +39,19 @@ function freshTribeNames() {
 }
 
 export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
+  const [savedGame, setSavedGame] = useState<GameState | null>(() => {
+    try {
+      const raw = localStorage.getItem("survivor-sim-backup") || localStorage.getItem("survivor-sim-season");
+      const parsed = raw ? (JSON.parse(raw) as GameState) : null;
+      return parsed && parsed.phase !== "done" ? parsed : null;
+    } catch {
+      return null;
+    }
+  });
   const [names] = useState(freshTribeNames);
   const [seasonTitle, setSeasonTitle] = useState(() => randomSeasonTitle(readUsedTitles()));
   const changeTitle = (title: string) => {
     setSeasonTitle(title);
-    const [savedGame, setSavedGame] = useState<GameState | null>(() => {
-      try {
-        const raw = localStorage.getItem("survivor-sim-backup") || localStorage.getItem("survivor-sim-season");
-        const parsed = raw ? (JSON.parse(raw) as GameState) : null;
-        return parsed && parsed.phase !== "done" ? parsed : null;
-      } catch {
-        return null;
-      }
-    });
   };
   const [count, setCount] = useState(18);
   const [tribeCount, setTribeCount] = useState(2);
