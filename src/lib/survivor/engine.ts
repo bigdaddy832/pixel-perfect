@@ -1405,9 +1405,9 @@ function doCamp(s: GameState, d: Decision) {
   // medevacs & quits (rare, at most one per episode)
   if (alive(s).length > s.config.finalSize + 3) {
     const pool = randomExitCandidates(s);
-    const med = pool.find(() => r() < 0.0035);
+    const med = pool.find(() => r() < 0.0008);
     const quitter =
-      !med && pool.filter((c) => (c.mood < 45 && c.stats.temperament <= 3) || r() < 0.03).find(() => r() < 0.06);
+      !med && pool.filter((c) => c.mood < 20 && c.stats.temperament <= 2).find(() => r() < 0.015);
     const gone = med || quitter;
     if (gone) {
       eliminate(s, gone, med ? "medevac" : "quit");
@@ -2325,7 +2325,9 @@ function doTribal(s: GameState, d: Decision) {
       immLog.push(`${holder.name} shocks everyone by giving up individual immunity to ${nm(s, to)}!`);
     }
   }
-
+  // advantage plays (before votes are cast)
+  const plays: { who: Castaway; adv: AdvantageKey; target?: string }[] = [];
+  const kipLog: string[] = [];
   for (const h of att.filter((c) => (c.advantages ?? []).length)) {
     if (!h.advantages.length || alive(s).length <= 5) continue;
     const foes = att.filter((c) => c.id !== h.id).sort((x, y) => getRel(s, h.id, x.id) - getRel(s, h.id, y.id));
@@ -2357,7 +2359,7 @@ function doTribal(s: GameState, d: Decision) {
               : d.advantageTarget;
         playsToRun.push({ adv: d.advantage, target: tgt, kipItem: d.kipItem });
       }
-    } else if (r() < 0.25 + h.stats.strategy * 0.06) {
+    } else if ((h.id !== ctrl || d.advantage === "__instinct__") && r() < 0.25 + h.stats.strategy * 0.06) {
       const adv = pick(h.advantages);
       const target =
         adv === "knowledge_is_power"
