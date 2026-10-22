@@ -55,16 +55,6 @@ const KIND_ICON: Record<string, string> = {
 
 const az = <T extends { name: string }>(xs: T[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
 export function Game({
-    // Warn before closing or reloading tab during an active season
-  useEffect(() => {
-    if (readOnly || game.phase === "done") return;
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [readOnly, game.phase]);
   game,
   setGame,
   onReset,
@@ -75,6 +65,16 @@ export function Game({
   onReset: () => void;
   readOnly?: boolean;
 }) {
+  // Warn before closing or reloading tab during an active season
+  useEffect(() => {
+    if (readOnly || game.phase === "done") return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [readOnly, game.phase]);
   const [editing, setEditing] = useState(false);
   const [dec, setDec] = useState<Decision>({});
   const pending = pendingDecision(game);
