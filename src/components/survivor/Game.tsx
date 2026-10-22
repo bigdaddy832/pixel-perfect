@@ -155,13 +155,14 @@ export function Game({
             <p className="font-display text-lg tracking-wide text-accent">{game.config.seasonTitle}</p>
           )}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Day {game.day} · {PHASE_LABEL[game.phase]} · {alive(game).length} remain</span>
+            <span>
+              Day {game.day} · {PHASE_LABEL[game.phase]} · {alive(game).length} remain
+            </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-500">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               Autosaved
             </span>
           </div>
-
         </div>
         {!readOnly && (
           <div className="flex flex-wrap gap-2">
@@ -397,6 +398,20 @@ function getThreatBadge(c: Castaway, g?: GameState) {
     </span>
   );
 }
+function getIdolTooltip(c: Castaway, g: GameState) {
+  const getTribeName = (tid: string) => {
+    if (tid === "merged") return g.mergedTribe?.name ?? "Merged";
+    return g.tribes.find((t) => t.id === tid)?.name ?? tid;
+  };
+  const origins =
+    c.idolOrigins && c.idolOrigins.length > 0 ? c.idolOrigins.map(getTribeName) : [getTribeName(c.tribeId)];
+
+  if (c.idols === 1) {
+    return `Hidden Immunity Idol (${origins[0] ?? "Unknown"} Tribe)`;
+  }
+  return `${c.idols} Hidden Immunity Idols (${origins.join(", ")})`;
+}
+
 function Card({ g, c }: { g: GameState; c: Castaway }) {
   const als = g.alliances.filter((a) => a.members.includes(c.id));
   const me = g.config.controlledId === c.id;
@@ -412,7 +427,12 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
         </span>
         <span className="flex flex-wrap items-center justify-end gap-1 text-sm">
           {g.immune.includes(c.id) && "🛡️"}
-          {c.idols > 0 && "🗿".repeat(c.idols)}
+          {c.idols > 0 && (
+            <span className="inline-flex items-center gap-0.5 cursor-help" title={getIdolTooltip(c, g)}>
+              <span>🗿</span>
+              {c.idols > 1 && <span className="text-xs font-bold text-idol">×{c.idols}</span>}
+            </span>
+          )}
           {c.fakeIdol && (
             <span className="text-xs text-muted-foreground">
               {c.fakeIdol === "own" ? "Fake idol" : "Fake idol (thinks it's real)"}
@@ -860,87 +880,106 @@ function DecisionPanel({
             </label>
           )}
           {pending.advantages.length > 0 && (
-            <label className="flex items-center gap-2">
-              Play advantage:
-              <select
-                className={sel}
-                value={dec.advantage ?? ""}
-                onChange={(e) =>
-                  setDec({
-                    ...dec,
-                    advantage: e.target.value || undefined,
-                    advantageTarget: undefined,
-                    kipItem: undefined,
-                  })
-                }
-              >
-                <option value="">Keep it</option>
-                <option value="__instinct__">— Let instinct decide —</option>
-                {pending.advantages.map((a) => (
-                  <option key={a} value={a}>
-                    {ADVANTAGE_LABEL[a]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {dec.advantage && ADVANTAGE_NEEDS_TARGET.includes(dec.advantage) && (
-            <label className="flex items-center gap-2">
-              On:
-              <select
-                aria-label="Advantage target"
-                className={sel}
-                value={dec.advantageTarget ?? ""}
-                onChange={(e) => {
-                  const others = attendees(game).filter((c) => c.id !== me.id);
-                  const value =
-                    dec.advantage === "knowledge_is_power" && e.target.value === "__random__"
-                      ? others[Math.floor(Math.random() * others.length)]?.id
-                      : e.target.value;
-                  setDec({ ...dec, advantageTarget: value || undefined, kipItem: undefined });
-                }}
-              >
-                <option value="">— Choose —</option>
-                {dec.advantage !== "knowledge_is_power" && (
-                  <option value="__instinct__">— Let instinct decide —</option>
-                )}
-                <option value="__random__">Random person</option>
-                {az(attendees(game).filter((o) => o.id !== me.id)).map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {dec.advantage === "knowledge_is_power" &&
-            kipTarget &&
-            (stealable.length ? (
-              <label className="flex flex-wrap items-center gap-2">
-                Take from {kipTarget.name}:
-                <select
-                  aria-label="KIP item to take"
-                  className={sel}
-                  value={dec.kipItem ?? ""}
-                  onChange={(e) => setDec({ ...dec, kipItem: e.target.value || undefined })}
-                >
-                  <option value="">— Let instinct decide —</option>
-                  {stealable.map((item) => (
-                    <option key={item} value={item}>
-                      {item === "idol"
-                        ? "Hidden Immunity Idol"
-                        : item === "amulet"
-                          ? "Advantage Amulet"
-                          : ADVANTAGE_LABEL[item as AdvantageKey]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <p className="w-full text-muted-foreground">{kipTarget.name} has no item you can take.</p>
-            ))}
-          {dec.advantage && dec.advantage !== "__instinct__" && (
-            <p className="w-full text-xs text-muted-foreground">{ADVANTAGE_DESC[dec.advantage]}</p>
+            <div className="w-full space-y-3 rounded-lg border border-border bg-background/50 p-3">
+              <span className="text-sm font-semibold text-primary">Your Advantages:</span>
+              <div className="space-y-2">
+                {pending.advantages.map((adv) => {
+                  const currentPlay = (dec.advantagePlays ?? []).find((p) => p.advantage === adv);
+                  const isChecked = !!currentPlay;
+                  const kipTarget = attendees(game).find((c) => c.id === currentPlay?.target);
+                  const stealable = kipTarget ? kipItems(me, kipTarget) : [];
+
+                  const togglePlay = (checked: boolean) => {
+                    const next = (dec.advantagePlays ?? []).filter((p) => p.advantage !== adv);
+                    if (checked) {
+                      next.push({ advantage: adv });
+                    }
+                    setDec({ ...dec, advantagePlays: next });
+                  };
+
+                  const updatePlay = (patch: Partial<AdvantagePlay>) => {
+                    const next = (dec.advantagePlays ?? []).map((p) => (p.advantage === adv ? { ...p, ...patch } : p));
+                    setDec({ ...dec, advantagePlays: next });
+                  };
+
+                  return (
+                    <div key={adv} className="rounded border border-input p-2 space-y-2 text-sm bg-card">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => togglePlay(e.target.checked)}
+                          className="rounded border-input text-primary"
+                        />
+                        <span>Play {ADVANTAGE_LABEL[adv]}</span>
+                      </label>
+                      <p className="text-xs text-muted-foreground">{ADVANTAGE_DESC[adv]}</p>
+
+                      {isChecked && ADVANTAGE_NEEDS_TARGET.includes(adv) && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1 pl-6">
+                          <label className="flex items-center gap-2">
+                            <span>Target:</span>
+                            <select
+                              aria-label={`${ADVANTAGE_LABEL[adv]} target`}
+                              className={sel}
+                              value={currentPlay?.target ?? ""}
+                              onChange={(e) => {
+                                const others = attendees(game).filter((c) => c.id !== me.id);
+                                const val =
+                                  adv === "knowledge_is_power" && e.target.value === "__random__"
+                                    ? others[Math.floor(Math.random() * others.length)]?.id
+                                    : e.target.value;
+                                updatePlay({ target: val || undefined, kipItem: undefined });
+                              }}
+                            >
+                              <option value="">— Choose —</option>
+                              {adv !== "knowledge_is_power" && (
+                                <option value="__instinct__">— Let instinct decide —</option>
+                              )}
+                              <option value="__random__">Random person</option>
+                              {az(attendees(game).filter((o) => o.id !== me.id)).map((o) => (
+                                <option key={o.id} value={o.id}>
+                                  {o.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          {adv === "knowledge_is_power" &&
+                            kipTarget &&
+                            (stealable.length ? (
+                              <label className="flex items-center gap-2">
+                                <span>Take from {kipTarget.name}:</span>
+                                <select
+                                  aria-label="Item to take"
+                                  className={sel}
+                                  value={currentPlay?.kipItem ?? ""}
+                                  onChange={(e) => updatePlay({ kipItem: (e.target.value as any) || undefined })}
+                                >
+                                  <option value="">— Choose —</option>
+                                  {stealable.map((item) => (
+                                    <option key={item} value={item}>
+                                      {item === "idol"
+                                        ? "Hidden Immunity Idol"
+                                        : item === "amulet"
+                                          ? "Advantage Amulet"
+                                          : ADVANTAGE_LABEL[item]}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                {kipTarget.name} has nothing to steal.
+                              </span>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
           {pending.canShoot && (
             <label className="flex items-center gap-2">

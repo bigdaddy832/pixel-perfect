@@ -257,6 +257,12 @@ export const TALK_TOPICS: Record<
     bad: "didn't find it funny at all",
   },
 };
+export interface AdvantagePlay {
+  advantage: AdvantageKey | "__instinct__";
+  target?: string;
+  kipItem?: "idol" | "amulet" | AdvantageKey;
+}
+
 export interface Decision {
   quit?: boolean;
   vote?: string;
@@ -2319,72 +2325,92 @@ function doTribal(s: GameState, d: Decision) {
       immLog.push(`${holder.name} shocks everyone by giving up individual immunity to ${nm(s, to)}!`);
     }
   }
-  // advantage plays (before votes are cast)
-  const plays: { who: Castaway; adv: AdvantageKey; target?: string }[] = [];
-  const kipLog: string[] = [];
+
   for (const h of att.filter((c) => (c.advantages ?? []).length)) {
-    let adv: AdvantageKey | undefined, target: string | undefined;
     if (!h.advantages.length || alive(s).length <= 5) continue;
-    if (h.id === ctrl && d.advantage !== "__instinct__") {
-      adv = d.advantage && h.advantages.includes(d.advantage) ? d.advantage : undefined;
-      const foes = att.filter((c) => c.id !== h.id).sort((x, y) => getRel(s, h.id, x.id) - getRel(s, h.id, y.id));
-      target =
-        d.advantageTarget === "__random__"
-          ? pick(foes)?.id
-          : d.advantageTarget === "__instinct__"
-            ? (adv === "knowledge_is_power" ? (foes.find((c) => kipItems(h, c).length) ?? foes[0]) : foes[0])?.id
-            : d.advantageTarget;
+    const foes = att.filter((c) => c.id !== h.id).sort((x, y) => getRel(s, h.id, x.id) - getRel(s, h.id, y.id));
+
+    // Gather plays: multiple if controlled player specified advantagePlays, or fallback to single / AI
+    const playsToRun: { adv: AdvantageKey; target?: string; kipItem?: "idol" | "amulet" | AdvantageKey }[] = [];
+
+    if (h.id === ctrl && d.advantagePlays && d.advantagePlays.length > 0) {
+      for (const p of d.advantagePlays) {
+        if (!p.advantage || p.advantage === "__instinct__") continue;
+        if (!h.advantages.includes(p.advantage)) continue;
+        const tgt =
+          p.target === "__random__"
+            ? pick(foes)?.id
+            : p.target === "__instinct__"
+              ? (p.advantage === "knowledge_is_power" ? (foes.find((c) => kipItems(h, c).length) ?? foes[0]) : foes[0])
+                  ?.id
+              : p.target;
+        playsToRun.push({ adv: p.advantage, target: tgt, kipItem: p.kipItem });
+      }
+    } else if (h.id === ctrl && d.advantage && d.advantage !== "__instinct__") {
+      if (h.advantages.includes(d.advantage)) {
+        const tgt =
+          d.advantageTarget === "__random__"
+            ? pick(foes)?.id
+            : d.advantageTarget === "__instinct__"
+              ? (d.advantage === "knowledge_is_power" ? (foes.find((c) => kipItems(h, c).length) ?? foes[0]) : foes[0])
+                  ?.id
+              : d.advantageTarget;
+        playsToRun.push({ adv: d.advantage, target: tgt, kipItem: d.kipItem });
+      }
     } else if (r() < 0.25 + h.stats.strategy * 0.06) {
-      adv = pick(h.advantages);
-      const foes = att.filter((c) => c.id !== h.id).sort((x, y) => getRel(s, h.id, x.id) - getRel(s, h.id, y.id));
-      target =
+      const adv = pick(h.advantages);
+      const target =
         adv === "knowledge_is_power"
           ? (foes.find((c) => c.idols > 0 || c.advantages.length) ?? foes[0])?.id
           : foes[0]?.id;
+      if (adv) playsToRun.push({ adv, target });
     }
-    if (!adv) continue;
-    if (adv === "safety" && att.length <= 4) continue;
-    if (ADVANTAGE_NEEDS_TARGET.includes(adv) && (!target || target === h.id || !att.some((c) => c.id === target)))
-      continue;
-    h.advantages = h.advantages.filter((x) => x !== adv);
-    h.advPlayed = (h.advPlayed ?? 0) + 1;
-    if (adv === "knowledge_is_power") {
-      const t = att.find((c) => c.id === target);
-      if (!t) continue;
-      const available = kipItems(h, t);
-      const item = h.id === ctrl && d.advantage !== "__instinct__" && d.kipItem ? d.kipItem : (available[0] ?? "idol");
-      let got = "";
-      if (item && available.includes(item)) {
-        if (item === "idol") {
-          t.idols--;
-          h.idols = (h.idols ?? 0) + 1;
-          const orig = (t.idolOrigins && t.idolOrigins.pop()) || t.tribeId;
-          h.idolOrigins = [...(h.idolOrigins || []), orig];
-          got = "a Hidden Immunity Idol";
-        } else if (item === "amulet") {
-          t.amulet = false;
-          h.amulet = true;
-          got = "an Advantage Amulet";
-        } else {
-          t.advantages = t.advantages.filter((x) => x !== item);
-          h.advantages.push(item);
-          got = `a ${ADVANTAGE_LABEL[item]}`;
+
+    for (const { adv, target, kipItem: chosenKip } of playsToRun) {
+      if (adv === "safety" && att.length <= 4) continue;
+      if (ADVANTAGE_NEEDS_TARGET.includes(adv) && (!target || target === h.id || !att.some((c) => c.id === target)))
+        continue;
+      h.advantages = h.advantages.filter((x) => x !== adv);
+      h.advPlayed = (h.advPlayed ?? 0) + 1;
+      if (adv === "knowledge_is_power") {
+        const t = att.find((c) => c.id === target);
+        if (!t) continue;
+        const available = kipItems(h, t);
+        const item = h.id === ctrl && chosenKip ? chosenKip : (available[0] ?? "idol");
+        let got = "";
+        if (item && available.includes(item)) {
+          if (item === "idol") {
+            t.idols--;
+            h.idols = (h.idols ?? 0) + 1;
+            const orig = (t.idolOrigins && t.idolOrigins.pop()) || t.tribeId;
+            h.idolOrigins = [...(h.idolOrigins || []), orig];
+            got = "a Hidden Immunity Idol";
+          } else if (item === "amulet") {
+            t.amulet = false;
+            h.amulet = true;
+            got = "an Advantage Amulet";
+          } else {
+            t.advantages = t.advantages.filter((x) => x !== item);
+            h.advantages.push(item);
+            got = `a ${ADVANTAGE_LABEL[item]}`;
+          }
         }
+        addRel(s, t.id, h.id, got ? -15 : -5);
+        kipLog.push(
+          `${h.name} plays Knowledge is Power on ${t.name}: "Do you have ${
+            item === "idol"
+              ? "a Hidden Immunity Idol"
+              : item === "amulet"
+                ? "an Advantage Amulet"
+                : `${/^[aeiou]/i.test(ADVANTAGE_LABEL[item]) ? "an" : "a"} ${ADVANTAGE_LABEL[item]}`
+          }?" ${got ? `${t.name} must hand over ${got}!` : `${t.name} cannot hand over the requested item.`}`,
+        );
+        continue;
       }
-      addRel(s, t.id, h.id, got ? -15 : -5);
-      kipLog.push(
-        `${h.name} plays Knowledge is Power on ${t.name}: "Do you have ${
-          item === "idol"
-            ? "a Hidden Immunity Idol"
-            : item === "amulet"
-              ? "an Advantage Amulet"
-              : `${/^[aeiou]/i.test(ADVANTAGE_LABEL[item]) ? "an" : "a"} ${ADVANTAGE_LABEL[item]}`
-        }?" ${got ? `${t.name} must hand over ${got}!` : `${t.name} cannot hand over the requested item.`}`,
-      );
-      continue;
+      plays.push({ who: h, adv, target });
     }
-    plays.push({ who: h, adv, target });
   }
+
   const safe = plays.filter((p) => p.adv === "safety").map((p) => p.who.id);
   // Shot in the Dark: one per castaway per season, 1-in-6 safety, vote forfeited either way
   const shooters: string[] = [];
@@ -3422,7 +3448,7 @@ function prepareFTC(s: GameState) {
             : "social";
     const { reply, reaction } = finalistAnswer(s, f, j, cat);
     qa.push(`${j.name} asks ${f.name}: "${q}"\n↳ ${f.name}: "${reply}" (${reaction})`);
-  } 
+  }
   log(s, {
     kind: "finale",
     title: `Final Tribal Council — Day ${s.day}`,
