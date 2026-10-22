@@ -1,6 +1,7 @@
 // @ts-nocheck -- array indexing is guarded by game invariants
 // Survivor simulation engine — pure client-side state machine.
 import { SEASON_TWIST_LABEL, type SeasonTwist } from "./season-titles";
+import { answerJuryQuestion, eligibleJuryQuestions } from "./jury-dialogue";
 export type StatKey =
   "strategy" | "social" | "loyalty" | "temperament" | "general" | "physical" | "endurance" | "mental";
 
@@ -3426,30 +3427,19 @@ function prepareFTC(s: GameState) {
   const used = new Set<string>();
   for (const j of jury) {
     const f = [...fin].sort((a, b) => getRel(s, j.id, a.id) - getRel(s, j.id, b.id))[r() < 0.6 ? 0 : fin.length - 1];
-    const prefs = [
-      ...(j.betrayedBy.includes(f.id) ? JURY_Q.betrayed : []),
-      ...(j.stats.strategy >= 4 ? JURY_Q.strategy : []),
-      ...(j.stats.temperament <= 2 ? JURY_Q.angry : []),
-      ...(j.stats.social >= 4 ? JURY_Q.social : []),
-      ...(f.immunityWins > 0 ? JURY_Q.challenge : []),
-    ];
-    const all = Object.values(JURY_Q).flat();
-    const q =
-      pick(prefs.filter((x) => !used.has(x))) ??
-      pick(all.filter((x) => !used.has(x))) ??
-      `If you had to vote out one finalist, ${f.name}, would you vote yourself out?`;
-    used.add(q);
-    const cat = j.betrayedBy.includes(f.id)
-      ? "betrayed"
-      : j.stats.temperament <= 2
-        ? "angry"
-        : j.stats.strategy >= 4
-          ? "strategy"
-          : f.immunityWins > 0
-            ? "challenge"
-            : "social";
-    const { reply, reaction } = finalistAnswer(s, f, j, cat);
-    qa.push(`${j.name} asks ${f.name}: "${q}"\n↳ ${f.name}: "${reply}" (${reaction})`);
+    const all = eligibleJuryQuestions(j, f).filter((q) => !used.has(q.id));
+    const prefs = all.filter((q) =>
+      (q.topic === "betrayed" && j.betrayedBy.includes(f.id)) ||
+      (q.topic === "strategy" && j.stats.strategy >= 4) ||
+      (q.topic === "angry" && j.stats.temperament <= 2) ||
+      (q.topic === "social" && j.stats.social >= 4) ||
+      (q.topic === "challenge" && f.immunityWins > 0),
+    );
+    const question = pick(prefs) ?? pick(all);
+    if (!question) continue;
+    used.add(question.id);
+    const { reply, reaction } = answerJuryQuestion(s, f, j, question);
+    qa.push(`${j.name} asks ${f.name}: "${question.text}"\n↳ ${f.name}: "${reply}" (${reaction})`);
   }
   log(s, {
     kind: "finale",
