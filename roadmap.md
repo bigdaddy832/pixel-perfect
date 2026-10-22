@@ -1,4 +1,5 @@
 # Survivor updates
+- [ ] Match FTC answers to each juror’s question and verify with regression tests and a full-season finale.
 - [x] KIP item selection, revote-only parchment readings, and opt-in instinct for idols/advantages; verify controls and rules.
 - [x] Never randomly quit or medevac the controlled player; offer voluntary quitting; specific-item KIP questions; increase AI alliance invitations.
 - [x] Remove AI-generated title twists entirely; titles are flavor only, twists come solely from settings toggles.
