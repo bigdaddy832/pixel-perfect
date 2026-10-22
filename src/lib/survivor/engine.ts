@@ -3450,8 +3450,34 @@ function prepareFTC(s: GameState) {
     if (!question) continue;
     used.add(question.id);
     const { reply, reaction, answerQuality, directlyAnswered } = answerJuryQuestion(s, f, j, question);
+
+    s.juryLeans ??= [];
+
+    let lean = s.juryLeans.find((item) => item.jurorId === j.id && item.finalistId === f.id);
+
+    if (!lean) {
+      lean = {
+        jurorId: j.id,
+        finalistId: f.id,
+        score: 0,
+        reasons: [],
+      };
+      s.juryLeans.push(lean);
+    }
+
+    const answerShift = answerQuality === "strong" ? 3 : answerQuality === "mixed" ? 1 : -3;
+
+    lean.score += answerShift;
+
+    lean.reasons.push(
+      answerShift > 0
+        ? `${f.name}'s ${answerQuality} answer to "${question.text}" improved their Final Tribal standing`
+        : `${f.name} failed to directly answer "${question.text}", hurting their Final Tribal standing`,
+    );
     qa.push(
-      `${j.name} asks ${f.name}: "${question.text}"\n↳ ${f.name}: "${reply}" (${reaction}; ${answerQuality} answer${directlyAnswered ? "" : ", did not directly answer the question"})`,
+      `${j.name} asks ${f.name}: "${question.text}"\n↳ ${f.name}: "${reply}" (${reaction}; ${answerQuality} answer${
+        directlyAnswered ? "" : ", did not directly answer the question"
+      }; jury lean ${answerShift > 0 ? "+" : ""}${answerShift})`,
     );
   }
   log(s, {
@@ -3470,22 +3496,35 @@ function doFTC(s: GameState, d: Decision) {
       return { juror: j.id, finalist: d.juryVote, reason: "your jury vote - chose to reward their game" };
     const scored = fin
       .map((f) => {
+        const savedLean = s.juryLeans?.find((lean) => lean.jurorId === j.id && lean.finalistId === f.id)?.score ?? 0;
+
         const relT = getRel(s, j.id, f.id) * 0.09;
         const strat = f.stats.strategy * 0.55 + f.immunityWins * 0.35 + (f.correctVotes ?? 0) * 0.12;
         const soc = f.stats.social * 0.7;
         const bitter = j.betrayedBy.includes(f.id) ? -(1 + (6 - j.stats.temperament) * 0.6) : 0;
-        return { f, sc: relT + strat + soc + bitter + r() * 1.5, parts: { relT, strat, soc, bitter } };
+
+        return {
+          f,
+          sc: savedLean + relT + strat + soc + bitter + r() * 1.5,
+          parts: { savedLean, relT, strat, soc, bitter },
+        };
       })
       .sort((a, b) => b.sc - a.sc);
     const best = scored[0];
     const p = best.parts;
-    const top = Math.max(p.relT, p.strat, p.soc);
+    const top = Math.max(p.savedLean, p.relT, p.strat, p.soc);
+
+    const leanReasons =
+      s.juryLeans?.find((lean) => lean.jurorId === j.id && lean.finalistId === best.f.id)?.reasons.slice(-2) ?? [];
+
     const reason =
-      top === p.strat
-        ? "respected their strategic game"
-        : top === p.soc
-          ? "valued their social game"
-          : "had a strong personal bond";
+      top === p.savedLean
+        ? (leanReasons[leanReasons.length - 1] ?? "was swayed by the jury-house and Final Tribal process")
+        : top === p.strat
+          ? "respected their strategic game"
+          : top === p.soc
+            ? "valued their social game"
+            : "had a strong personal bond";
     return {
       juror: j.id,
       finalist: best.f.id,
@@ -3712,6 +3751,80 @@ function ponderosa(s: GameState, c: Castaway) {
     details.push(
       `Jury lean (${jurors.length + 1} juror${jurors.length ? "s" : ""}): ${e.map(([id, n]) => `${nm(s, id)} ${n}`).join(", ")}.`,
     );
+  // Save this juror's starting opinion of every remaining possible finalist.
+  s.juryLeans ??= [];
+
+  for (const finalist of remaining) {
+    const existing = s.juryLeans.find((lean) => lean.jurorId === c.id && lean.finalistId === finalist.id);
+
+    if (existing) continue;
+
+    const relationship = getRel(s, c.id, finalist.id) * 0.12;
+    const strategy = finalist.stats.strategy * 0.45;
+    const social = finalist.stats.social * 0.35;
+    const challenge = finalist.immunityWins * 0.3;
+    const betrayal = c.betrayedBy.includes(finalist.id) ? -(2 + (6 - c.stats.temperament) * 0.45) : 0;
+
+    const score = relationship + strategy + social + challenge + betrayal;
+
+    const reasons = [
+      relationship > 0.8
+        ? `has a strong personal bond with ${finalist.name}`
+        : relationship < -0.8
+          ? `has unresolved tension with ${finalist.name}`
+          : `has a neutral personal relationship with ${finalist.name}`,
+      strategy + challenge > 2.5
+        ? `respects ${finalist.name}'s visible game résumé`
+        : `is still unsure about ${finalist.name}'s game résumé`,
+      ...(betrayal < 0 ? [`still feels betrayed by ${finalist.name}`] : []),
+    ];
+
+    s.juryLeans.push({
+      jurorId: c.id,
+      finalistId: finalist.id,
+      score,
+      reasons,
+    });
+  }
+  // Ponderosa discussions can shift opinions, but only a little at a time.
+  const shifts: { jurorId: string; finalistId: string; amount: number }[] = [];
+
+  for (const juror of [c, ...jurors]) {
+    const possibleFinalists = remaining.filter((finalist) => finalist.id !== juror.id);
+    if (!possibleFinalists.length || r() >= 0.38) continue;
+
+    const finalist = pick(possibleFinalists);
+    const lean = s.juryLeans?.find((item) => item.jurorId === juror.id && item.finalistId === finalist.id);
+
+    if (!lean) continue;
+
+    const betrayed = juror.betrayedBy.includes(finalist.id);
+    const amount = betrayed ? (r() < 0.55 ? 1 : -2) : r() < 0.65 ? 1 : -1;
+
+    lean.score += amount;
+    lean.reasons.push(
+      amount > 0
+        ? `Ponderosa discussion made ${juror.name} appreciate ${finalist.name}'s game more`
+        : `Ponderosa discussion made ${juror.name} question ${finalist.name}'s game`,
+    );
+
+    shifts.push({
+      jurorId: juror.id,
+      finalistId: finalist.id,
+      amount,
+    });
+
+    details.push(
+      `${juror.name}'s opinion of ${finalist.name} ${amount > 0 ? "rose" : "fell"} after the Ponderosa conversation.`,
+    );
+  }
+
+  s.juryHouseLog ??= [];
+  s.juryHouseLog.push({
+    arrivingJurorId: c.id,
+    text,
+    shifts,
+  });
   log(s, { kind: "jury", title: `Ponderosa — ${c.name} Arrives`, text, details });
 }
 
