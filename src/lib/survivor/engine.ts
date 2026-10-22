@@ -2220,25 +2220,55 @@ function doChallenge(s: GameState) {
 // ---------- tribal ----------
 function aiVote(s: GameState, voter: Castaway, cands: Castaway[], attendees: Castaway[]): string {
   if (!cands.length) return voter.id;
-  const scoreFor = (v: Castaway, c: Castaway) =>
-    -getRel(s, v.id, c.id) * 0.08 +
-    (s.merged ? threat(c) * v.stats.strategy * 0.06 : weakness(c) * 0.6) -
-    (sharedAlliance(s, v.id, c.id) ? 2.5 : 0) +
-    r() * 1.6;
+  if (cands.length === 1) return cands[0].id;
+
+  const baseScore = (v: Castaway, c: Castaway) =>
+    -getRel(s, v.id, c.id) * 0.1 +
+    (s.merged ? threat(c) * v.stats.strategy * 0.08 : weakness(c) * 0.8) -
+    (sharedAlliance(s, v.id, c.id) ? 3.0 : 0);
+
+  // 1. Alliance voting bloc: allies stick together on the same target
   const mine = s.alliances
     .filter((a) => a.members.includes(voter.id))
     .map((a) => ({ a, present: a.members.filter((m) => attendees.some((x) => x.id === m)) }))
     .filter((x) => x.present.length >= 2)
     .sort((x, y) => y.present.length - x.present.length)[0];
-  if (mine && r() < 0.45 + voter.stats.loyalty * 0.11) {
+
+  if (mine && r() < 0.75 + voter.stats.loyalty * 0.06) {
     const tc = cands.filter((c) => !mine.a.members.includes(c.id));
     if (tc.length) {
       return tc
-        .map((c) => ({ c, sc: mine.present.reduce((acc, m) => acc + scoreFor(byId(s, m), c) - r() * 1.6, 0) }))
+        .map((c) => ({
+          c,
+          sc: mine.present.reduce((acc, m) => acc + baseScore(byId(s, m), c), 0) + (r() - 0.5) * 0.8,
+        }))
         .sort((a, b) => b.sc - a.sc)[0].c.id;
     }
   }
-  return cands.map((c) => ({ c, sc: scoreFor(voter, c) })).sort((a, b) => b.sc - a.sc)[0].c.id;
+
+  // 2. Determine Plan A and Plan B: the two highest-heat targets on the chopping block tonight
+  const allEligible = attendees.filter((c) => !s.immune.includes(c.id));
+  const heatMap = allEligible
+    .map((c) => ({
+      c,
+      heat: attendees.filter((a) => a.id !== c.id).reduce((sum, a) => sum + baseScore(a, c), 0),
+    }))
+    .sort((a, b) => b.heat - a.heat);
+
+  const topTwo = heatMap
+    .slice(0, 2)
+    .map((h) => h.c)
+    .filter((c) => cands.some((can) => can.id === c.id));
+
+  // 3. 85% of unaligned votes funnel between Plan A and Plan B; 15% can throw a stray rogue vote
+  const options = topTwo.length >= 2 && r() < 0.85 ? topTwo : cands;
+
+  return options
+    .map((c) => ({
+      c,
+      sc: baseScore(voter, c) + (r() - 0.5) * 0.6,
+    }))
+    .sort((a, b) => b.sc - a.sc)[0].c.id;
 }
 
 export interface TargetPlan {
