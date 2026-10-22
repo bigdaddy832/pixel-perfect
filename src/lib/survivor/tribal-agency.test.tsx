@@ -91,9 +91,9 @@ describe("Tribal item agency", () => {
     me.advantages = ["knowledge_is_power"]; target.idols = 1; target.advantages = ["extra_vote"];
     const setGame = vi.fn();
     render(<Game game={g} setGame={setGame} onReset={() => {}} />);
-    fireEvent.change(screen.getByLabelText("Play advantage:"), { target: { value: "knowledge_is_power" } });
-    fireEvent.change(screen.getByLabelText("Advantage target"), { target: { value: target.id } });
-    fireEvent.change(screen.getByLabelText("KIP item to take"), { target: { value: "extra_vote" } });
+    fireEvent.click(screen.getByLabelText(/Play Knowledge is Power/));
+    fireEvent.change(screen.getByLabelText("Knowledge is Power target"), { target: { value: target.id } });
+    fireEvent.change(screen.getByLabelText("Item to take"), { target: { value: "extra_vote" } });
     fireEvent.click(screen.getByRole("button", { name: /Next Phase/ }));
     const held: GameState = setGame.mock.calls[0]?.[0];
     const result = held.pendingRevote ? step(held) : held;

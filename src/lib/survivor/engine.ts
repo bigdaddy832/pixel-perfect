@@ -2359,7 +2359,7 @@ function doTribal(s: GameState, d: Decision) {
               : d.advantageTarget;
         playsToRun.push({ adv: d.advantage, target: tgt, kipItem: d.kipItem });
       }
-    } else if (r() < 0.25 + h.stats.strategy * 0.06) {
+    } else if ((h.id !== ctrl || d.advantage === "__instinct__") && r() < 0.25 + h.stats.strategy * 0.06) {
       const adv = pick(h.advantages);
       const target =
         adv === "knowledge_is_power"
