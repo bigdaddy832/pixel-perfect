@@ -17,6 +17,6 @@
 - Configure a future third swap tribe separately from active starting tribes and only activate it during the swap so cast assignment and hidden idols stay consistent.
 - Reuse the shared tribe editor for starting, merge, swap, and in-season editing so name and color controls behave consistently.
 - Finished seasons are saved to the signed-in user's history from the season page; history pages live under the signed-in-only area and reuse the Game view in read-only mode, so past seasons look identical to live ones.
-- Named settings presets use a validated browser-local format separate from saved seasons and exclude cast and controlled-player choices, so loading a format does not overwrite a customized cast.
+- Named settings presets use a validated format separate from saved seasons, cached in the browser and synced to the signed-in account (account copy wins on name conflicts); they exclude cast and controlled-player choices so loading a format does not overwrite a customized cast.
 - Season titles are generated for flavor only; twists come solely from the settings toggles (swap, joint/double tribals, Edge of Extinction, journeys, Exile, Beware). Legacy themeTwist remains readable for existing saved seasons only.
 - Keep KIP item eligibility in a shared pure selector and encode opt-in instinct in tribal decisions so controls, transfers, and deterministic revote replay agree.
