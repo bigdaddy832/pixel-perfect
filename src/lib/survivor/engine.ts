@@ -2167,6 +2167,46 @@ function doChallenge(s: GameState) {
       );
   } else {
     const ms = alive(s);
+    // Demerge twist: at Final 10, split the merged tribe into two groups of 5
+    if (s.config.demergeTwist && ms.length === 10 && !s.demergeActive && !(s.twistsUsed ?? []).includes("demerge")) {
+      const shuffled = shuffle(ms);
+      const groupA = shuffled.slice(0, 5);
+      const groupB = shuffled.slice(5);
+      groupA.forEach((c) => (c.tribeId = "demerge-a"));
+      groupB.forEach((c) => (c.tribeId = "demerge-b"));
+      const base = tribeOf(s, "merged")?.name ?? "Merged";
+      s.tribes = [
+        ...s.tribes,
+        { id: "demerge-a", name: `${base} A`, color: tribeOf(s, "merged")?.color ?? "#888" },
+        { id: "demerge-b", name: `${base} B`, color: tribeOf(s, "merged")?.color ?? "#888" },
+      ];
+      s.twistsUsed ??= [];
+      s.twistsUsed.push("demerge");
+      s.demergeActive = true;
+      log(s, {
+        kind: "twist",
+        title: "Demerge Twist!",
+        text: `Jeff stuns the Final 10: the merged tribe is splitting into two groups of 5! Each group will compete for its own individual immunity and attend its own Tribal Council tonight. Two people are going home.`,
+        details: [
+          `Group A: ${groupA.map((c) => c.name).join(", ")}`,
+          `Group B: ${groupB.map((c) => c.name).join(", ")}`,
+        ],
+      });
+      const winA = [...groupA].sort((a, b) => indScore(b, ch.type) - indScore(a, ch.type))[0];
+      const winB = [...groupB].sort((a, b) => indScore(b, ch.type) - indScore(a, ch.type))[0];
+      winA.immunityWins++;
+      winB.immunityWins++;
+      s.immune = [winA.id, winB.id];
+      s.tribalTribes = ["demerge-a"];
+      s.tribalTribe = "demerge-a";
+      s.tribalQueue = [["demerge-b"]];
+      log(s, {
+        kind: "challenge",
+        title: `Individual Immunity: ${ch.name} (${STAT_LABEL[ch.type]})`,
+        text: `${winA.name} wins immunity for Group A, and ${winB.name} wins immunity for Group B! Each group heads to its own Tribal Council.`,
+      });
+      return;
+    }
     const rr = ms.map((c) => ({ c, sc: seasonChallengeScore(s, c, rew.type) })).sort((a, b) => b.sc - a.sc);
     rr[0].c.mood = clamp(rr[0].c.mood + 10, 0, 100);
     rr[0].c.rewardWins = (rr[0].c.rewardWins ?? 0) + 1;
@@ -2948,6 +2988,16 @@ function eliminate(s: GameState, c: Castaway, _how: string) {
 
 function afterTribal(s: GameState) {
   if (s.tribalQueue?.length) {
+    if (s.demergeActive && !s.tribalQueue?.length) {
+      s.demergeActive = false;
+      alive(s).forEach((c) => (c.tribeId = "merged"));
+      s.tribes = s.tribes.filter((t) => t.id !== "demerge-a" && t.id !== "demerge-b");
+      log(s, {
+        kind: "twist",
+        title: "Reunited",
+        text: "With both votes completed, the remaining castaways reunite as a single tribe.",
+      });
+    }
     s.tribalTribes = s.tribalQueue.shift();
     s.tribalTribe = s.tribalTribes[0];
     s.phase = "tribal";
