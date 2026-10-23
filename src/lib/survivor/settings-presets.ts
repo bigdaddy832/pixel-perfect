@@ -43,6 +43,19 @@ const presetSchema = z.object({
 
 export type SettingsPreset = z.infer<typeof presetSchema>;
 export const PRESETS_KEY = "survivor-sim-settings-presets-v1";
+/** Older browser keys that may still hold presets; they are merged into PRESETS_KEY. */
+export const LEGACY_PRESET_KEYS = ["survivor-sim-settings-presets", "survivor-settings-presets", "presets"];
+
+/** Combine preset lists, keeping one per name (case-insensitive). Earlier lists win on conflicts. */
+export function mergePresets(...lists: SettingsPreset[][]): SettingsPreset[] {
+  const seen = new Map<string, SettingsPreset>();
+  for (const list of lists)
+    for (const p of list) {
+      const key = p.name.trim().toLowerCase();
+      if (key && !seen.has(key)) seen.set(key, p);
+    }
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
 
 /** Read presets safely with healing so older, flat, or partial presets are never lost */
 export function readPresets(raw: string | null): SettingsPreset[] {

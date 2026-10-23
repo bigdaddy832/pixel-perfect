@@ -15,6 +15,13 @@
       "when": 1792368315780,
       "tag": "0001_unique_generated_twists",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792723661974,
+      "tag": "0002_create_settings_presets",
+      "breakpoints": true
     }
   ]
 }
