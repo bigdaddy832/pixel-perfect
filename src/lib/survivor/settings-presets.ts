@@ -32,6 +32,7 @@ export const settingsSchema = z.object({
   exile: z.boolean().catch(false),
   beware: z.boolean().catch(true),
   sitd: z.boolean().catch(true),
+  demerge: z.boolean().catch(true),
 });
 
 export type SeasonSettings = z.infer<typeof settingsSchema>;

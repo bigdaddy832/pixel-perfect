@@ -71,6 +71,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [exile, setExile] = useState(false);
   const [beware, setBeware] = useState(true);
   const [sitd, setSitd] = useState(true);
+  const [demerge, setDemerge] = useState(true);
   const [tribes, setTribes] = useState<Tribe[]>(() =>
     [0, 1, 2, 3].map((i) => ({ id: `t${i}`, name: names.starting[i], color: TRIBE_COLORS[i] })),
   );
@@ -108,6 +109,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     exile,
     beware,
     sitd,
+    demerge,
   };
   const loadSettings = (s: SeasonSettings) => {
     setCount(s.count);
@@ -129,6 +131,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     setExile(s.exile);
     setBeware(s.beware);
     setSitd(s.sitd);
+    setDemerge(s.demerge ?? true);
     setRoster((r) => makeRoster(s.count, s.tribeCount, r).map((p, i) => ({ ...p, tribeIndex: i % s.tribeCount })));
     setControlled(null);
   };
@@ -196,6 +199,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       exileIsland: exile,
       bewareAdvantages: beware,
       shotInTheDark: sitd,
+      demergeTwist: demerge,
       controlledId: controlled === null ? null : `c${controlled}`,
       seasonTitle: title,
     };
@@ -416,6 +420,18 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
           <p className="text-xs text-muted-foreground">
             Everyone begins with one chance at safety in exchange for their vote.
           </p>
+          <Field label="Demerge twist">
+            <input
+              type="checkbox"
+              checked={demerge}
+              onChange={(e) => setDemerge(e.target.checked)}
+              className="accent-primary size-4"
+            />
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            At Final 10, splits the merged tribe into two groups for two separate Tribal Councils.
+          </p>
+
           <Field label="Merge at (remaining)">
             <input
               type="number"

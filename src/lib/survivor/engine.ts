@@ -112,6 +112,7 @@ export interface Config {
   exileIsland?: boolean;
   bewareAdvantages?: boolean;
   shotInTheDark?: boolean;
+  demergeTwist?: boolean;
   controlledId: string | null;
   seasonTitle?: string;
   themeTwist?: SeasonTwist;
@@ -160,6 +161,7 @@ export interface GameState {
   tribalQueue?: string[][];
   doubleElim?: boolean;
   twistsUsed?: string[];
+  demergeActive?: boolean;
   challengeSearch?: boolean;
   edgeDone?: boolean;
   journeysDone?: number;
