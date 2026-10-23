@@ -10,16 +10,16 @@ const account = vi.hoisted(() => ({ user: null as null | { id: string }, rows: [
 vi.mock("@/integrations/supabase/client", () => {
   const chain = () => {
     const q: Record<string, unknown> = {};
-    q.select = () => q;
-    q.delete = () => q;
-    q.eq = () => q;
-    q.upsert = (rows: unknown) => {
+    q["select"] = () => q;
+    q["delete"] = () => q;
+    q["eq"] = () => q;
+    q["upsert"] = (rows: unknown) => {
       for (const r of [rows].flat() as { name: string; settings: unknown }[]) {
         account.rows = account.rows.filter((x) => x.name !== r.name).concat({ name: r.name, settings: r.settings });
       }
       return Promise.resolve({ error: null });
     };
-    q.then = (res: (v: unknown) => void) => res({ data: account.rows, error: null });
+    q["then"] = (res: (v: unknown) => void) => res({ data: account.rows, error: null });
     return q;
   };
   return {
