@@ -72,6 +72,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const [beware, setBeware] = useState(true);
   const [sitd, setSitd] = useState(true);
   const [demerge, setDemerge] = useState(true);
+  const [idolGifting, setIdolGifting] = useState(false);
+  const [earnMerge, setEarnMerge] = useState(false);
   const [tribes, setTribes] = useState<Tribe[]>(() =>
     [0, 1, 2, 3].map((i) => ({ id: `t${i}`, name: names.starting[i], color: TRIBE_COLORS[i] })),
   );
@@ -110,6 +112,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     beware,
     sitd,
     demerge,
+    idolGifting,
+    earnMerge,
   };
   const loadSettings = (s: SeasonSettings) => {
     setCount(s.count);
@@ -132,6 +136,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
     setBeware(s.beware);
     setSitd(s.sitd);
     setDemerge(s.demerge ?? true);
+    setIdolGifting(s.idolGifting ?? false);
+    setEarnMerge(s.earnMerge ?? false);
     setRoster((r) => makeRoster(s.count, s.tribeCount, r).map((p, i) => ({ ...p, tribeIndex: i % s.tribeCount })));
     setControlled(null);
   };
@@ -342,14 +348,38 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
         </div>
         <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-2xl text-accent">Twists</h2>
-          <Field label="Tribe swap">
-            <input
-              type="checkbox"
-              checked={swap}
-              onChange={(e) => setSwap(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-1.5">
+            {(
+              [
+                ["Tribe swap", swap, setSwap, "Shuffle tribes partway through the pre-merge."],
+                ["Joint tribals", joint, setJoint, "Two tribes attend one Tribal Council (max one per season)."],
+                ["Double tribals", double, setDouble, "Two people go home in one night (max one per season)."],
+                ["Edge of Extinction", edge, setEdge, "Voted-out players can fight their way back in at the merge."],
+                ["Summit journeys", journeys, setJourneys, "Players are sent on journeys to risk their vote for advantages."],
+                ["Exile Island", exile, setExile, "Reward winners can banish someone to Exile."],
+                ["Beware advantages", beware, setBeware, "Shared amulets and Beware idols that come with a cost."],
+                ["Shot in the Dark", sitd, setSitd, "Everyone gets one chance at safety in exchange for their vote."],
+                ["Demerge", demerge, setDemerge, "At Final 10, two groups each hold their own Tribal Council."],
+                ["Idol halves", idolGifting, setIdolGifting, "A found idol is half an idol; the finder must gift it to a tribemate."],
+                ["Earn the merge", earnMerge, setEarnMerge, "First merged immunity is a team challenge; the losing team is vulnerable."],
+              ] as [string, boolean, (v: boolean) => void, string][]
+            ).map(([label, on, set, tip]) => (
+              <button
+                key={label}
+                type="button"
+                title={tip}
+                aria-pressed={on}
+                onClick={() => set(!on)}
+                className={`rounded-md border px-2 py-1.5 text-left text-xs transition-colors ${
+                  on ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {on ? "✓ " : ""}
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Hover a twist to see what it does.</p>
           {swap && (
             <Field label="Swap at (remaining)">
               <input
@@ -360,78 +390,6 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
               />
             </Field>
           )}
-          <Field label="Joint tribal councils">
-            <input
-              type="checkbox"
-              checked={joint}
-              onChange={(e) => setJoint(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
-          <Field label="Double tribals / eliminations">
-            <input
-              type="checkbox"
-              checked={double}
-              onChange={(e) => setDouble(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
-          <p className="text-xs text-muted-foreground">Max one joint or double tribal per season.</p>
-          <Field label="Edge of Extinction / Redemption">
-            <input
-              type="checkbox"
-              checked={edge}
-              onChange={(e) => setEdge(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
-          <Field label="Summit journeys">
-            <input
-              type="checkbox"
-              checked={journeys}
-              onChange={(e) => setJourneys(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
-          <Field label="Exile Island">
-            <input
-              type="checkbox"
-              checked={exile}
-              onChange={(e) => setExile(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
-          <Field label="Beware advantages">
-            <input
-              type="checkbox"
-              checked={beware}
-              onChange={(e) => setBeware(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
-          <Field label="Shot in the Dark">
-            <input
-              type="checkbox"
-              checked={sitd}
-              onChange={(e) => setSitd(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
-          <p className="text-xs text-muted-foreground">
-            Everyone begins with one chance at safety in exchange for their vote.
-          </p>
-          <Field label="Demerge twist">
-            <input
-              type="checkbox"
-              checked={demerge}
-              onChange={(e) => setDemerge(e.target.checked)}
-              className="accent-primary size-4"
-            />
-          </Field>
-          <p className="text-xs text-muted-foreground">
-            At Final 10, splits the merged tribe into two groups for two separate Tribal Councils.
-          </p>
-
           <Field label="Merge at (remaining)">
             <input
               type="number"
