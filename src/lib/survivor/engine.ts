@@ -2939,7 +2939,8 @@ function doTribal(s: GameState, d: Decision) {
     out: loser.id,
   });
   if (loser.juror && !loser.edge) ponderosa(s, loser);
-  s.immune = [];
+  // Keep immunity while another Tribal is queued tonight (e.g. demerge Group B still has to vote).
+  if (!s.tribalQueue?.length) s.immune = [];
 }
 
 function eliminate(s: GameState, c: Castaway, _how: string) {
@@ -3012,12 +3013,6 @@ function afterTribal(s: GameState) {
       title: "Reunited",
       text: "With both votes completed, the remaining castaways reunite as a single tribe.",
     });
-  }
-  if (s.doubleElim) {
-    s.tribalTribes = s.tribalQueue.shift();
-    s.tribalTribe = s.tribalTribes[0];
-    s.phase = "tribal";
-    return;
   }
   if (s.doubleElim) {
     s.doubleElim = false;
