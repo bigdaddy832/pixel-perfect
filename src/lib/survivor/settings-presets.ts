@@ -33,6 +33,8 @@ export const settingsSchema = z.object({
   beware: z.boolean().catch(true),
   sitd: z.boolean().catch(true),
   demerge: z.boolean().catch(true),
+  idolGifting: z.boolean().catch(false),
+  earnMerge: z.boolean().catch(false),
 });
 
 export type SeasonSettings = z.infer<typeof settingsSchema>;
