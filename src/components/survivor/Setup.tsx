@@ -206,6 +206,8 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       bewareAdvantages: beware,
       shotInTheDark: sitd,
       demergeTwist: demerge,
+      idolGifting,
+      earnTheMerge: earnMerge,
       controlledId: controlled === null ? null : `c${controlled}`,
       seasonTitle: title,
     };
