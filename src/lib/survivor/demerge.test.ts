@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeRoster, newGame, step, type Config, type GameState } from "./engine";
 
-const config: Config = { playerCount: 18, tribeCount: 2, jurySize: 8, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 15, mergeAt: 12, mergedName: "Merge Test", mergedColor: "#123abc", controlledId: "none", demergeTwist: true };
+const config: Config = { playerCount: 18, tribeCount: 2, jurySize: 8, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 15, mergeAt: 12, mergedName: "Merge Test", mergedColor: "#123abc", controlledId: "c0", demergeTwist: true };
 const season = () => newGame({ ...config }, [0, 1].map((i) => ({ id: `t${i}`, name: `T${i}`, color: "#123456" })), makeRoster(18, 2).map((c, i) => ({ ...c, name: c.name ?? `P${i}` })));
 
 describe("demerge twist", () => {
