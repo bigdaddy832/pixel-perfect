@@ -370,7 +370,9 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
                 key={label}
                 type="button"
                 title={tip}
-                aria-pressed={on}
+                role="switch"
+                aria-checked={on}
+                aria-label={label}
                 onClick={() => set(!on)}
                 className={`rounded-md border px-2 py-1.5 text-left text-xs transition-colors ${
                   on ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:bg-muted"
