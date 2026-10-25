@@ -1006,12 +1006,12 @@ function noteAmuletStage(s: GameState) {
   });
 }
 function awardAmulets(s: GameState) {
-  if (s.amuletsGiven || s.episodes.some((e) => e.entries.some((en) => en.title.startsWith("Reward Challenge:"))))
+  if (s.config.tribeCount !== 3 || s.merged || s.amuletsGiven || s.episodes.some((e) => e.entries.some((en) => en.title.startsWith("Reward Challenge:"))))
     return;
   const pools = shuffle([...groups(s).values()]).map((ms) => shuffle(ms));
   // Exactly one volunteer from every tribe, so each tribe is represented equally.
   const volunteers = pools.map((ms) => ms[0]).filter((c): c is Castaway => !!c);
-  if (volunteers.length < 2 || volunteers.length !== pools.length) return;
+  if (volunteers.length !== 3 || pools.length !== 3) return;
   s.amuletsGiven = true;
   volunteers.forEach((c) => {
     c.amulet = true;
@@ -2150,18 +2150,28 @@ function doChallenge(s: GameState) {
       const losing = lastTwo;
       s.twistsUsed.push("double_pre");
       s.tribalTribes = [losing[1].tid];
+      s.tribalTribe = losing[1].tid;
       s.tribalQueue = [[losing[0].tid]];
+      const individualWinners = is.length === 2
+        ? losing.map((x) => x.mvp)
+        : [];
+      individualWinners.forEach((c) => { c.immunityWins++; });
+      s.immune = individualWinners.map((c) => c.id);
       log(s, {
         kind: "twist",
         title: "Double Tribal Council!",
-        text: `Before the challenge, Jeff reveals a twist: ${is.length > 2 ? "only the winning tribes are safe — the last two tribes" : "only the winning tribe is safe — the losing tribe and the runner-up"} will both go to Tribal Council tonight. Two people are going home.`,
+        text: is.length === 2
+          ? `Before the challenge, Jeff reveals a twist: both tribes will attend separate Tribal Councils tonight, with one individual immunity winner on each tribe. Two people are going home.`
+          : `Before the challenge, Jeff reveals a twist: only the winning tribes are safe — the last two tribes will both go to Tribal Council tonight. Two people are going home.`,
       });
       immLog(
-        `${
+        is.length === 2
+          ? `${individualWinners.map((c) => `${c.name} (${tribeOf(s, c.tribeId)?.name})`).join(" and ")} win individual immunity! Both tribes will face separate Tribal Councils tonight.`
+          : `${
           is
             .slice(0, -2)
             .map((x) => tribeOf(s, x.tid)!.name)
-            .join(" & ") || tribeOf(s, is[0].tid)!.name
+            .join(" & ")
         } win immunity! ${losing.map((x) => tribeOf(s, x.tid)!.name).join(" and ")} will both face Tribal Council tonight.`,
       );
     } else
