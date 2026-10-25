@@ -14,7 +14,8 @@ function tribalWithHolders(n: number) {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Beware and Advantage Amulets", () => {
-  it.each([2, 3, 4])("awards one first-reward volunteer per tribe with %s tribes, only once", (n) => {
+  it("awards one first-reward volunteer per tribe in a three-tribe season, only once", () => {
+    const n = 3;
     const s = season(n); s.phase = "challenge";
     const result = step(s);
     expect(amuletHolders(result)).toHaveLength(n);
@@ -22,6 +23,18 @@ describe("Beware and Advantage Amulets", () => {
     expect(entries(result).filter((e) => e.title.startsWith("Advantage Amulet:"))).toHaveLength(1);
     result.phase = "challenge";
     expect(entries(step(result)).filter((e) => e.title === "First Reward: Amulet Volunteers")).toHaveLength(1);
+  });
+
+  it.each([2, 4])("does not award amulets in a %s-starting-tribe season", (n) => {
+    const s = season(n); s.phase = "challenge";
+    // Even a later three-tribe stage must not enable this twist.
+    if (n === 2) {
+      s.tribes.push({ id: "t2", name: "Swap Tribe", color: "#123abc" });
+      s.castaways.forEach((c, i) => { c.tribeId = `t${i % 3}`; });
+    }
+    const result = step(s);
+    expect(amuletHolders(result)).toHaveLength(0);
+    expect(result.amuletsGiven).not.toBe(true);
   });
 
   it("requires all holders at Tribal Council", () => {
@@ -93,7 +106,7 @@ describe("Beware and Advantage Amulets", () => {
       expect(entries(result).filter((e) => e.title.includes("Beware Advantage")).length).toBeLessThanOrEqual(1);
       const notes = entries(result).filter((e) => e.title.startsWith("Advantage Amulet:"));
       expect(new Set(notes.map((e) => e.title)).size).toBe(notes.length);
-      expect(notes.length).toBeLessThanOrEqual(i % 3 + 2);
+      expect(notes.length).toBeLessThanOrEqual(i % 3 + 2 === 3 ? 3 : 0);
     }
   });
 });
