@@ -3159,6 +3159,9 @@ function earnTheMergeRound(s: GameState, ms: Castaway[], ch: { name: string; typ
     c.mood = clamp(c.mood + 10, 0, 100);
   });
   s.immune = win.map((c) => c.id);
+  s.tribalTribe = "merged";
+  s.tribalTribes = ["merged"];
+  s.tribalQueue = [];
   log(s, {
     kind: "twist",
     title: "Earn the Merge!",
