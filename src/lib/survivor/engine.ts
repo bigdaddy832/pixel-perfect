@@ -47,8 +47,6 @@ export interface Castaway {
   madeMerge?: boolean;
   rewardWins?: number;
   amulet?: boolean;
-  /** Idols received as a gift (Idol Halves twist); these are playable. */
-  idolsGifted?: number;
 }
 export type AdvantageKey =
   "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power" | "fifty_fifty";
@@ -115,8 +113,6 @@ export interface Config {
   bewareAdvantages?: boolean;
   shotInTheDark?: boolean;
   demergeTwist?: boolean;
-  idolGifting?: boolean;
-  earnTheMerge?: boolean;
   controlledId: string | null;
   seasonTitle?: string;
   themeTwist?: SeasonTwist;
@@ -1158,7 +1154,6 @@ export function step(prev: GameState, d: Decision = {}): GameState {
   switch (s.phase) {
     case "camp": {
       doCamp(s, d);
-      giftFoundIdols(s);
       if (alive(s).length <= s.config.finalSize + 1) {
         s.phase = "final_challenge";
         break;
@@ -1180,7 +1175,6 @@ export function step(prev: GameState, d: Decision = {}): GameState {
     }
     case "challenge":
       doChallenge(s);
-      giftFoundIdols(s);
       s.phase = "tribal";
       break;
     case "tribal": {
@@ -2173,7 +2167,6 @@ function doChallenge(s: GameState) {
       );
   } else {
     const ms = alive(s);
-    if (earnTheMergeRound(s, ms, ch)) return;
     // Demerge twist: at Final 10 (or F8 if merged earlier), split into two groups
     const targetSize = s.config.mergeAt < 10 ? 8 : 10;
     if (
@@ -2411,7 +2404,7 @@ function doTribal(s: GameState, d: Decision) {
   const ctrl = s.config.controlledId;
   const immLog: string[] = [];
   // giving up individual immunity
-  const holderId = s.merged ? s.immune[0] : undefined;
+  const holderId = s.merged ? s.immune.find((id) => att.some((c) => c.id === id)) : undefined;
   if (holderId && att.some((c) => c.id === holderId)) {
     const holder = byId(s, holderId);
     let to: string | undefined;
@@ -2423,7 +2416,7 @@ function doTribal(s: GameState, d: Decision) {
         .filter((c) => c.id !== holder.id && getRel(s, holder.id, c.id) > 25)
         .sort((a, b) => getRel(s, holder.id, b.id) - getRel(s, holder.id, a.id))[0]?.id;
     if (to) {
-      s.immune = [to];
+      s.immune = s.immune.map((id) => (id === holder.id ? to : id));
       addRel(s, holder.id, to, 15);
       immLog.push(`${holder.name} shocks everyone by giving up individual immunity to ${nm(s, to)}!`);
     }
@@ -2946,8 +2939,8 @@ function doTribal(s: GameState, d: Decision) {
     out: loser.id,
   });
   if (loser.juror && !loser.edge) ponderosa(s, loser);
-  // Keep immunity while another Tribal is queued tonight (e.g. demerge Group B still has to vote).
-  if (!s.tribalQueue?.length) s.immune = [];
+  if (loser.juror && !loser.edge) ponderosa(s, loser);
+  s.immune = s.tribalQueue?.length ? s.immune.filter((id) => !att.some((c) => c.id === id)) : [];
 }
 
 function eliminate(s: GameState, c: Castaway, _how: string) {
@@ -3020,6 +3013,12 @@ function afterTribal(s: GameState) {
       title: "Reunited",
       text: "With both votes completed, the remaining castaways reunite as a single tribe.",
     });
+  }
+  if (s.doubleElim) {
+    s.tribalTribes = s.tribalQueue.shift();
+    s.tribalTribe = s.tribalTribes[0];
+    s.phase = "tribal";
+    return;
   }
   if (s.doubleElim) {
     s.doubleElim = false;
@@ -3112,66 +3111,6 @@ function doSwap(s: GameState) {
     text: "The castaways are shocked as Jeff announces a tribe swap. Loyalties will be tested.",
     details,
   });
-}
-
-/**
- * Idol Halves twist: a found idol is only half an idol. The finder must hand the
- * other half to a tribemate, who completes it and becomes its holder.
- */
-export function giftFoundIdols(s: GameState) {
-  if (!s.config.idolGifting) return;
-  for (const c of alive(s)) {
-    const gifted = Math.min(c.idolsGifted ?? 0, c.idols ?? 0);
-    c.idolsGifted = gifted;
-    let unGifted = (c.idols ?? 0) - gifted;
-    while (unGifted > 0) {
-      const mates = alive(s).filter((x) => x.id !== c.id && x.tribeId === c.tribeId);
-      if (!mates.length) return;
-      const to = [...mates].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
-      const orig = (c.idolOrigins && c.idolOrigins.pop()) || c.tribeId;
-      c.idols--;
-      unGifted--;
-      to.idols = (to.idols ?? 0) + 1;
-      to.idolsGifted = (to.idolsGifted ?? 0) + 1;
-      to.idolOrigins = [...(to.idolOrigins || []), orig];
-      addRel(s, c.id, to.id, 10);
-      log(s, {
-        kind: "idol",
-        title: "Idol Halves",
-        text: `${c.name} found half of a hidden immunity idol — but it only works when joined. ${c.name} secretly hands the other half to ${to.name}, who now holds the completed idol.`,
-      });
-    }
-  }
-}
-
-/** Earn the Merge: the first merged immunity is a team challenge; the losing team is vulnerable. */
-function earnTheMergeRound(s: GameState, ms: Castaway[], ch: { name: string; type: StatKey }): boolean {
-  if (!s.config.earnTheMerge || (s.twistsUsed ?? []).includes("earn-merge") || ms.length < 6) return false;
-  s.twistsUsed ??= [];
-  s.twistsUsed.push("earn-merge");
-  const shuffled = shuffle(ms);
-  const half = Math.ceil(ms.length / 2);
-  const teams = [shuffled.slice(0, half), shuffled.slice(half)];
-  const score = (team: Castaway[]) => team.reduce((a, c) => a + indScore(c, ch.type), 0) / team.length;
-  const [win, lose] = score(teams[0]) >= score(teams[1]) ? teams : [teams[1], teams[0]];
-  win.forEach((c) => {
-    c.immunityWins++;
-    c.mood = clamp(c.mood + 10, 0, 100);
-  });
-  s.immune = win.map((c) => c.id);
-  s.tribalTribe = "merged";
-  s.tribalTribes = ["merged"];
-  s.tribalQueue = [];
-  log(s, {
-    kind: "twist",
-    title: "Earn the Merge!",
-    text: `There's no merge feast yet. Jeff splits the ${ms.length} castaways into two random teams for ${ch.name} (${STAT_LABEL[ch.type]}). The winners earn the merge feast and immunity; the losers are vulnerable — but everyone votes tonight.`,
-    details: [
-      `Winners (immune): ${win.map((c) => c.name).join(", ")}`,
-      `Vulnerable: ${lose.map((c) => c.name).join(", ")}`,
-    ],
-  });
-  return true;
 }
 
 function doMerge(s: GameState) {
