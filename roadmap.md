@@ -1,4 +1,5 @@
 # Survivor updates
+- [ ] Fix two-tribe double Tribals with one individual immunity winner per tribe; restrict new amulet awards to three-starting-tribe seasons; verify both rules.
 - [ ] Match FTC answers to each juror’s question and verify with regression tests and a full-season finale.
 - [x] KIP item selection, revote-only parchment readings, and opt-in instinct for idols/advantages; verify controls and rules.
 - [x] Never randomly quit or medevac the controlled player; offer voluntary quitting; specific-item KIP questions; increase AI alliance invitations.
