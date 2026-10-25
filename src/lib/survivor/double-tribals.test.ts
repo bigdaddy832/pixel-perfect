@@ -9,7 +9,7 @@ function challenge(tribeCount: number) {
     fireAtF4: true, swapEnabled: false, swapAt: 15, mergeAt: 10,
     mergedName: "Test Merge", mergedColor: "#123abc", controlledId: null,
     jointTribals: false, doubleTribals: true,
-  }, Array.from({ length: tribeCount }, (_, i) => ({ id: `t${i}`, name: `Tribe ${i}`, color: "#123abc" })), makeRoster(18, tribeCount));
+  }, Array.from({ length: tribeCount }, (_, i) => ({ id: `t${i}`, name: `Tribe ${i}`, color: "#123abc" })), makeRoster(18, tribeCount).map((c, i) => ({ ...c, name: c.name ?? `Player ${i}` })));
   s.phase = "challenge";
   return s;
 }

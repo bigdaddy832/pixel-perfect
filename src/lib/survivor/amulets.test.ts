@@ -28,7 +28,10 @@ describe("Beware and Advantage Amulets", () => {
   it.each([2, 4])("does not award amulets in a %s-starting-tribe season", (n) => {
     const s = season(n); s.phase = "challenge";
     // Even a later three-tribe stage must not enable this twist.
-    if (n === 2) s.castaways.forEach((c, i) => { c.tribeId = `t${i % 3}`; });
+    if (n === 2) {
+      s.tribes.push({ id: "t2", name: "Swap Tribe", color: "#123abc" });
+      s.castaways.forEach((c, i) => { c.tribeId = `t${i % 3}`; });
+    }
     const result = step(s);
     expect(amuletHolders(result)).toHaveLength(0);
     expect(result.amuletsGiven).not.toBe(true);
