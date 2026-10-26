@@ -29,14 +29,19 @@ describe("earn the merge", () => {
 });
 
 describe("idol halves", () => {
-  it("never leaves an idol with the person who found it", () => {
-    for (let k = 0; k < 15; k++) {
+  it("splits at most 2 idols per season and both holders keep a matching half", () => {
+    let sawHalf = false;
+    for (let k = 0; k < 25; k++) {
       let g: GameState = season({ idolGifting: true });
       for (let i = 0; i < 400 && g.phase !== "done"; i++) {
         g = step(g);
-        if (g.phase === "tribal")
-          for (const c of g.castaways.filter((x) => !x.out)) expect(c.idols ?? 0).toBeLessThanOrEqual(c.idolsGifted ?? 0);
+        expect(g.halfIdolsMade ?? 0).toBeLessThanOrEqual(2);
+        for (const c of g.castaways.filter((x) => !x.out && x.halfIdolWith)) {
+          sawHalf = true;
+          expect(g.castaways.find((x) => x.id === c.halfIdolWith)?.halfIdolWith).toBe(c.id);
+        }
       }
     }
+    expect(sawHalf).toBe(true);
   });
 });

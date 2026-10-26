@@ -49,6 +49,8 @@ export interface Castaway {
   amulet?: boolean;
   /** Idols received as a gift (Idol Halves twist); these are playable. */
   idolsGifted?: number;
+  /** Idol Halves twist: id of the castaway holding the matching half. */
+  halfIdolWith?: string;
 }
 export type AdvantageKey =
   "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power" | "fifty_fifty";
@@ -161,6 +163,8 @@ export interface GameState {
   finalImmune?: string;
   usedChallenges: string[];
   rewardAdvantageGiven: boolean;
+  /** Idol Halves twist: how many idols have been split this season (max 2). */
+  halfIdolsMade?: number;
   tribalTribes?: string[];
   tribalQueue?: string[][];
   doubleElim?: boolean;
@@ -1125,7 +1129,9 @@ export function pendingDecision(s: GameState): Pending {
     return {
       kind: "tribal",
       options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)).sort(byName),
-      hasIdol: me.idols > 0 && !(me.bewareTribals > 0),
+      hasIdol:
+        (me.idols > 0 && !(me.bewareTribals > 0)) ||
+        (!!me.halfIdolWith && att.some((c) => c.id === me.halfIdolWith)),
       noVote: !!me.lostVote,
       advantages: alive(s).length <= 5 ? [] : [...(me.advantages ?? [])],
       idolTargets: att.filter((c) => !s.immune.includes(c.id)).sort(byName),
@@ -2737,6 +2743,35 @@ function doTribal(s: GameState, d: Decision) {
       att.forEach((c) => c.id !== h.id && addRel(s, c.id, h.id, -2));
     }
   }
+  // Half idols: only work when both halves are at the same Tribal and are joined together.
+  for (const a of att.filter((c) => c.halfIdolWith)) {
+    const b = att.find((c) => c.id === a.halfIdolWith && !c.out);
+    if (!b || a.id > b.id) continue;
+    const ctrlIn = a.id === ctrl || b.id === ctrl;
+    let target: string | null = null;
+    if (ctrlIn && d.idol && d.idol !== "__instinct__") {
+      target =
+        d.idol === "__random__"
+          ? (pick(att.filter((c) => !s.immune.includes(c.id)))?.id ?? null)
+          : att.some((c) => c.id === d.idol && !s.immune.includes(c.id))
+            ? d.idol
+            : null;
+    } else if (!ctrlIn || d.idol === "__instinct__") {
+      const threatened = (t0[a.id] ?? 0) >= (t0[b.id] ?? 0) ? a : b;
+      const mine = t0[threatened.id] ?? 0;
+      if (mine > 0 && mine >= max - 1 && r() < 0.7) target = threatened.id;
+    }
+    if (!target) continue;
+    a.halfIdolWith = undefined;
+    b.halfIdolWith = undefined;
+    a.idolsPlayed = (a.idolsPlayed ?? 0) + 1;
+    addRel(s, a.id, b.id, 15);
+    idolLog.push(
+      `${a.name} and ${b.name} stand up together and join their two idol halves into one Hidden Immunity Idol — played for ${nm(s, target)}!`,
+    );
+    if (nullifyFor.includes(target)) idolLog.push(`But the idol was nullified! Votes against ${nm(s, target)} still count.`);
+    else protectedIds.push(target);
+  }
   for (const h of att.filter((c) => c.idols > 0 && !(c.bewareTribals > 0))) {
     let target: string | null = null;
     if (h.id === ctrl && d.idol !== "__instinct__")
@@ -3125,32 +3160,40 @@ function doSwap(s: GameState) {
 }
 
 /**
- * Idol Halves twist: a found idol is only half an idol. The finder must hand the
- * other half to a tribemate, who completes it and becomes its holder.
+ * Idol Halves twist: up to two found idols per season are split in half. The finder keeps
+ * one half and secretly gives the other to a tribemate; both must be at the same Tribal to play it.
+ * Idols found after the limit stay regular full idols.
  */
+export const MAX_HALF_IDOLS = 2;
 export function giftFoundIdols(s: GameState) {
   if (!s.config.idolGifting) return;
+  // A half is useless once its partner leaves the game.
+  for (const c of alive(s))
+    if (c.halfIdolWith && byId(s, c.halfIdolWith)?.out) c.halfIdolWith = undefined;
   for (const c of alive(s)) {
-    const gifted = Math.min(c.idolsGifted ?? 0, c.idols ?? 0);
-    c.idolsGifted = gifted;
-    let unGifted = (c.idols ?? 0) - gifted;
-    while (unGifted > 0) {
-      const mates = alive(s).filter((x) => x.id !== c.id && x.tribeId === c.tribeId);
-      if (!mates.length) return;
-      const to = [...mates].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
-      const orig = (c.idolOrigins && c.idolOrigins.pop()) || c.tribeId;
-      c.idols--;
-      unGifted--;
-      to.idols = (to.idols ?? 0) + 1;
-      to.idolsGifted = (to.idolsGifted ?? 0) + 1;
-      to.idolOrigins = [...(to.idolOrigins || []), orig];
-      addRel(s, c.id, to.id, 10);
-      log(s, {
-        kind: "idol",
-        title: "Idol Halves",
-        text: `${c.name} found half of a hidden immunity idol — but it only works when joined. ${c.name} secretly hands the other half to ${to.name}, who now holds the completed idol.`,
-      });
+    const known = c.idolsGifted ?? 0;
+    if ((c.idols ?? 0) <= known) {
+      c.idolsGifted = Math.min(known, c.idols ?? 0);
+      continue;
     }
+    // Mark this idol as reviewed so it is only considered once.
+    c.idolsGifted = c.idols;
+    if ((s.halfIdolsMade ?? 0) >= MAX_HALF_IDOLS || c.halfIdolWith) continue;
+    const mates = alive(s).filter((x) => x.id !== c.id && x.tribeId === c.tribeId && !x.halfIdolWith);
+    if (!mates.length) continue;
+    const to = [...mates].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
+    c.idolOrigins?.pop();
+    c.idols--;
+    c.idolsGifted = c.idols;
+    c.halfIdolWith = to.id;
+    to.halfIdolWith = c.id;
+    s.halfIdolsMade = (s.halfIdolsMade ?? 0) + 1;
+    addRel(s, c.id, to.id, 10);
+    log(s, {
+      kind: "idol",
+      title: "Idol Halves",
+      text: `${c.name} found half of a hidden immunity idol. ${c.name} keeps one half and secretly gives the other half to ${to.name} — it only works if they play it together at the same Tribal Council.`,
+    });
   }
 }
 
