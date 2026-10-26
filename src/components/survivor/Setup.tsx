@@ -362,7 +362,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
                 ["Beware advantages", beware, setBeware, "Shared amulets and Beware idols that come with a cost."],
                 ["Shot in the Dark", sitd, setSitd, "Everyone gets one chance at safety in exchange for their vote."],
                 ["Demerge", demerge, setDemerge, "At Final 10, two groups each hold their own Tribal Council."],
-                ["Idol halves", idolGifting, setIdolGifting, "A found idol is half an idol; the finder must gift it to a tribemate."],
+                ["Idol halves", idolGifting, setIdolGifting, "Up to 2 idols per season are split in half; finder and a tribemate must play them together at Tribal."],
                 ["Earn the merge", earnMerge, setEarnMerge, "First merged immunity is a team challenge; the losing team is vulnerable."],
               ] as [string, boolean, (v: boolean) => void, string][]
             ).map(([label, on, set, tip]) => (
