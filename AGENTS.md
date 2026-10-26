@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 - Keep season mechanics in the pure Survivor state machine and controls in the Survivor components so season behavior stays independently testable.
+- Derive a shared two-target voting slate for ordinary Tribal ballots and previews; resolve deliberate splits and player decisions afterward so coordination does not override agency.
 - Track shared amulet ownership, consumption, and announced stages in season state, separately from randomly discoverable advantages, so shared powers and saved-season notes stay consistent.
 - Prepare finalist statements before the jury-vote step and derive résumé claims from season evidence so controlled jurors can review the finalists before voting.
 - Pair FTC questions and answers by stable question IDs in the pure jury-dialogue module; use recorded evidence and acknowledge missing facts so personality-based selection cannot mismatch the reply.

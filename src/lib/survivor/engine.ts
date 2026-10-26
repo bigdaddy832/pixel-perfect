@@ -1300,7 +1300,11 @@ function doCamp(s: GameState, d: Decision) {
       const mine = s.alliances.filter((al) => al.members.includes(a.id));
       if (a.id === s.config.controlledId || mine.length >= 2 || members.length < 3) continue;
       if (r() < a.stats.strategy * 0.05) {
-        const size = 1 + Math.floor(r() * Math.min(3, members.length - 2));
+        // Keep small partnerships, but sometimes recruit a broader five-to-seven-person bloc.
+        const maxPartners = Math.min(6, members.length - 2);
+        const size = maxPartners >= 4 && r() < 0.35
+          ? 4 + Math.floor(r() * (maxPartners - 3))
+          : 1 + Math.floor(r() * Math.min(3, maxPartners));
         const partners = members
           .filter((x) => x.id !== a.id)
           .sort((x, y) => allianceRecruitmentScore(s, a.id, y.id) - allianceRecruitmentScore(s, a.id, x.id))
@@ -2290,14 +2294,44 @@ function doChallenge(s: GameState) {
 }
 
 // ---------- tribal ----------
-function aiVote(s: GameState, voter: Castaway, cands: Castaway[], attendees: Castaway[]): string {
+function votingScore(s: GameState, voter: Castaway, target: Castaway): number {
+  return -getRel(s, voter.id, target.id) * 0.1 +
+    (s.merged ? threat(target) * voter.stats.strategy * 0.08 : weakness(target) * 0.8) -
+    (sharedAlliance(s, voter.id, target.id) ? 3 : 0);
+}
+
+// Agree on tonight's two names once, rather than letting each bloc invent another target.
+function votingSlate(s: GameState, att: Castaway[], eligible: Castaway[]): string[] {
+  const support: Record<string, number> = {};
+  for (const voter of att) {
+    const bloc = s.alliances
+      .filter((a) => a.members.includes(voter.id))
+      .map((a) => a.members.filter((id) => att.some((c) => c.id === id)))
+      .filter((ids) => ids.length >= 2)
+      .sort((a, b) => b.length - a.length)[0];
+    const outside = bloc ? eligible.filter((c) => !bloc.includes(c.id)) : [];
+    const options = outside.length ? outside : eligible.filter((c) => c.id !== voter.id);
+    const best = [...options].sort((a, b) => {
+      const score = (c: Castaway) => bloc && outside.length
+        ? bloc.reduce((sum, id) => sum + votingScore(s, byId(s, id), c), 0)
+        : votingScore(s, voter, c);
+      return score(b) - score(a);
+    })[0];
+    if (best) support[best.id] = (support[best.id] ?? 0) + 1;
+  }
+  const heat = (c: Castaway) => att.filter((v) => v.id !== c.id)
+    .reduce((sum, v) => sum + votingScore(s, v, c), 0);
+  return [...eligible].sort((a, b) =>
+    (support[b.id] ?? 0) - (support[a.id] ?? 0) || heat(b) - heat(a),
+  ).slice(0, 2).map((c) => c.id);
+}
+
+function aiVote(s: GameState, voter: Castaway, cands: Castaway[], attendees: Castaway[], slate?: string[]): string {
   if (!cands.length) return voter.id;
   if (cands.length === 1) return cands[0].id;
-
-  const baseScore = (v: Castaway, c: Castaway) =>
-    -getRel(s, v.id, c.id) * 0.1 +
-    (s.merged ? threat(c) * v.stats.strategy * 0.08 : weakness(c) * 0.8) -
-    (sharedAlliance(s, v.id, c.id) ? 3.0 : 0);
+  const focused = slate ? cands.filter((c) => slate.includes(c.id)) : cands;
+  // A sole remaining slate target is still valid (including when the voter is Plan A).
+  const options = focused.length ? focused : cands;
 
   // 1. Alliance voting bloc: allies stick together on the same target
   const mine = s.alliances
@@ -2307,38 +2341,21 @@ function aiVote(s: GameState, voter: Castaway, cands: Castaway[], attendees: Cas
     .sort((x, y) => y.present.length - x.present.length)[0];
 
   if (mine && r() < 0.75 + voter.stats.loyalty * 0.06) {
-    const tc = cands.filter((c) => !mine.a.members.includes(c.id));
+    const tc = options.filter((c) => !mine.a.members.includes(c.id));
     if (tc.length) {
       return tc
         .map((c) => ({
           c,
-          sc: mine.present.reduce((acc, m) => acc + baseScore(byId(s, m), c), 0) + (r() - 0.5) * 0.8,
+          sc: mine.present.reduce((acc, m) => acc + votingScore(s, byId(s, m), c), 0),
         }))
         .sort((a, b) => b.sc - a.sc)[0].c.id;
     }
   }
 
-  // 2. Determine Plan A and Plan B: the two highest-heat targets on the chopping block tonight
-  const allEligible = attendees.filter((c) => !s.immune.includes(c.id));
-  const heatMap = allEligible
-    .map((c) => ({
-      c,
-      heat: attendees.filter((a) => a.id !== c.id).reduce((sum, a) => sum + baseScore(a, c), 0),
-    }))
-    .sort((a, b) => b.heat - a.heat);
-
-  const topTwo = heatMap
-    .slice(0, 2)
-    .map((h) => h.c)
-    .filter((c) => cands.some((can) => can.id === c.id));
-
-  // 3. 85% of unaligned votes funnel between Plan A and Plan B; 15% can throw a stray rogue vote
-  const options = topTwo.length >= 2 && r() < 0.85 ? topTwo : cands;
-
   return options
     .map((c) => ({
       c,
-      sc: baseScore(voter, c) + (r() - 0.5) * 0.6,
+      sc: votingScore(s, voter, c) + (r() - 0.5) * 0.6,
     }))
     .sort((a, b) => b.sc - a.sc)[0].c.id;
 }
@@ -2358,7 +2375,8 @@ export interface GroupPlan {
 // Deterministic preview of who each attendee plans to vote for and why.
 export function tribalTargets(s: GameState): { individual: TargetPlan[]; groups: GroupPlan[] } {
   const att = attendees(s);
-  const cands = (v: Castaway) => att.filter((c) => c.id !== v.id && !s.immune.includes(c.id));
+  const slate = votingSlate(s, att, att.filter((c) => !s.immune.includes(c.id)));
+  const cands = (v: Castaway) => att.filter((c) => c.id !== v.id && slate.includes(c.id));
   const parts = (v: Castaway, c: Castaway) => ({
     rel: -getRel(s, v.id, c.id) * 0.08,
     game: s.merged ? threat(c) * v.stats.strategy * 0.06 : weakness(c) * 0.6,
@@ -2383,7 +2401,7 @@ export function tribalTargets(s: GameState): { individual: TargetPlan[]; groups:
   for (const a of s.alliances) {
     const present = a.members.filter((m) => att.some((x) => x.id === m));
     if (present.length < 2) continue;
-    const tc = att.filter((c) => !a.members.includes(c.id) && !s.immune.includes(c.id));
+    const tc = att.filter((c) => !a.members.includes(c.id) && slate.includes(c.id));
     if (!tc.length) continue;
     const best = tc
       .map((c) => ({ c, v: present.reduce((acc, m) => acc + sc(byId(s, m), c), 0) }))
@@ -2676,12 +2694,15 @@ function doTribal(s: GameState, d: Decision) {
       );
     }
   }
+  // Occasional messy nights remain possible; do not roll a rogue chance separately for every voter.
+  const slate = votingSlate(s, att, att.filter((c) => !s.immune.includes(c.id) && !safe.includes(c.id)));
+  const scatteredNight = r() < 0.1;
   const castFor = (v: Castaway) =>
     v.id === ctrl && d.vote && cands(v).some((c) => c.id === d.vote)
       ? d.vote
       : overrides[v.id] && canVoteFor(v, overrides[v.id])
         ? overrides[v.id]
-        : aiVote(s, v, cands(v), att);
+        : aiVote(s, v, cands(v), att, scatteredNight ? undefined : slate);
   let votes: Vote[] = voters.filter((v) => !blocked.includes(v.id)).map((v) => ({ voter: v.id, target: castFor(v) }));
   for (const p of plays)
     if ((p.adv === "extra_vote" || p.adv === "steal_vote") && !safe.includes(p.who.id)) {
@@ -2858,12 +2879,15 @@ function doTribal(s: GameState, d: Decision) {
         ]);
     };
     ask(voters.flatMap((v) => (v.id === ctrl ? cands(v, protectedIds).map((c) => c.id) : [])));
+    const revoteSlate = votingSlate(s, att, att.filter((c) =>
+      !s.immune.includes(c.id) && !safe.includes(c.id) && !protectedIds.includes(c.id),
+    ));
     revote = voters.map((v) => {
       const cs = cands(v, protectedIds);
       return {
         voter: v.id,
         target:
-          v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote) ? d.revoteVote : aiVote(s, v, cs, att),
+          v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote) ? d.revoteVote : aiVote(s, v, cs, att, revoteSlate),
       };
     });
     t = tally(revote);
@@ -2895,6 +2919,7 @@ function doTribal(s: GameState, d: Decision) {
                   v,
                   att.filter((c) => tied.includes(c.id)),
                   att,
+                  tied,
                 ),
       }));
     const rt = tally(revote);
