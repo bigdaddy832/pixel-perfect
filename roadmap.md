@@ -1,5 +1,5 @@
 # Survivor updates
-- [ ] Reduce scattered Tribal votes throughout the season while preserving intentional splits; make larger alliances more common; verify regression tests and a live season.
+- [x] Reduce scattered Tribal votes throughout the season while preserving intentional splits; make larger alliances more common; regression tests pass (live browser season not checked).
 - [x] Fix two-tribe double Tribals with one individual immunity winner per tribe; restrict new amulet awards to three-starting-tribe seasons; verify both rules.
 - [ ] Match FTC answers to each juror’s question and verify with regression tests and a full-season finale.
 - [x] KIP item selection, revote-only parchment readings, and opt-in instinct for idols/advantages; verify controls and rules.
