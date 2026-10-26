@@ -15,12 +15,12 @@ function season(): GameState {
     mergedName: "Test", mergedColor: "#123456", controlledId: null,
     shotInTheDark: false, doubleTribals: false, jointTribals: false },
   [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }],
-  makeRoster(20, 2));
+  makeRoster(20, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i + 1}` })));
 }
 
 describe("coordinated Tribal votes and larger alliances", () => {
   it("keeps most premerge and merge tallies on at most two targets, while allowing occasional scattered votes and deliberate splits", () => {
-    const rounds = [0, 0], scattered = [0, 0];
+    const rounds: [number, number] = [0, 0], scattered: [number, number] = [0, 0];
     let splits = 0;
     for (let seed = 1; seed <= 60; seed++) {
       seedRandom(seed);
@@ -37,7 +37,7 @@ describe("coordinated Tribal votes and larger alliances", () => {
       }
       expect(g.phase).toBe("done");
     }
-    for (const stage of [0, 1]) {
+    for (const stage of [0, 1] as const) {
       expect(rounds[stage]).toBeGreaterThan(100);
       expect(scattered[stage] / rounds[stage]).toBeLessThan(0.3);
     }
