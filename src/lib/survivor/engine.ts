@@ -3015,9 +3015,84 @@ function doTribal(s: GameState, d: Decision) {
     revote,
     out: loser.id,
   });
+  blindsideAftermath(s, att, loser, allVotes);
   if (loser.juror && !loser.edge) ponderosa(s, loser);
   // Keep immunity while another Tribal is queued tonight (e.g. demerge Group B still has to vote).
   if (!s.tribalQueue?.length) s.immune = [];
+}
+
+// Back at camp after a vote: castaways left out of the plan (or close to the boot) confront the people who
+// orchestrated it. Each confrontation resolves as an apology, a doubled-down feud, or a late-night scramble.
+export function blindsideAftermath(s: GameState, att: Castaway[], loser: Castaway, allVotes: Vote[]) {
+  const counted = allVotes.filter((v) => !v.nullified);
+  const majority = counted.filter((v) => v.target === loser.id).map((v) => v.voter);
+  if (!majority.length) return;
+  const survivors = att.filter((c) => c.id !== loser.id && !c.out);
+  // Left out = didn't vote with the majority while an ally/close friend did.
+  const leftOut = survivors.filter(
+    (c) =>
+      !majority.includes(c.id) &&
+      majority.some((m) => m !== c.id && (sharedAlliance(s, c.id, m) || getRel(s, c.id, m) > 10)),
+  );
+  // Close to the boot and felt blindsided.
+  const grieving = survivors.filter(
+    (c) => !majority.includes(c.id) && (sharedAlliance(s, c.id, loser.id) || getRel(s, c.id, loser.id) > 8),
+  );
+  const aggrieved = [...new Set([...leftOut, ...grieving])].sort(
+    (a, b) => b.stats.temperament - a.stats.temperament || a.id.localeCompare(b.id),
+  );
+  if (!aggrieved.length) return;
+  const confrontations = Math.min(aggrieved.length, r() < 0.35 ? 2 : 1);
+  const used = new Set<string>();
+  for (const angry of aggrieved.slice(0, confrontations)) {
+    const targets = majority
+      .filter((id) => id !== angry.id && !used.has(id))
+      .map((id) => byId(s, id))
+      .filter((c) => c && !c.out)
+      .sort((a, b) => getRel(s, angry.id, b.id) - getRel(s, angry.id, a.id));
+    const target = targets[0];
+    if (!target) continue;
+    used.add(target.id);
+    const wasAlly = sharedAlliance(s, angry.id, target.id);
+    const roll = r() + target.stats.social * 0.06 - angry.stats.temperament * 0.03;
+    let title: string;
+    let text: string;
+    const details: string[] = [];
+    if (roll > 0.75) {
+      addRel(s, angry.id, target.id, 6);
+      mood(angry, 4);
+      title = `Morning After: ${target.name} Smooths It Over`;
+      text = `${angry.name} pulled ${target.name} aside at dawn, furious about being kept in the dark on ${loser.name}'s vote. ${target.name} apologized and swore ${angry.name} is still part of the plan going forward. ${angry.name} isn't fully convinced — but the bridge isn't burned.`;
+      details.push(`${angry.name} & ${target.name}: relationship +6`);
+    } else if (roll > 0.35) {
+      addRel(s, angry.id, target.id, -10);
+      mood(angry, -6);
+      mood(target, -3);
+      for (const m of survivors)
+        if (m.id !== angry.id && m.id !== target.id && sharedAlliance(s, m.id, angry.id)) addRel(s, m.id, target.id, -3);
+      title = `Morning After: ${angry.name} Confronts ${target.name}`;
+      text = `Before the rice was even cooked, ${angry.name} called ${target.name} out in front of the whole camp for blindsiding ${loser.name}${wasAlly ? " behind their alliance's back" : ""}. ${target.name} doubled down: "It was a game move, and I'd do it again." The camp is officially divided.`;
+      details.push(`${angry.name} & ${target.name}: relationship −10`, `${angry.name}'s allies grow wary of ${target.name}`);
+    } else {
+      mood(angry, -4);
+      const tribe = angry.tribeId;
+      const found = canDiscoverIdol(s) && (s.hiddenIdols[tribe] ?? 0) > 0 && r() < 0.15 + angry.stats.strategy * 0.03;
+      if (found) {
+        s.hiddenIdols[tribe] = 0;
+        angry.idols += 1;
+        angry.idolOrigins = [...(angry.idolOrigins ?? []), tribe];
+      }
+      addRel(s, angry.id, target.id, -4);
+      title = `Morning After: ${angry.name}'s 3 AM Scramble`;
+      text = `${angry.name} couldn't sleep after ${loser.name}'s vote and went into the jungle with a torch while everyone else was asleep. ${
+        found
+          ? `Digging under roots by the shelter, ${angry.name} found a Hidden Immunity Idol! "Now nobody blindsides me."`
+          : `Hours of searching turned up nothing — just more paranoia about ${target.name}.`
+      }`;
+      details.push(found ? `${angry.name} found a Hidden Immunity Idol` : `${angry.name} came back empty-handed`);
+    }
+    log(s, { kind: "drama", title, text, details });
+  }
 }
 
 function eliminate(s: GameState, c: Castaway, _how: string) {
