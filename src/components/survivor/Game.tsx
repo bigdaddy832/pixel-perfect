@@ -618,6 +618,23 @@ function DecisionPanel({
           </label>
         </div>
       )}
+      <label className="flex items-center gap-2 text-sm">
+        🤫 Whisper to swing revote onto:
+        <select
+          className={sel}
+          value={dec.revoteWhisper ?? dec.whisper ?? ""}
+          onChange={(e) =>
+            setDec({ ...dec, revoteWhisper: e.target.value || undefined, whisper: e.target.value || undefined })
+          }
+        >
+          <option value="">Stay quiet</option>
+          {pending.options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      </label>
       {pending.kind === "camp" && (
         <div className="mt-2 space-y-3">
           <label className="flex flex-wrap items-center gap-2 text-sm">
@@ -905,6 +922,27 @@ function DecisionPanel({
               ))}
             </select>
           </label>
+          {/* Check if user is playing an Extra Vote or Steal a Vote */}
+          {((dec.advantagePlays ?? []).some((p) => p.advantage === "extra_vote" || p.advantage === "steal_vote") ||
+            dec.advantage === "extra_vote" ||
+            dec.advantage === "steal_vote" ||
+            (dec.playAmulet && amuletHolders(game).length >= 2)) && (
+            <label className="flex items-center gap-2">
+              🎟️ Second vote (Extra / Stolen Vote):
+              <select
+                className={sel}
+                value={dec.extraVote ?? ""}
+                onChange={(e) => setDec({ ...dec, extraVote: e.target.value || undefined })}
+              >
+                <option value="">— Same as first vote —</option>
+                {az(pending.options).map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {!pending.noVote && (
             <label className="flex items-center gap-2">
               🤫 Whisper at Tribal to push votes onto:

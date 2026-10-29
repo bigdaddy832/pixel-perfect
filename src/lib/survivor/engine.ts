@@ -317,7 +317,9 @@ export interface Decision {
   giveItem?: string;
   giveTo?: string;
   shotInDark?: boolean;
+  extraVote?: string;
   revoteVote?: string;
+  revoteWhisper?: string;
   pauseOnRevote?: boolean;
   revoteDecided?: boolean;
   talks?: { with: string; topic?: TalkTopic; rumorTarget?: string }[];
@@ -1540,7 +1542,9 @@ export function step(prev: GameState, d: Decision = {}): GameState {
       const pr = s.pendingRevote;
       delete s.pendingRevote;
       const seed = pr?.seed ?? Math.floor(Math.random() * 2 ** 31);
-      const dd: Decision = pr ? { ...pr.decision, revoteVote: d.revoteVote, revoteDecided: true } : d;
+      const dd: Decision = pr
+        ? { ...pr.decision, revoteVote: d.revoteVote, revoteWhisper: d.revoteWhisper || d.whisper, revoteDecided: true }
+        : d;
       rand = seeded(seed);
       try {
         doTribal(s, dd);
@@ -3126,7 +3130,11 @@ function doTribal(s: GameState, d: Decision) {
   for (const p of plays)
     if ((p.adv === "extra_vote" || p.adv === "steal_vote") && !safe.includes(p.who.id)) {
       const own = votes.find((v) => v.voter === p.who.id);
-      votes.push({ voter: p.who.id, target: own?.target ?? castFor(p.who) });
+      const secondTarget =
+        p.who.id === ctrl && d.extraVote && cands(p.who).some((c) => c.id === d.extraVote)
+          ? d.extraVote
+          : (own?.target ?? castFor(p.who));
+      votes.push({ voter: p.who.id, target: secondTarget });
     }
   // Split vote: a majority alliance that fears an idol divides its votes between two names.
   if (att.length >= 5) {
@@ -3329,6 +3337,46 @@ function doTribal(s: GameState, d: Decision) {
         ...details,
       ]);
     }
+    // Whispering during revote to flip revoters onto one of the tied targets
+    const revoteOverrides: Record<string, string> = {};
+    const revoteWhisperTarget = d.revoteWhisper || d.whisper;
+    if (ctrl && revoteWhisperTarget && tied.includes(revoteWhisperTarget) && voters.some((v) => v.id === ctrl)) {
+      const me = byId(s, ctrl);
+      const tg = byId(s, revoteWhisperTarget);
+      const flipped = voters.filter(
+        (v) =>
+          v.id !== ctrl &&
+          !tied.includes(v.id) &&
+          r() < 0.15 + Math.max(0, getRel(s, v.id, ctrl)) * 0.015 + me.stats.social * 0.04,
+      );
+      flipped.forEach((v) => {
+        revoteOverrides[v.id] = tg.id;
+        addRel(s, v.id, ctrl, 2);
+      });
+      addRel(s, tg.id, ctrl, -6);
+      details.push(
+        `Live Tribal on the revote! You whisper to swing votes onto ${tg.name}. ${flipped.length ? `${flipped.map((f) => f.name).join(", ")} nod along.` : "Nobody budges."}`,
+      );
+    }
+
+    revote = voters
+      .filter((v) => !tied.includes(v.id))
+      .map((v) => ({
+        voter: v.id,
+        target:
+          v.id === ctrl && d.revoteVote && tied.includes(d.revoteVote)
+            ? d.revoteVote
+            : (revoteOverrides[v.id] ??
+              (v.id === ctrl && !d.revoteDecided && d.vote && tied.includes(d.vote)
+                ? d.vote
+                : aiVote(
+                    s,
+                    v,
+                    att.filter((c) => tied.includes(c.id)),
+                    att,
+                    tied,
+                  ))),
+      }));
     revote = voters
       .filter((v) => !tied.includes(v.id))
       .map((v) => ({
@@ -3354,20 +3402,24 @@ function doTribal(s: GameState, d: Decision) {
       const pool = att.filter(
         (c) => !tied.includes(c.id) && !s.immune.includes(c.id) && !safe.includes(c.id) && !protectedIds.includes(c.id),
       );
-      if (!pool.length || r() < 0.3) {
-        out = [...tied].sort(
-          (a, b) =>
-            voters.reduce((acc, v) => acc + getRel(s, v.id, a), 0) -
-            voters.reduce((acc, v) => acc + getRel(s, v.id, b), 0),
-        )[0];
-        details.push(
-          `Deadlock! Rather than draw rocks, the tribe reaches a unanimous decision to send ${nm(s, out)} home.`,
-        );
-      } else {
+      if (pool.length > 0) {
+        // Authentic Survivor rules: Tied players are immune; all other vulnerable players draw rocks!
         out = pick(pool).id;
         rocks = true;
         details.push(
-          `Deadlock! Nobody budges, so ${pool.map((c) => c.name).join(", ")} must draw rocks... ${nm(s, out)} draws the purple rock.`,
+          `Deadlock! The revote tied again. With no consensus, ${tied.map((x) => nm(s, x)).join(" and ")} become immune, and ${pool.map((c) => c.name).join(", ")} must draw rocks... ${nm(s, out)} draws the purple rock!`,
+        );
+      } else {
+        // No rock draw pool (e.g. Final 4 or everyone else has immunity): Fire-making challenge between tied players!
+        const c1 = byId(s, tied[0]);
+        const c2 = byId(s, tied[1]);
+        const sc1 = c1.stats.endurance * 0.4 + c1.stats.temperament * 0.4 + r() * 5;
+        const sc2 = c2.stats.endurance * 0.4 + c2.stats.temperament * 0.4 + r() * 5;
+        const loserC = sc1 < sc2 ? c1 : c2;
+        const winnerC = sc1 < sc2 ? c2 : c1;
+        out = loserC.id;
+        details.push(
+          `Deadlock with nobody eligible to draw rocks! ${c1.name} and ${c2.name} face off in an impromptu fire-making challenge... ${winnerC.name} builds fire first, sending ${loserC.name} home!`,
         );
       }
     }
