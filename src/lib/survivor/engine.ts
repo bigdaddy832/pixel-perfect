@@ -177,6 +177,7 @@ export interface GameState {
   amuletsGiven?: boolean;
   amuletStages?: number[];
   amuletsConsumed?: boolean;
+  throwChallenge?: boolean;
   winner?: string;
   finalists?: string[];
   juryLeans?: {
@@ -226,7 +227,7 @@ const CHALLENGE_IDOL_PLACES = [
   "inside a rope basket",
   "beneath the final station's bench",
 ];
-export type TalkTopic = "personal" | "strategy" | "chore" | "compliment" | "vent" | "joke";
+export type TalkTopic = "personal" | "strategy" | "chore" | "compliment" | "vent" | "joke" | "rumor";
 export const TALK_TOPICS: Record<
   TalkTopic,
   { label: string; base: number; win: number; lose: number; ok: string; bad: string }
@@ -271,6 +272,14 @@ export const TALK_TOPICS: Record<
     ok: "agreed completely — you've got a shared enemy now",
     bad: "didn't share your gripe and may repeat what you said",
   },
+  rumor: {
+    label: "Spread a rumor about a rival",
+    base: 0.5,
+    win: 10,
+    lose: -10,
+    ok: "bought the story hook, line, and sinker — their trust in that rival is shattered",
+    bad: "saw right through your scheme and thinks you're playing dirty",
+  },
   joke: {
     label: "Joke around",
     base: 0.65,
@@ -288,6 +297,7 @@ export interface AdvantagePlay {
 
 export interface Decision {
   quit?: boolean;
+  throwChallenge?: boolean;
   vote?: string;
   juryVote?: string;
   idol?: string;
@@ -322,14 +332,54 @@ export const TRIBE_NAMES = [
   "Veylora",
   "Kelmori",
   "Zunakai",
-  "Amavero", "Belukari", "Cevanori", "Dreluma", "Elovaki", "Fenarumi",
-  "Gavoleni", "Helunavo", "Iloraki", "Jevamori", "Kavorune", "Lemazuri",
-  "Mavoreli", "Nerukavi", "Oveluna", "Pazumeli", "Qelavuni", "Rivakelo",
-  "Sevorami", "Teluvari", "Uvaneli", "Valumeko", "Wenakori", "Xelurami",
-  "Yavoleni", "Zerumavi", "Areluko", "Brenaveli", "Corumeka", "Davenuli",
-  "Erumavi", "Felorune", "Gelarovi", "Havorumi", "Ivenalo", "Joraveli",
-  "Kezunari", "Luravemo", "Mevolani", "Nuzavero", "Orazumeli", "Pelunavi",
-  "Ruzamori", "Selavuno", "Tavoreni", "Ulemari", "Vezunalo", "Zoravemi",
+  "Amavero",
+  "Belukari",
+  "Cevanori",
+  "Dreluma",
+  "Elovaki",
+  "Fenarumi",
+  "Gavoleni",
+  "Helunavo",
+  "Iloraki",
+  "Jevamori",
+  "Kavorune",
+  "Lemazuri",
+  "Mavoreli",
+  "Nerukavi",
+  "Oveluna",
+  "Pazumeli",
+  "Qelavuni",
+  "Rivakelo",
+  "Sevorami",
+  "Teluvari",
+  "Uvaneli",
+  "Valumeko",
+  "Wenakori",
+  "Xelurami",
+  "Yavoleni",
+  "Zerumavi",
+  "Areluko",
+  "Brenaveli",
+  "Corumeka",
+  "Davenuli",
+  "Erumavi",
+  "Felorune",
+  "Gelarovi",
+  "Havorumi",
+  "Ivenalo",
+  "Joraveli",
+  "Kezunari",
+  "Luravemo",
+  "Mevolani",
+  "Nuzavero",
+  "Orazumeli",
+  "Pelunavi",
+  "Ruzamori",
+  "Selavuno",
+  "Tavoreni",
+  "Ulemari",
+  "Vezunalo",
+  "Zoravemi",
 ];
 export const MERGE_NAMES = [
   "Velunara",
@@ -340,12 +390,38 @@ export const MERGE_NAMES = [
   "Zunaveli",
   "Lumekari",
   "Veyranoa",
-  "Avenulora", "Belazorani", "Cevumaria", "Delavoruna", "Elarumeki", "Favenoria",
-  "Geloravani", "Havelunari", "Ivarumelo", "Jelavorani", "Kezumarali", "Lovanerika",
-  "Mezarunali", "Navelorumi", "Orelavuna", "Pevumarani", "Relazunori", "Sevarumali",
-  "Tevolanuri", "Uveramoli", "Valerunaki", "Welazorumi", "Yelavunora", "Zeramoluni",
-  "Ameluvora", "Bravelunari", "Drelavorumi", "Evelunaki", "Ilavemori", "Kavunelora",
-  "Lumazorevi", "Neravulomi",
+  "Avenulora",
+  "Belazorani",
+  "Cevumaria",
+  "Delavoruna",
+  "Elarumeki",
+  "Favenoria",
+  "Geloravani",
+  "Havelunari",
+  "Ivarumelo",
+  "Jelavorani",
+  "Kezumarali",
+  "Lovanerika",
+  "Mezarunali",
+  "Navelorumi",
+  "Orelavuna",
+  "Pevumarani",
+  "Relazunori",
+  "Sevarumali",
+  "Tevolanuri",
+  "Uveramoli",
+  "Valerunaki",
+  "Welazorumi",
+  "Yelavunora",
+  "Zeramoluni",
+  "Ameluvora",
+  "Bravelunari",
+  "Drelavorumi",
+  "Evelunaki",
+  "Ilavemori",
+  "Kavunelora",
+  "Lumazorevi",
+  "Neravulomi",
 ];
 export const TRIBE_COLORS = ["#e8662a", "#2f7fd6", "#e3c13b", "#3fae5a", "#c43d3d", "#8b5ad6", "#e45fa1", "#2bb5b0"];
 
@@ -398,9 +474,92 @@ export function randomTribeColor(avoid: string[] = []): string {
   return hslToHex(Math.floor(r() * 360), 72, 52);
 }
 
-const SYL_A = ["Ve", "Ka", "Zu", "Lo", "Ta", "Mi", "Ori", "Sa", "Nu", "Fe", "Ilo", "Ra", "Yu", "Ke", "Pa", "Ama", "Bela", "Ce", "Dre", "Ela", "Ga", "He", "Je", "Me", "Ove", "Pe", "Se", "Uve", "Va", "We", "Xe", "Ze"];
-const SYL_B = ["ly", "mo", "na", "ri", "ve", "ka", "lu", "zo", "te", "si", "wa", "re", "va", "nu", "la", "ru", "ze", "ma", "vo", "le", "ne", "zu", "vi", "ro"];
-const SYL_C = ["ra", "ri", "kai", "lo", "na", "mu", "sa", "tu", "vi", "ko", "ne", "ta", "li", "ni", "no", "mi", "ru", "vo", "la", "re", "nari", "veli", "mori", "luna"];
+const SYL_A = [
+  "Ve",
+  "Ka",
+  "Zu",
+  "Lo",
+  "Ta",
+  "Mi",
+  "Ori",
+  "Sa",
+  "Nu",
+  "Fe",
+  "Ilo",
+  "Ra",
+  "Yu",
+  "Ke",
+  "Pa",
+  "Ama",
+  "Bela",
+  "Ce",
+  "Dre",
+  "Ela",
+  "Ga",
+  "He",
+  "Je",
+  "Me",
+  "Ove",
+  "Pe",
+  "Se",
+  "Uve",
+  "Va",
+  "We",
+  "Xe",
+  "Ze",
+];
+const SYL_B = [
+  "ly",
+  "mo",
+  "na",
+  "ri",
+  "ve",
+  "ka",
+  "lu",
+  "zo",
+  "te",
+  "si",
+  "wa",
+  "re",
+  "va",
+  "nu",
+  "la",
+  "ru",
+  "ze",
+  "ma",
+  "vo",
+  "le",
+  "ne",
+  "zu",
+  "vi",
+  "ro",
+];
+const SYL_C = [
+  "ra",
+  "ri",
+  "kai",
+  "lo",
+  "na",
+  "mu",
+  "sa",
+  "tu",
+  "vi",
+  "ko",
+  "ne",
+  "ta",
+  "li",
+  "ni",
+  "no",
+  "mi",
+  "ru",
+  "vo",
+  "la",
+  "re",
+  "nari",
+  "veli",
+  "mori",
+  "luna",
+];
 const REAL_TRIBES = [
   "Pagong",
   "Tagi",
@@ -525,23 +684,142 @@ const NAMES = [
   "Skipper",
   "Sparks",
   "Pebbles",
-  "Alina", "Alistair", "Ansel", "Arden", "Arielle", "Asa", "Astrid", "Auden",
-  "Beatrice", "Bennett", "Blythe", "Brenna", "Bruno", "Cadence", "Cassian", "Cecily",
-  "Cedric", "Cleo", "Conrad", "Dahlia", "Daphne", "Dario", "Delia", "Desmond",
-  "Eden", "Elias", "Elodie", "Enzo", "Estelle", "Evander", "Farah", "Faye",
-  "Flora", "Frances", "Galen", "Gemma", "Greta", "Harlan", "Hattie", "Heath",
-  "Henrik", "Hollis", "Idris", "Ilana", "Indira", "Ingrid", "Ivo", "Jessa",
-  "Jonah", "Juniper", "Keaton", "Kendra", "Kit", "Lachlan", "Lara", "Laurel",
-  "Lennox", "Linnea", "Livia", "Lucian", "Mabel", "Magnus", "Malika", "Matteo",
-  "Merritt", "Mira", "Nadine", "Nell", "Nikhil", "Nolan", "Odette", "Orson",
-  "Paloma", "Pia", "Quentin", "Ramona", "Remy", "Rina", "Rosalie", "Rowena",
-  "Saira", "Selene", "Shiloh", "Soren", "Sullivan", "Talia", "Tamsin", "Tariq",
-  "Thalia", "Tristan", "Una", "Valentina", "Vaughn", "Veda", "Wesley", "Winnie",
-  "Xander", "Yara", "Zadie", "Zeke", "Amir", "Anaya", "Avni", "Belen",
-  "Dimitri", "Eleni", "Emilia", "Imani", "Kenji", "Laleh", "Mina", "Naveen",
-  "Nia", "Noor", "Priya", "Rami", "Reina", "Sana", "Soraya", "Yasmin",
-  "Zain", "Zip", "Cricket", "Doodle", "Gizmo", "Pip", "Tinker", "Scribbles",
-  "Flick", "Noodle", "Sprout", "Whiz", "Bix", "Jolt", "Moxie", "Tizzy",
+  "Alina",
+  "Alistair",
+  "Ansel",
+  "Arden",
+  "Arielle",
+  "Asa",
+  "Astrid",
+  "Auden",
+  "Beatrice",
+  "Bennett",
+  "Blythe",
+  "Brenna",
+  "Bruno",
+  "Cadence",
+  "Cassian",
+  "Cecily",
+  "Cedric",
+  "Cleo",
+  "Conrad",
+  "Dahlia",
+  "Daphne",
+  "Dario",
+  "Delia",
+  "Desmond",
+  "Eden",
+  "Elias",
+  "Elodie",
+  "Enzo",
+  "Estelle",
+  "Evander",
+  "Farah",
+  "Faye",
+  "Flora",
+  "Frances",
+  "Galen",
+  "Gemma",
+  "Greta",
+  "Harlan",
+  "Hattie",
+  "Heath",
+  "Henrik",
+  "Hollis",
+  "Idris",
+  "Ilana",
+  "Indira",
+  "Ingrid",
+  "Ivo",
+  "Jessa",
+  "Jonah",
+  "Juniper",
+  "Keaton",
+  "Kendra",
+  "Kit",
+  "Lachlan",
+  "Lara",
+  "Laurel",
+  "Lennox",
+  "Linnea",
+  "Livia",
+  "Lucian",
+  "Mabel",
+  "Magnus",
+  "Malika",
+  "Matteo",
+  "Merritt",
+  "Mira",
+  "Nadine",
+  "Nell",
+  "Nikhil",
+  "Nolan",
+  "Odette",
+  "Orson",
+  "Paloma",
+  "Pia",
+  "Quentin",
+  "Ramona",
+  "Remy",
+  "Rina",
+  "Rosalie",
+  "Rowena",
+  "Saira",
+  "Selene",
+  "Shiloh",
+  "Soren",
+  "Sullivan",
+  "Talia",
+  "Tamsin",
+  "Tariq",
+  "Thalia",
+  "Tristan",
+  "Una",
+  "Valentina",
+  "Vaughn",
+  "Veda",
+  "Wesley",
+  "Winnie",
+  "Xander",
+  "Yara",
+  "Zadie",
+  "Zeke",
+  "Amir",
+  "Anaya",
+  "Avni",
+  "Belen",
+  "Dimitri",
+  "Eleni",
+  "Emilia",
+  "Imani",
+  "Kenji",
+  "Laleh",
+  "Mina",
+  "Naveen",
+  "Nia",
+  "Noor",
+  "Priya",
+  "Rami",
+  "Reina",
+  "Sana",
+  "Soraya",
+  "Yasmin",
+  "Zain",
+  "Zip",
+  "Cricket",
+  "Doodle",
+  "Gizmo",
+  "Pip",
+  "Tinker",
+  "Scribbles",
+  "Flick",
+  "Noodle",
+  "Sprout",
+  "Whiz",
+  "Bix",
+  "Jolt",
+  "Moxie",
+  "Tizzy",
 ];
 const ALLIANCE_NAMES = [
   "The Core",
@@ -820,26 +1098,66 @@ const EP_TITLES = [
   "The Swing Vote",
   "Pecking Order",
   "Shifting Sands",
-  "Nobody Packed a Plan B", "The Shelter Has Ears", "A Smile and a Question",
-  "Keep the Sand Out", "Friends Until Further Notice", "Don't Borrow Trouble",
-  "Between Two Promises", "The Quietest Person Here", "Too Many Cooks, No Breakfast",
-  "Everybody Wants a Minute", "The View From the Hammock", "Not Quite a Handshake",
-  "The Rumor Takes a Lap", "Counting Without Paper", "What the Waves Didn't Cover",
-  "An Offer Before Breakfast", "Hold That Thought", "Who Moved the Goalposts?",
-  "The Space Between Us", "Good Morning, Bad Feeling", "Loose Ends and Wet Socks",
-  "A Seat in the Shade", "Let Them Finish Talking", "The Other Side of the Log",
-  "It's a Long Walk to Water", "Comfort Is a Rumor", "Polite Company",
-  "The Plan Beneath the Plan", "Almost on the Same Page", "A Little Too Quiet",
-  "No Such Thing as Off Duty", "All Roads Lead to the Shelter", "A Favor to Remember",
-  "Everybody Brought an Opinion", "The Price of Being Useful", "Take a Breath First",
-  "Borrowed Confidence", "The Afternoon Took a Turn", "Something Doesn't Add Up",
-  "A Better Question", "The Ocean Won't Tell", "The Last Word Can Wait",
-  "Dry Kindling, Wet Feet", "Permission to Worry", "The Long Way Around",
-  "Plans Written in Sand", "Not the Whole Story", "A Crack of Daylight",
-  "Don't Mistake the Smile", "Waiting for the Right Silence", "Two Conversations Ahead",
-  "The Island Keeps Office Hours", "Nothing Comes With Instructions", "Watch Who Listens",
-  "A Very Small Comfort", "Leave Something Unsaid", "The Trouble With Maybe",
-  "A Pocket Full of Questions", "We Can Talk After Rice", "One More Sunrise",
+  "Nobody Packed a Plan B",
+  "The Shelter Has Ears",
+  "A Smile and a Question",
+  "Keep the Sand Out",
+  "Friends Until Further Notice",
+  "Don't Borrow Trouble",
+  "Between Two Promises",
+  "The Quietest Person Here",
+  "Too Many Cooks, No Breakfast",
+  "Everybody Wants a Minute",
+  "The View From the Hammock",
+  "Not Quite a Handshake",
+  "The Rumor Takes a Lap",
+  "Counting Without Paper",
+  "What the Waves Didn't Cover",
+  "An Offer Before Breakfast",
+  "Hold That Thought",
+  "Who Moved the Goalposts?",
+  "The Space Between Us",
+  "Good Morning, Bad Feeling",
+  "Loose Ends and Wet Socks",
+  "A Seat in the Shade",
+  "Let Them Finish Talking",
+  "The Other Side of the Log",
+  "It's a Long Walk to Water",
+  "Comfort Is a Rumor",
+  "Polite Company",
+  "The Plan Beneath the Plan",
+  "Almost on the Same Page",
+  "A Little Too Quiet",
+  "No Such Thing as Off Duty",
+  "All Roads Lead to the Shelter",
+  "A Favor to Remember",
+  "Everybody Brought an Opinion",
+  "The Price of Being Useful",
+  "Take a Breath First",
+  "Borrowed Confidence",
+  "The Afternoon Took a Turn",
+  "Something Doesn't Add Up",
+  "A Better Question",
+  "The Ocean Won't Tell",
+  "The Last Word Can Wait",
+  "Dry Kindling, Wet Feet",
+  "Permission to Worry",
+  "The Long Way Around",
+  "Plans Written in Sand",
+  "Not the Whole Story",
+  "A Crack of Daylight",
+  "Don't Mistake the Smile",
+  "Waiting for the Right Silence",
+  "Two Conversations Ahead",
+  "The Island Keeps Office Hours",
+  "Nothing Comes With Instructions",
+  "Watch Who Listens",
+  "A Very Small Comfort",
+  "Leave Something Unsaid",
+  "The Trouble With Maybe",
+  "A Pocket Full of Questions",
+  "We Can Talk After Rice",
+  "One More Sunrise",
 ];
 
 let rand: (() => number) | null = null;
@@ -1034,7 +1352,12 @@ function noteAmuletStage(s: GameState) {
   });
 }
 function awardAmulets(s: GameState) {
-  if (s.config.tribeCount !== 3 || s.merged || s.amuletsGiven || s.episodes.some((e) => e.entries.some((en) => en.title.startsWith("Reward Challenge:"))))
+  if (
+    s.config.tribeCount !== 3 ||
+    s.merged ||
+    s.amuletsGiven ||
+    s.episodes.some((e) => e.entries.some((en) => en.title.startsWith("Reward Challenge:")))
+  )
     return;
   const pools = shuffle([...groups(s).values()]).map((ms) => shuffle(ms));
   // Exactly one volunteer from every tribe, so each tribe is represented equally.
@@ -1154,8 +1477,7 @@ export function pendingDecision(s: GameState): Pending {
       kind: "tribal",
       options: att.filter((c) => c.id !== me.id && !s.immune.includes(c.id)).sort(byName),
       hasIdol:
-        (me.idols > 0 && !(me.bewareTribals > 0)) ||
-        (!!me.halfIdolWith && att.some((c) => c.id === me.halfIdolWith)),
+        (me.idols > 0 && !(me.bewareTribals > 0)) || (!!me.halfIdolWith && att.some((c) => c.id === me.halfIdolWith)),
       noVote: !!me.lostVote,
       advantages: alive(s).length <= 5 ? [] : [...(me.advantages ?? [])],
       idolTargets: att.filter((c) => !s.immune.includes(c.id)).sort(byName),
@@ -1188,6 +1510,7 @@ export function step(prev: GameState, d: Decision = {}): GameState {
   switch (s.phase) {
     case "camp": {
       doCamp(s, d);
+      s.throwChallenge = !!d.throwChallenge;
       giftFoundIdols(s);
       if (alive(s).length <= s.config.finalSize + 1) {
         s.phase = "final_challenge";
@@ -1326,9 +1649,10 @@ function doCamp(s: GameState, d: Decision) {
       if (r() < a.stats.strategy * 0.05) {
         // Keep small partnerships, but sometimes recruit a broader five-to-seven-person bloc.
         const maxPartners = Math.min(6, members.length - 2);
-        const size = maxPartners >= 4 && r() < 0.35
-          ? 4 + Math.floor(r() * (maxPartners - 3))
-          : 1 + Math.floor(r() * Math.min(3, maxPartners));
+        const size =
+          maxPartners >= 4 && r() < 0.35
+            ? 4 + Math.floor(r() * (maxPartners - 3))
+            : 1 + Math.floor(r() * Math.min(3, maxPartners));
         const partners = members
           .filter((x) => x.id !== a.id)
           .sort((x, y) => allianceRecruitmentScore(s, a.id, y.id) - allianceRecruitmentScore(s, a.id, x.id))
@@ -1688,6 +2012,33 @@ function doCamp(s: GameState, d: Decision) {
         0.1,
         0.95,
       );
+      const ok = r() < chance;
+      addRel(s, meC.id, them.id, ok ? t.win : t.lose);
+      mood(them, ok ? 3 : -2);
+
+      // Rumor effect: affects their view of a third player
+      if (talk.topic === "rumor") {
+        const thirdParties = alive(s).filter((c) => c.tribeId === meC.tribeId && c.id !== meC.id && c.id !== them.id);
+        const target = pick(thirdParties);
+        if (target) {
+          if (ok) {
+            addRel(s, them.id, target.id, -14); // listener turns against the target
+            target.threat = Math.min(100, (target.threat || 20) + 8); // paints a target on them
+            log(s, {
+              kind: "drama",
+              title: `Rumor Spreads: ${them.name} vs ${target.name}`,
+              text: `${them.name} now strongly distrusts ${target.name} after what you told them.`,
+            });
+          } else {
+            addRel(s, target.id, meC.id, -12); // target finds out you were talking behind their back
+            log(s, {
+              kind: "drama",
+              title: `Rumor Backfires!`,
+              text: `${them.name} went straight to ${target.name} and told them you were trying to smear their name!`,
+            });
+          }
+        }
+      }
       const ok = r() < chance;
       addRel(s, meC.id, them.id, ok ? t.win : t.lose);
       mood(them, ok ? 3 : -2);
@@ -2061,8 +2412,37 @@ function doChallenge(s: GameState) {
   const ch = pickChallenge(s, rew.type);
   if (!s.merged) {
     const g = [...groups(s).entries()];
-    const tscore = (ms: Castaway[], t: StatKey) =>
-      ms.reduce((a, c) => a + seasonChallengeScore(s, c, t), 0) / ms.length + r() * 3.5;
+    const ctrlId = s.config.controlledId;
+    const isThrowing = s.throwChallenge;
+    const tscore = (ms: Castaway[], t: StatKey) => {
+      let sc = ms.reduce((a, c) => a + seasonChallengeScore(s, c, t), 0) / ms.length + r() * 3.5;
+      if (isThrowing && ms.some((c) => c.id === ctrlId)) {
+        sc -= 12; // deliberately tanks the tribe's score
+      }
+      return sc;
+    };
+    if (isThrowing && ctrlC && !ctrlC.out) {
+      const caught = r() < 0.6 - ctrlC.stats.strategy * 0.05;
+      if (caught) {
+        groups(s)
+          .get(ctrlC.tribeId)
+          ?.forEach((m) => {
+            if (m.id !== ctrlC.id) addRel(s, m.id, ctrlC.id, -12);
+          });
+        log(s, {
+          kind: "drama",
+          title: "Caught Throwing the Challenge!",
+          text: `Your tribe noticed you were holding back and deliberately blew the challenge. Trust has cratered.`,
+        });
+      } else {
+        log(s, {
+          kind: "camp",
+          title: "Challenge Thrown Undetected",
+          text: `You subtly blew the challenge, forcing your tribe to Tribal Council just as planned. Nobody suspected a thing.`,
+        });
+      }
+      s.throwChallenge = false;
+    }
     const rs = g.map(([tid, ms]) => ({ tid, sc: tscore(ms, rew.type) })).sort((a, b) => b.sc - a.sc);
     log(s, {
       kind: "challenge",
@@ -2186,27 +2566,28 @@ function doChallenge(s: GameState) {
       s.tribalTribes = [losing[1].tid];
       s.tribalTribe = losing[1].tid;
       s.tribalQueue = [[losing[0].tid]];
-      const individualWinners = is.length === 2
-        ? losing.map((x) => x.mvp)
-        : [];
-      individualWinners.forEach((c) => { c.immunityWins++; });
+      const individualWinners = is.length === 2 ? losing.map((x) => x.mvp) : [];
+      individualWinners.forEach((c) => {
+        c.immunityWins++;
+      });
       s.immune = individualWinners.map((c) => c.id);
       log(s, {
         kind: "twist",
         title: "Double Tribal Council!",
-        text: is.length === 2
-          ? `Before the challenge, Jeff reveals a twist: both tribes will attend separate Tribal Councils tonight, with one individual immunity winner on each tribe. Two people are going home.`
-          : `Before the challenge, Jeff reveals a twist: only the winning tribes are safe — the last two tribes will both go to Tribal Council tonight. Two people are going home.`,
+        text:
+          is.length === 2
+            ? `Before the challenge, Jeff reveals a twist: both tribes will attend separate Tribal Councils tonight, with one individual immunity winner on each tribe. Two people are going home.`
+            : `Before the challenge, Jeff reveals a twist: only the winning tribes are safe — the last two tribes will both go to Tribal Council tonight. Two people are going home.`,
       });
       immLog(
         is.length === 2
           ? `${individualWinners.map((c) => `${c.name} (${tribeOf(s, c.tribeId)?.name})`).join(" and ")} win individual immunity! Both tribes will face separate Tribal Councils tonight.`
-          : `${
-          is
-            .slice(0, -2)
-            .map((x) => tribeOf(s, x.tid)!.name)
-            .join(" & ")
-        } win immunity! ${losing.map((x) => tribeOf(s, x.tid)!.name).join(" and ")} will both face Tribal Council tonight.`,
+          : `${is
+              .slice(0, -2)
+              .map((x) => tribeOf(s, x.tid)!.name)
+              .join(
+                " & ",
+              )} win immunity! ${losing.map((x) => tribeOf(s, x.tid)!.name).join(" and ")} will both face Tribal Council tonight.`,
       );
     } else
       immLog(
@@ -2319,9 +2700,11 @@ function doChallenge(s: GameState) {
 
 // ---------- tribal ----------
 function votingScore(s: GameState, voter: Castaway, target: Castaway): number {
-  return -getRel(s, voter.id, target.id) * 0.1 +
+  return (
+    -getRel(s, voter.id, target.id) * 0.1 +
     (s.merged ? threat(target) * voter.stats.strategy * 0.08 : weakness(target) * 0.8) -
-    (sharedAlliance(s, voter.id, target.id) ? 3 : 0);
+    (sharedAlliance(s, voter.id, target.id) ? 3 : 0)
+  );
 }
 
 // Agree on tonight's two names once, rather than letting each bloc invent another target.
@@ -2336,18 +2719,19 @@ function votingSlate(s: GameState, att: Castaway[], eligible: Castaway[]): strin
     const outside = bloc ? eligible.filter((c) => !bloc.includes(c.id)) : [];
     const options = outside.length ? outside : eligible.filter((c) => c.id !== voter.id);
     const best = [...options].sort((a, b) => {
-      const score = (c: Castaway) => bloc && outside.length
-        ? bloc.reduce((sum, id) => sum + votingScore(s, byId(s, id), c), 0)
-        : votingScore(s, voter, c);
+      const score = (c: Castaway) =>
+        bloc && outside.length
+          ? bloc.reduce((sum, id) => sum + votingScore(s, byId(s, id), c), 0)
+          : votingScore(s, voter, c);
       return score(b) - score(a);
     })[0];
     if (best) support[best.id] = (support[best.id] ?? 0) + 1;
   }
-  const heat = (c: Castaway) => att.filter((v) => v.id !== c.id)
-    .reduce((sum, v) => sum + votingScore(s, v, c), 0);
-  return [...eligible].sort((a, b) =>
-    (support[b.id] ?? 0) - (support[a.id] ?? 0) || heat(b) - heat(a),
-  ).slice(0, 2).map((c) => c.id);
+  const heat = (c: Castaway) => att.filter((v) => v.id !== c.id).reduce((sum, v) => sum + votingScore(s, v, c), 0);
+  return [...eligible]
+    .sort((a, b) => (support[b.id] ?? 0) - (support[a.id] ?? 0) || heat(b) - heat(a))
+    .slice(0, 2)
+    .map((c) => c.id);
 }
 
 function aiVote(s: GameState, voter: Castaway, cands: Castaway[], attendees: Castaway[], slate?: string[]): string {
@@ -2399,7 +2783,11 @@ export interface GroupPlan {
 // Deterministic preview of who each attendee plans to vote for and why.
 export function tribalTargets(s: GameState): { individual: TargetPlan[]; groups: GroupPlan[] } {
   const att = attendees(s);
-  const slate = votingSlate(s, att, att.filter((c) => !s.immune.includes(c.id)));
+  const slate = votingSlate(
+    s,
+    att,
+    att.filter((c) => !s.immune.includes(c.id)),
+  );
   const cands = (v: Castaway) => att.filter((c) => c.id !== v.id && slate.includes(c.id));
   const parts = (v: Castaway, c: Castaway) => ({
     rel: -getRel(s, v.id, c.id) * 0.08,
@@ -2719,7 +3107,11 @@ function doTribal(s: GameState, d: Decision) {
     }
   }
   // Occasional messy nights remain possible; do not roll a rogue chance separately for every voter.
-  const slate = votingSlate(s, att, att.filter((c) => !s.immune.includes(c.id) && !safe.includes(c.id)));
+  const slate = votingSlate(
+    s,
+    att,
+    att.filter((c) => !s.immune.includes(c.id) && !safe.includes(c.id)),
+  );
   const scatteredNight = r() < 0.1;
   const castFor = (v: Castaway) =>
     v.id === ctrl && d.vote && cands(v).some((c) => c.id === d.vote)
@@ -2814,7 +3206,8 @@ function doTribal(s: GameState, d: Decision) {
     idolLog.push(
       `${a.name} and ${b.name} stand up together and join their two idol halves into one Hidden Immunity Idol — played for ${nm(s, target)}!`,
     );
-    if (nullifyFor.includes(target)) idolLog.push(`But the idol was nullified! Votes against ${nm(s, target)} still count.`);
+    if (nullifyFor.includes(target))
+      idolLog.push(`But the idol was nullified! Votes against ${nm(s, target)} still count.`);
     else protectedIds.push(target);
   }
   for (const h of att.filter((c) => c.idols > 0 && !(c.bewareTribals > 0))) {
@@ -2903,15 +3296,19 @@ function doTribal(s: GameState, d: Decision) {
         ]);
     };
     ask(voters.flatMap((v) => (v.id === ctrl ? cands(v, protectedIds).map((c) => c.id) : [])));
-    const revoteSlate = votingSlate(s, att, att.filter((c) =>
-      !s.immune.includes(c.id) && !safe.includes(c.id) && !protectedIds.includes(c.id),
-    ));
+    const revoteSlate = votingSlate(
+      s,
+      att,
+      att.filter((c) => !s.immune.includes(c.id) && !safe.includes(c.id) && !protectedIds.includes(c.id)),
+    );
     revote = voters.map((v) => {
       const cs = cands(v, protectedIds);
       return {
         voter: v.id,
         target:
-          v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote) ? d.revoteVote : aiVote(s, v, cs, att, revoteSlate),
+          v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote)
+            ? d.revoteVote
+            : aiVote(s, v, cs, att, revoteSlate),
       };
     });
     t = tally(revote);
@@ -3093,10 +3490,14 @@ export function blindsideAftermath(s: GameState, att: Castaway[], loser: Castawa
       mood(angry, -6);
       mood(target, -3);
       for (const m of survivors)
-        if (m.id !== angry.id && m.id !== target.id && sharedAlliance(s, m.id, angry.id)) addRel(s, m.id, target.id, -3);
+        if (m.id !== angry.id && m.id !== target.id && sharedAlliance(s, m.id, angry.id))
+          addRel(s, m.id, target.id, -3);
       title = `Morning After: ${angry.name} Confronts ${target.name}`;
       text = `Before the rice was even cooked, ${angry.name} called ${target.name} out in front of the whole camp for blindsiding ${loser.name}${wasAlly ? " behind their alliance's back" : ""}. ${target.name} doubled down: "It was a game move, and I'd do it again." The camp is officially divided.`;
-      details.push(`${angry.name} & ${target.name}: relationship −10`, `${angry.name}'s allies grow wary of ${target.name}`);
+      details.push(
+        `${angry.name} & ${target.name}: relationship −10`,
+        `${angry.name}'s allies grow wary of ${target.name}`,
+      );
     } else {
       mood(angry, -4);
       const tribe = angry.tribeId;
@@ -3292,8 +3693,7 @@ export const MAX_HALF_IDOLS = 2;
 export function giftFoundIdols(s: GameState) {
   if (!s.config.idolGifting) return;
   // A half is useless once its partner leaves the game.
-  for (const c of alive(s))
-    if (c.halfIdolWith && byId(s, c.halfIdolWith)?.out) c.halfIdolWith = undefined;
+  for (const c of alive(s)) if (c.halfIdolWith && byId(s, c.halfIdolWith)?.out) c.halfIdolWith = undefined;
   for (const c of alive(s)) {
     const known = c.idolsGifted ?? 0;
     if ((c.idols ?? 0) <= known) {
@@ -3332,7 +3732,6 @@ function earnTheMergeRound(s: GameState, ms: Castaway[], ch: { name: string; typ
   const score = (team: Castaway[]) => team.reduce((a, c) => a + indScore(c, ch.type), 0) / team.length;
   const [win, lose] = score(teams[0]) >= score(teams[1]) ? teams : [teams[1], teams[0]];
   win.forEach((c) => {
-    c.immunityWins++;
     c.mood = clamp(c.mood + 10, 0, 100);
   });
   s.immune = win.map((c) => c.id);
@@ -3411,12 +3810,27 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
     () => ["The Island Chose Me", `"I genuinely believe the island chose me. That idol was waiting for me."`],
     () => ["Insurance Policy", `"That's my insurance policy. Now I can play a little bit bolder."`],
     () => ["Finders Keepers", `"Finders keepers. I'm not telling a soul — not even my alliance."`],
-    () => ["Pocket-Sized Courage", `"Pocket-sized courage. That's what this idol gives me, but it doesn't tell me who to trust."`],
-    () => ["The Walk Back", `"The walk back to camp is the hard part. How do I look hungry and miserable when I want to celebrate?"`],
-    () => ["One More Door", `"Finding this idol opens one more door. I still have to choose the right moment to walk through it."`],
+    () => [
+      "Pocket-Sized Courage",
+      `"Pocket-sized courage. That's what this idol gives me, but it doesn't tell me who to trust."`,
+    ],
+    () => [
+      "The Walk Back",
+      `"The walk back to camp is the hard part. How do I look hungry and miserable when I want to celebrate?"`,
+    ],
+    () => [
+      "One More Door",
+      `"Finding this idol opens one more door. I still have to choose the right moment to walk through it."`,
+    ],
     () => ["Buried Hope", `"I went looking for a way to stay, and I found buried hope. Now I have to keep it quiet."`],
-    () => ["A Very Heavy Secret", `"For something so small, this idol is a very heavy secret. Every glance feels like an interrogation."`],
-    () => ["Hide the Smile", `"Hide the smile, slow the breathing, go back to camp. That's my entire strategy for the next five minutes."`],
+    () => [
+      "A Very Heavy Secret",
+      `"For something so small, this idol is a very heavy secret. Every glance feels like an interrogation."`,
+    ],
+    () => [
+      "Hide the Smile",
+      `"Hide the smile, slow the breathing, go back to camp. That's my entire strategy for the next five minutes."`,
+    ],
   ],
   advantage: [
     () => ["A Secret Weapon", `"This is a secret weapon. One play and the whole vote flips."`],
@@ -3426,9 +3840,18 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
       `"Everyone thinks I'm just along for the ride. This advantage says otherwise."`,
     ],
     () => ["Tools of the Trade", `"In this game you need tools of the trade. Today I picked one up."`],
-    () => ["Read the Fine Print", `"Before I get excited, I need to read the fine print. An advantage is only useful if I understand it."`],
-    () => ["Change in My Pocket", `"I've got a little change in my pocket now. I need to decide what this advantage is worth before I spend it."`],
-    () => ["Timing Is Everything", `"Timing is everything. Playing this too early could be worse than never finding it."`],
+    () => [
+      "Read the Fine Print",
+      `"Before I get excited, I need to read the fine print. An advantage is only useful if I understand it."`,
+    ],
+    () => [
+      "Change in My Pocket",
+      `"I've got a little change in my pocket now. I need to decide what this advantage is worth before I spend it."`,
+    ],
+    () => [
+      "Timing Is Everything",
+      `"Timing is everything. Playing this too early could be worse than never finding it."`,
+    ],
     () => ["Quiet Leverage", `"This is quiet leverage. I don't need everybody knowing I have another option."`],
   ],
   clue: [
@@ -3437,10 +3860,22 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
       `"It's basically a treasure map. I just have to get away from camp without anyone noticing."`,
     ],
     () => ["Hot on the Trail", `"I'm hot on the trail. That idol is close, I can feel it."`],
-    () => ["Follow the Breadcrumbs", `"I just have to follow the breadcrumbs without leading the whole tribe behind me."`],
-    () => ["Eyes on the Ground", `"Eyes on the ground, ears on the shelter. This clue is useless if somebody catches me following it."`],
-    () => ["The Missing Piece", `"This clue could be the missing piece. Or I could spend all afternoon staring at the wrong tree."`],
-    () => ["A Reason to Wander", `"Now I have a reason to wander. What I need is an excuse everybody else will believe."`],
+    () => [
+      "Follow the Breadcrumbs",
+      `"I just have to follow the breadcrumbs without leading the whole tribe behind me."`,
+    ],
+    () => [
+      "Eyes on the Ground",
+      `"Eyes on the ground, ears on the shelter. This clue is useless if somebody catches me following it."`,
+    ],
+    () => [
+      "The Missing Piece",
+      `"This clue could be the missing piece. Or I could spend all afternoon staring at the wrong tree."`,
+    ],
+    () => [
+      "A Reason to Wander",
+      `"Now I have a reason to wander. What I need is an excuse everybody else will believe."`,
+    ],
   ],
   drama: [
     (o) => ["I'm Not Here for Your Drama", `"I'm not here for your drama, ${o}. Keep my name out of your mouth."`],
@@ -3448,12 +3883,30 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
     () => ["Camp Is a Pressure Cooker", `"Camp is a pressure cooker, and somebody's lid just blew off."`],
     (o) => ["Bite My Tongue", `"I had to bite my tongue so hard with ${o}. But I'll get the last word at Tribal."`],
     () => ["Pass the Popcorn", `"I just sat back and watched. Somebody pass the popcorn."`],
-    (o) => ["Smile Through the Static", `"I need to smile through the static with ${o}. Arguing louder won't make either of us safer."`],
-    () => ["Everybody Heard That", `"Everybody heard that. Once an argument becomes camp entertainment, you don't control the story anymore."`],
-    (o) => ["Not Taking the Bait", `"I'm not taking the bait from ${o}. I can be annoyed without handing anybody a reason to vote me out."`],
-    () => ["A Crack in the Shelter", `"There's a crack in the shelter, and I don't mean the roof. People are starting to say what they really think."`],
-    () => ["Volume Is Not a Strategy", `"Volume is not a strategy. While they're trying to win the argument, I'm trying to survive the vote."`],
-    (o) => ["Keep the Receipt", `"I'll be polite to ${o}, but I'll keep the receipt. This conversation tells me something about how we work together."`],
+    (o) => [
+      "Smile Through the Static",
+      `"I need to smile through the static with ${o}. Arguing louder won't make either of us safer."`,
+    ],
+    () => [
+      "Everybody Heard That",
+      `"Everybody heard that. Once an argument becomes camp entertainment, you don't control the story anymore."`,
+    ],
+    (o) => [
+      "Not Taking the Bait",
+      `"I'm not taking the bait from ${o}. I can be annoyed without handing anybody a reason to vote me out."`,
+    ],
+    () => [
+      "A Crack in the Shelter",
+      `"There's a crack in the shelter, and I don't mean the roof. People are starting to say what they really think."`,
+    ],
+    () => [
+      "Volume Is Not a Strategy",
+      `"Volume is not a strategy. While they're trying to win the argument, I'm trying to survive the vote."`,
+    ],
+    (o) => [
+      "Keep the Receipt",
+      `"I'll be polite to ${o}, but I'll keep the receipt. This conversation tells me something about how we work together."`,
+    ],
   ],
   alliance: [
     (o) => ["Shake On It", `"${o} and I shook on it. Whether that handshake means anything... we'll see."`],
@@ -3461,19 +3914,43 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
     () => ["Ride or Die", `"This is my ride or die crew. If one of us goes, we all go down swinging."`],
     () => ["A Pact Under the Stars", `"We made a pact under the stars. Feels a little dramatic, but I'm all in."`],
     (o) => ["Partners in Crime", `"${o} and I are partners in crime now. Nobody would ever suspect us."`],
-    () => ["Count the Handshakes", `"Count the handshakes, not just the promises. I want to know who's actually willing to work together."`],
-    () => ["Room at the Table", `"There's room at the table for me now. The next question is whether I get a say in the menu."`],
-    (o) => ["One Vote at a Time", `"${o} and I can build this one vote at a time. I'm not promising the finale on an empty stomach."`],
-    () => ["More Than a Headcount", `"An alliance has to be more than a headcount. If we can't agree on a name, the numbers won't save us."`],
-    () => ["A Bridge, Not a Cage", `"I want this alliance to be a bridge, not a cage. Working together doesn't mean giving up my own game."`],
+    () => [
+      "Count the Handshakes",
+      `"Count the handshakes, not just the promises. I want to know who's actually willing to work together."`,
+    ],
+    () => [
+      "Room at the Table",
+      `"There's room at the table for me now. The next question is whether I get a say in the menu."`,
+    ],
+    (o) => [
+      "One Vote at a Time",
+      `"${o} and I can build this one vote at a time. I'm not promising the finale on an empty stomach."`,
+    ],
+    () => [
+      "More Than a Headcount",
+      `"An alliance has to be more than a headcount. If we can't agree on a name, the numbers won't save us."`,
+    ],
+    () => [
+      "A Bridge, Not a Cage",
+      `"I want this alliance to be a bridge, not a cage. Working together doesn't mean giving up my own game."`,
+    ],
     (o) => ["Test the Knot", `"${o} and I have tied our games together for now. The first vote will test the knot."`],
   ],
   gift: [
     (o) => ["Ultimate Trust", `"I gave ${o} my most valuable thing. That's the ultimate trust in this game."`],
     () => ["Paying It Forward", `"Paying it forward. One day that favor comes back to me."`],
-    (o) => ["Trust Leaves My Hands", `"Trust leaves my hands when I give this to ${o}. I hope the relationship is worth the risk."`],
-    () => ["No Refunds", `"There are no refunds on a gift out here. I made my choice, and now I have to live with it."`],
-    () => ["A Favor With Weight", `"That's a favor with weight. I'm not buying loyalty, but I am showing I'm willing to take a risk."`],
+    (o) => [
+      "Trust Leaves My Hands",
+      `"Trust leaves my hands when I give this to ${o}. I hope the relationship is worth the risk."`,
+    ],
+    () => [
+      "No Refunds",
+      `"There are no refunds on a gift out here. I made my choice, and now I have to live with it."`,
+    ],
+    () => [
+      "A Favor With Weight",
+      `"That's a favor with weight. I'm not buying loyalty, but I am showing I'm willing to take a risk."`,
+    ],
     (o) => ["Your Move Now", `"Your move now, ${o}. I showed you what trust looks like on my side."`],
   ],
   camp: [
@@ -3482,14 +3959,35 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
     (o) => ["A Real Friend", `"${o} might be a real friend. That's dangerous out here — and kind of beautiful."`],
     () => ["Mother Nature Hates Us", `"Mother Nature hates us. The shelter's gone and so is my patience."`],
     () => ["Small Wins", `"You take the small wins out here. Fire, fish, a dry shirt."`],
-    () => ["Sand in the Schedule", `"There's sand in the schedule. Nothing out here happens neatly, including whatever plan I had this morning."`],
-    () => ["The Longest Afternoon", `"This might be the longest afternoon of my life. I'm trying not to let my mood make decisions for me."`],
-    () => ["Camp Never Closes", `"Camp never closes. Even an ordinary conversation can become tomorrow's reason to trust someone."`],
+    () => [
+      "Sand in the Schedule",
+      `"There's sand in the schedule. Nothing out here happens neatly, including whatever plan I had this morning."`,
+    ],
+    () => [
+      "The Longest Afternoon",
+      `"This might be the longest afternoon of my life. I'm trying not to let my mood make decisions for me."`,
+    ],
+    () => [
+      "Camp Never Closes",
+      `"Camp never closes. Even an ordinary conversation can become tomorrow's reason to trust someone."`,
+    ],
     () => ["Tiny Comforts", `"Tiny comforts matter out here. A laugh can get me through an hour that strategy can't."`],
-    () => ["Running on Stubborn", `"I'm running on stubborn at this point. It isn't a meal, but it's keeping me moving."`],
-    () => ["An Ordinary Kind of Chaos", `"It's an ordinary kind of chaos today. Everybody needs something, and nobody has much to give."`],
-    () => ["Listen Between the Waves", `"I try to listen between the waves. You learn a lot from the conversations people don't think matter."`],
-    () => ["Leave the Ego at Home", `"You have to leave the ego at home. Out here, everybody is uncomfortable and nobody needs a lecture."`],
+    () => [
+      "Running on Stubborn",
+      `"I'm running on stubborn at this point. It isn't a meal, but it's keeping me moving."`,
+    ],
+    () => [
+      "An Ordinary Kind of Chaos",
+      `"It's an ordinary kind of chaos today. Everybody needs something, and nobody has much to give."`,
+    ],
+    () => [
+      "Listen Between the Waves",
+      `"I try to listen between the waves. You learn a lot from the conversations people don't think matter."`,
+    ],
+    () => [
+      "Leave the Ego at Home",
+      `"You have to leave the ego at home. Out here, everybody is uncomfortable and nobody needs a lecture."`,
+    ],
   ],
 };
 const GENERIC_QUOTES = [
@@ -3639,34 +4137,104 @@ const PERSONAL_QUOTES: ((
     c.betrayedBy.length
       ? { key: "p-betray", text: `"I haven't forgotten what ${nm(s, c.betrayedBy[0])} did to me. Payback is coming."` }
       : null,
-  (_s, c) => c.idols > 0
-    ? { key: "p-idol-timing", text: `"Having an idol doesn't make me a mind reader. I still have to work out when I actually need it."` } : null,
-  (_s, c) => c.halfIdolWith
-    ? { key: "p-half-partner", text: `"Half an idol means I can't do this alone. I need my partner beside me when it matters."` } : null,
-  (_s, c) => c.advantages.length > 0
-    ? { key: "p-adv-patience", text: `"I have an advantage, not a guarantee. I need a plan that works even if I keep it in my pocket."` } : null,
-  (_s, _c, x) => x.al
-    ? { key: "p-al-voice", text: `"I want ${x.al.name} to hold together, but I also want my voice to count inside it."` } : null,
-  (_s, _c, x) => x.al && x.al.members.length > 4
-    ? { key: "p-big-alliance", text: `"${x.al.name} has numbers. With this many people, keeping everyone heard might be harder than counting votes."` } : null,
-  (s, c, x) => x.best && getRel(s, c.id, x.best.id) > 10
-    ? { key: "p-best-checkin", text: `"A conversation with ${x.best.name} settles my nerves. I still need to check that we're seeing the same game."` } : null,
-  (s, c, x) => x.worst && getRel(s, c.id, x.worst.id) < -8
-    ? { key: "p-worst-restraint", text: `"${x.worst.name} gets under my skin, but irritation isn't a good enough reason to abandon a smart plan."` } : null,
-  (_s, c) => c.mood < 35
-    ? { key: "p-low-reset", text: `"I need a reset. Being this worn down makes every little problem feel like the whole game."` } : null,
-  (_s, c) => c.mood > 80
-    ? { key: "p-high-grounded", text: `"I'm feeling good today. The trick is not mistaking a good mood for being untouchable."` } : null,
-  (_s, c) => c.immunityWins > 1
-    ? { key: "p-repeat-winner", text: `"I've won immunity more than once now. I need relationships that protect me when the necklace doesn't."` } : null,
-  (s, c) => s.immune.includes(c.id)
-    ? { key: "p-safe-tonight", text: `"I'm immune tonight, so I can breathe. That doesn't mean tomorrow's vote will be easy."` } : null,
-  (s) => s.merged
-    ? { key: "p-merge-room", text: `"At the merge, every conversation feels like part of a bigger conversation I'm not in yet."` } : null,
-  (s) => !s.merged
-    ? { key: "p-premerge-balance", text: `"We need a tribe that can win, and I need a tribe that will keep me. Those aren't always the same thing."` } : null,
-  (s) => s.merged && alive(s).length <= 6
-    ? { key: "p-endgame-space", text: `"There aren't many places left to hide. I need to think about who stays, not just who goes."` } : null,
+  (_s, c) =>
+    c.idols > 0
+      ? {
+          key: "p-idol-timing",
+          text: `"Having an idol doesn't make me a mind reader. I still have to work out when I actually need it."`,
+        }
+      : null,
+  (_s, c) =>
+    c.halfIdolWith
+      ? {
+          key: "p-half-partner",
+          text: `"Half an idol means I can't do this alone. I need my partner beside me when it matters."`,
+        }
+      : null,
+  (_s, c) =>
+    c.advantages.length > 0
+      ? {
+          key: "p-adv-patience",
+          text: `"I have an advantage, not a guarantee. I need a plan that works even if I keep it in my pocket."`,
+        }
+      : null,
+  (_s, _c, x) =>
+    x.al
+      ? {
+          key: "p-al-voice",
+          text: `"I want ${x.al.name} to hold together, but I also want my voice to count inside it."`,
+        }
+      : null,
+  (_s, _c, x) =>
+    x.al && x.al.members.length > 4
+      ? {
+          key: "p-big-alliance",
+          text: `"${x.al.name} has numbers. With this many people, keeping everyone heard might be harder than counting votes."`,
+        }
+      : null,
+  (s, c, x) =>
+    x.best && getRel(s, c.id, x.best.id) > 10
+      ? {
+          key: "p-best-checkin",
+          text: `"A conversation with ${x.best.name} settles my nerves. I still need to check that we're seeing the same game."`,
+        }
+      : null,
+  (s, c, x) =>
+    x.worst && getRel(s, c.id, x.worst.id) < -8
+      ? {
+          key: "p-worst-restraint",
+          text: `"${x.worst.name} gets under my skin, but irritation isn't a good enough reason to abandon a smart plan."`,
+        }
+      : null,
+  (_s, c) =>
+    c.mood < 35
+      ? {
+          key: "p-low-reset",
+          text: `"I need a reset. Being this worn down makes every little problem feel like the whole game."`,
+        }
+      : null,
+  (_s, c) =>
+    c.mood > 80
+      ? {
+          key: "p-high-grounded",
+          text: `"I'm feeling good today. The trick is not mistaking a good mood for being untouchable."`,
+        }
+      : null,
+  (_s, c) =>
+    c.immunityWins > 1
+      ? {
+          key: "p-repeat-winner",
+          text: `"I've won immunity more than once now. I need relationships that protect me when the necklace doesn't."`,
+        }
+      : null,
+  (s, c) =>
+    s.immune.includes(c.id)
+      ? {
+          key: "p-safe-tonight",
+          text: `"I'm immune tonight, so I can breathe. That doesn't mean tomorrow's vote will be easy."`,
+        }
+      : null,
+  (s) =>
+    s.merged
+      ? {
+          key: "p-merge-room",
+          text: `"At the merge, every conversation feels like part of a bigger conversation I'm not in yet."`,
+        }
+      : null,
+  (s) =>
+    !s.merged
+      ? {
+          key: "p-premerge-balance",
+          text: `"We need a tribe that can win, and I need a tribe that will keep me. Those aren't always the same thing."`,
+        }
+      : null,
+  (s) =>
+    s.merged && alive(s).length <= 6
+      ? {
+          key: "p-endgame-space",
+          text: `"There aren't many places left to hide. I need to think about who stays, not just who goes."`,
+        }
+      : null,
 ];
 function eventKind(e: LogEntry): string | null {
   if (e.kind === "confessional") return null;
@@ -3866,7 +4434,6 @@ export function finalistSpeeches(s: GameState): string[] {
     if (allySaves) pts.push(`played idols for allies ${allySaves} time${allySaves === 1 ? "" : "s"}`);
     if (f.immunityWins) pts.push(`won ${f.immunityWins} immunit${f.immunityWins > 1 ? "ies" : "y"}`);
     if (f.votesCast) pts.push(`voted correctly at ${f.correctVotes ?? 0} of ${f.votesCast} Tribal Councils`);
-    if (rewardWins) pts.push(`won ${rewardWins} individual reward${rewardWins === 1 ? "" : "s"}`);
     if (f.idolsPlayed) pts.push(`played ${f.idolsPlayed} idol${f.idolsPlayed > 1 ? "s" : ""}`);
     if (f.advPlayed) pts.push(`used ${f.advPlayed} advantage${f.advPlayed > 1 ? "s" : ""}`);
     if (!f.votesAgainst) pts.push("never had a single vote cast against me");
