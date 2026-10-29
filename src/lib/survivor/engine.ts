@@ -2004,7 +2004,7 @@ function doCamp(s: GameState, d: Decision) {
             ? pick(candidates)
             : undefined
           : candidates.find((c) => c.id === talk.with);
-      const t = TALK_TOPICS[pick(Object.keys(TALK_TOPICS) as TalkTopic[])];
+      const t = talk.topic ? TALK_TOPICS[talk.topic] : TALK_TOPICS[pick(Object.keys(TALK_TOPICS) as TalkTopic[])];
       if (!them || !t || meC.out) continue;
       spoken.add(them.id);
       const chance = clamp(
@@ -2418,7 +2418,9 @@ function doChallenge(s: GameState) {
       }
       return sc;
     };
-    if (isThrowing && ctrlC && !ctrlC.out) {
+    const thrower = ctrlId ? byId(s, ctrlId) : null;
+    if (isThrowing && thrower && !thrower.out) {
+      const ctrlC = thrower;
       const caught = r() < 0.6 - ctrlC.stats.strategy * 0.05;
       if (caught) {
         groups(s)
