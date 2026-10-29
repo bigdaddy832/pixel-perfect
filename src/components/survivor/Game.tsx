@@ -638,7 +638,7 @@ function DecisionPanel({
           </label>
           {[0, 1].map((i) => {
             const t = dec.talks?.[i];
-            const set = (v?: { with: string; topic?: TalkTopic }) => {
+            const set = (v?: { with: string; topic?: TalkTopic; rumorTarget?: string }) => {
               const arr = [...(dec.talks ?? [])];
               if (v) arr[i] = v;
               else arr.splice(i, 1);
@@ -652,7 +652,13 @@ function DecisionPanel({
                   aria-label={i === 0 ? "Conversation partner" : "Second conversation partner"}
                   className={sel}
                   value={t?.with ?? ""}
-                  onChange={(e) => set(e.target.value ? { with: e.target.value, topic: t?.topic } : undefined)}
+                  onChange={(e) =>
+                    set(
+                      e.target.value
+                        ? { with: e.target.value, topic: t?.topic, rumorTarget: t?.rumorTarget }
+                        : undefined,
+                    )
+                  }
                 >
                   <option value="">— Nobody —</option>
                   <option value="__random__">Randomize who I talk to</option>
@@ -667,7 +673,13 @@ function DecisionPanel({
                     aria-label="Conversation topic"
                     className={sel}
                     value={t.topic ?? ""}
-                    onChange={(e) => set({ with: t.with, topic: (e.target.value || undefined) as TalkTopic | undefined })}
+                    onChange={(e) =>
+                      set({
+                        with: t.with,
+                        topic: (e.target.value || undefined) as TalkTopic | undefined,
+                        rumorTarget: t.rumorTarget,
+                      })
+                    }
                   >
                     <option value="">Random topic</option>
                     {(Object.keys(TALK_TOPICS) as TalkTopic[]).map((k) => (
@@ -676,6 +688,24 @@ function DecisionPanel({
                       </option>
                     ))}
                   </select>
+                )}
+                {t?.with && t.topic === "rumor" && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    Target:
+                    <select
+                      aria-label="Rumor target"
+                      className={sel}
+                      value={t.rumorTarget ?? ""}
+                      onChange={(e) => set({ with: t.with, topic: t.topic, rumorTarget: e.target.value || undefined })}
+                    >
+                      <option value="">Random tribemate</option>
+                      {az(pending.options.filter((o) => o.id !== t.with)).map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
               </div>
             );

@@ -320,7 +320,7 @@ export interface Decision {
   revoteVote?: string;
   pauseOnRevote?: boolean;
   revoteDecided?: boolean;
-  talks?: { with: string; topic?: TalkTopic }[];
+  talks?: { with: string; topic?: TalkTopic; rumorTarget?: string }[];
   whisper?: string;
   bewareAttempt?: boolean;
 }
@@ -2019,7 +2019,11 @@ function doCamp(s: GameState, d: Decision) {
       // Rumor effect: affects their view of a third player
       if (talk.topic === "rumor") {
         const thirdParties = alive(s).filter((c) => c.tribeId === meC.tribeId && c.id !== meC.id && c.id !== them.id);
-        const target = pick(thirdParties);
+        const chosen =
+          talk.rumorTarget && talk.rumorTarget !== "__random__"
+            ? thirdParties.find((c) => c.id === talk.rumorTarget)
+            : undefined;
+        const target = chosen || (thirdParties.length ? pick(thirdParties) : null);
         if (target) {
           if (ok) {
             addRel(s, them.id, target.id, -14); // listener turns against the target
