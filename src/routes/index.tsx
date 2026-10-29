@@ -141,7 +141,7 @@ function Season() {
                   {lastSeason.phase === "done"
                     ? `Winner: ${lastSeason.castaways.find((c) => c.id === lastSeason.winner)?.name ?? "TBD"} · ${lastSeason.castaways.length} castaways`
                     : `Episode ${lastSeason.episodes.length + 1} · Day ${lastSeason.day} · ${
-                        lastSeason.castaways.filter((c) => !c.eliminated && !c.out).length
+                        lastSeason.castaways.filter((c) => !c.out).length
                       } castaways remaining`}
                 </p>
               </div>
