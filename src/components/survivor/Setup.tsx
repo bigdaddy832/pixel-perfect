@@ -39,15 +39,6 @@ function freshTribeNames() {
 }
 
 export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
-  const [savedGame, setSavedGame] = useState<GameState | null>(() => {
-    try {
-      const raw = localStorage.getItem("survivor-sim-backup") || localStorage.getItem("survivor-sim-season");
-      const parsed = raw ? (JSON.parse(raw) as GameState) : null;
-      return parsed && parsed.phase !== "done" ? parsed : null;
-    } catch {
-      return null;
-    }
-  });
   const [names] = useState(freshTribeNames);
   const [seasonTitle, setSeasonTitle] = useState(() => randomSeasonTitle(readUsedTitles()));
   const changeTitle = (title: string) => {
@@ -224,42 +215,6 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
   const sel = "rounded-md border border-input bg-secondary px-2 py-1.5 text-sm";
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      {savedGame && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="flex h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />
-            <div>
-              <p className="font-semibold text-emerald-400">
-                Autosaved Season Found: {savedGame.config?.seasonTitle || "In-Progress Season"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Day {savedGame.day} · Episode {savedGame.episode} ·{" "}
-                {savedGame.castaways.filter((c) => !c.eliminated && !c.out).length} castaways remaining
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => onStart(savedGame)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
-            >
-              Resume Season ▶
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                localStorage.removeItem("survivor-sim-backup");
-                localStorage.removeItem("survivor-sim-season");
-                setSavedGame(null);
-              }}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Discard Autosave ✕
-            </Button>
-          </div>
-        </div>
-      )}
       <header className="mb-8 text-center">
         <p className="text-sm uppercase tracking-[0.3em] text-primary">Outwit · Outplay · Outlast</p>
         <h1 className="text-6xl md:text-7xl">Survivor Simulator</h1>
@@ -357,13 +312,28 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
                 ["Joint tribals", joint, setJoint, "Two tribes attend one Tribal Council (max one per season)."],
                 ["Double tribals", double, setDouble, "Two people go home in one night (max one per season)."],
                 ["Edge of Extinction", edge, setEdge, "Voted-out players can fight their way back in at the merge."],
-                ["Summit journeys", journeys, setJourneys, "Players are sent on journeys to risk their vote for advantages."],
+                [
+                  "Summit journeys",
+                  journeys,
+                  setJourneys,
+                  "Players are sent on journeys to risk their vote for advantages.",
+                ],
                 ["Exile Island", exile, setExile, "Reward winners can banish someone to Exile."],
                 ["Beware advantages", beware, setBeware, "Shared amulets and Beware idols that come with a cost."],
                 ["Shot in the Dark", sitd, setSitd, "Everyone gets one chance at safety in exchange for their vote."],
                 ["Demerge", demerge, setDemerge, "At Final 10, two groups each hold their own Tribal Council."],
-                ["Idol halves", idolGifting, setIdolGifting, "Up to 2 idols per season are split in half; finder and a tribemate must play them together at Tribal."],
-                ["Earn the merge", earnMerge, setEarnMerge, "First merged immunity is a team challenge; the losing team is vulnerable."],
+                [
+                  "Idol halves",
+                  idolGifting,
+                  setIdolGifting,
+                  "Up to 2 idols per season are split in half; finder and a tribemate must play them together at Tribal.",
+                ],
+                [
+                  "Earn the merge",
+                  earnMerge,
+                  setEarnMerge,
+                  "First merged immunity is a team challenge; the losing team is vulnerable.",
+                ],
               ] as [string, boolean, (v: boolean) => void, string][]
             ).map(([label, on, set, tip]) => (
               <button
@@ -375,7 +345,9 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
                 aria-label={label}
                 onClick={() => set(!on)}
                 className={`rounded-md border px-2 py-1.5 text-left text-xs transition-colors ${
-                  on ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:bg-muted"
+                  on
+                    ? "border-primary bg-primary/15 text-foreground"
+                    : "border-border text-muted-foreground hover:bg-muted"
                 }`}
               >
                 {on ? "✓ " : ""}

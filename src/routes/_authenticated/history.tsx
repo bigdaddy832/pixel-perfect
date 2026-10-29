@@ -34,7 +34,7 @@ function History() {
   useEffect(() => {
     load();
     try {
-      const raw = localStorage.getItem("survivor-sim-season") || localStorage.getItem("survivor-sim-backup");
+      const raw = localStorage.getItem("survivor-sim-season");
       if (raw) {
         const parsed = JSON.parse(raw) as GameState;
         if (parsed && parsed.phase !== "done") {
@@ -43,6 +43,15 @@ function History() {
       }
     } catch {}
   }, []);
+
+  const handleDiscardActive = () => {
+    if (!window.confirm("Discard current in-progress season?")) return;
+    try {
+      localStorage.removeItem("survivor-sim-season");
+      localStorage.removeItem("survivor-sim-backup");
+    } catch {}
+    setActiveSeason(null);
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -72,12 +81,22 @@ function History() {
                 remaining
               </p>
             </div>
-            <Link
-              to="/"
-              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              Continue Playing →
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                Continue Playing →
+              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDiscardActive}
+                className="text-xs text-muted-foreground hover:text-destructive"
+              >
+                Discard
+              </Button>
+            </div>
           </div>
         </div>
       )}

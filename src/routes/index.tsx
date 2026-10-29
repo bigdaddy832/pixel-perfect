@@ -5,7 +5,6 @@ import { Game } from "@/components/survivor/Game";
 import type { GameState } from "@/lib/survivor/engine";
 import { AccountBar } from "@/components/survivor/AccountBar";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 
 const SAVE_KEY = "survivor-sim-season";
 const BACKUP_KEY = "survivor-sim-backup";
@@ -40,42 +39,34 @@ function Index() {
 }
 
 function Season() {
-  // Load active game from SAVE_KEY
   const [game, setGameState] = useState<GameState | null>(() => {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
-      return raw ? (JSON.parse(raw) as GameState) : null;
+      const parsed = raw ? (JSON.parse(raw) as GameState) : null;
+      return parsed && parsed.phase !== "done" ? parsed : null;
     } catch {
       return null;
     }
   });
 
-  // Check if there is a backup/last season to resume when not in an active game
-  const [lastSeason, setLastSeason] = useState<GameState | null>(() => {
-    try {
-      const raw = localStorage.getItem(BACKUP_KEY);
-      return raw ? (JSON.parse(raw) as GameState) : null;
-    } catch {
-      return null;
-    }
-  });
-
+  // Always keep localStorage strictly in sync with the active game
   useEffect(() => {
     try {
       if (game) {
         const serialized = JSON.stringify(game);
         localStorage.setItem(SAVE_KEY, serialized);
-        localStorage.setItem(BACKUP_KEY, serialized);
-        setLastSeason(game);
+        // Clean out legacy backup key so it never desyncs
+        localStorage.removeItem(BACKUP_KEY);
       } else {
         localStorage.removeItem(SAVE_KEY);
+        localStorage.removeItem(BACKUP_KEY);
       }
     } catch {
       /* storage full or blocked */
     }
   }, [game]);
 
-  // Save finished seasons to the signed-in user's history (once per season).
+  // Save finished seasons to the signed-in user's history
   useEffect(() => {
     if (!game || game.phase !== "done" || (game as any).savedToHistory) return;
     (async () => {
@@ -99,14 +90,9 @@ function Season() {
     })();
   }, [game]);
 
-  const handleResumeLastSeason = () => {
-    if (lastSeason) {
-      setGameState(lastSeason);
-    }
-  };
-
-  const handleDismissLastSeason = () => {
+    const handleDismissLastSeason = () => {
     try {
+      localStorage.removeItem(SAVE_KEY);
       localStorage.removeItem(BACKUP_KEY);
     } catch {}
     setLastSeason(null);
@@ -116,38 +102,45 @@ function Season() {
     <>
       <AccountBar />
 
-      {/* Option on top of dashboard to resume/play your last season */}
+      {/* Unified Season Banner */}
       {!game && lastSeason && (
         <div className="mx-auto mt-4 max-w-4xl px-4">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-card/90 p-4 shadow-lg backdrop-blur">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="rounded bg-primary/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary">
-                  {lastSeason.phase === "done" ? "Finished Season" : "Season In Progress"}
-                </span>
-                <h3 className="font-display text-xl text-foreground">
-                  {lastSeason.config.seasonTitle ?? "Survivor Season"}
-                </h3>
+            <div className="flex items-center gap-3">
+              <span
+                className={`h-3 w-3 rounded-full ${
+                  lastSeason.phase === "done" ? "bg-primary" : "bg-emerald-500 animate-pulse"
+                }`}
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded bg-primary/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                    {lastSeason.phase === "done" ? "Finished Season" : "Season In Progress"}
+                  </span>
+                  <h3 className="font-display text-xl text-foreground">
+                    {lastSeason.config.seasonTitle ?? "Survivor Season"}
+                  </h3>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {lastSeason.phase === "done"
+                    ? `Winner: ${lastSeason.castaways.find((c) => c.id === lastSeason.winner)?.name ?? "TBD"} · ${lastSeason.castaways.length} castaways`
+                    : `Episode ${lastSeason.episodes.length + 1} · Day ${lastSeason.day} · ${
+                        lastSeason.castaways.filter((c) => !c.eliminated && !c.out).length
+                      } castaways remaining`}
+                </p>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {lastSeason.phase === "done"
-                  ? `Winner: ${lastSeason.castaways.find((c) => c.id === lastSeason.winner)?.name ?? "TBD"} · ${lastSeason.castaways.length} castaways`
-                  : `Episode ${lastSeason.episodes.length + 1} · Day ${lastSeason.day} · ${
-                      lastSeason.castaways.filter((c) => !c.out).length
-                    } castaways remaining`}
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <Button onClick={handleResumeLastSeason} className="font-semibold">
-                ▶ {lastSeason.phase === "done" ? "View Last Season" : "Play / Resume Season"}
+                ▶ {lastSeason.phase === "done" ? "View Last Season" : "Resume Season"}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleDismissLastSeason}
-                className="text-muted-foreground hover:text-destructive"
+                className="text-xs text-muted-foreground hover:text-destructive"
               >
-                Dismiss
+                Discard Autosave ✕
               </Button>
             </div>
           </div>
@@ -161,4 +154,3 @@ function Season() {
       )}
     </>
   );
-}
