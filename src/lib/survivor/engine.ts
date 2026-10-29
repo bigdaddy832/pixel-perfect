@@ -2039,9 +2039,6 @@ function doCamp(s: GameState, d: Decision) {
           }
         }
       }
-      const ok = r() < chance;
-      addRel(s, meC.id, them.id, ok ? t.win : t.lose);
-      mood(them, ok ? 3 : -2);
       log(s, {
         kind: "camp",
         title: `Conversation with ${them.name}: ${ok ? "It Worked" : "It Backfired"}`,
