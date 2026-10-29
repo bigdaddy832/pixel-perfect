@@ -322,33 +322,14 @@ export const TRIBE_NAMES = [
   "Veylora",
   "Kelmori",
   "Zunakai",
-  "Dakal",
-  "Naviti",
-  "Taku",
-  "Ulong",
-  "Pagong",
-  "Tagi",
-  "Kucha",
-  "Ogakor",
-  "Samburu",
-  "Kota",
-  "Fang",
-  "Kalabaw",
-  "Tandang",
-  "Salani",
-  "Manono",
-  "Nuku",
-  "Malolo",
-  "Vakama",
-  "Luvu",
-  "Yase",
-  "Soka",
-  "Ika",
-  "Baka",
-  "Gata",
-  "Lavo",
-  "Moto",
-  "Ravu",
+  "Amavero", "Belukari", "Cevanori", "Dreluma", "Elovaki", "Fenarumi",
+  "Gavoleni", "Helunavo", "Iloraki", "Jevamori", "Kavorune", "Lemazuri",
+  "Mavoreli", "Nerukavi", "Oveluna", "Pazumeli", "Qelavuni", "Rivakelo",
+  "Sevorami", "Teluvari", "Uvaneli", "Valumeko", "Wenakori", "Xelurami",
+  "Yavoleni", "Zerumavi", "Areluko", "Brenaveli", "Corumeka", "Davenuli",
+  "Erumavi", "Felorune", "Gelarovi", "Havorumi", "Ivenalo", "Joraveli",
+  "Kezunari", "Luravemo", "Mevolani", "Nuzavero", "Orazumeli", "Pelunavi",
+  "Ruzamori", "Selavuno", "Tavoreni", "Ulemari", "Vezunalo", "Zoravemi",
 ];
 export const MERGE_NAMES = [
   "Velunara",
@@ -359,6 +340,12 @@ export const MERGE_NAMES = [
   "Zunaveli",
   "Lumekari",
   "Veyranoa",
+  "Avenulora", "Belazorani", "Cevumaria", "Delavoruna", "Elarumeki", "Favenoria",
+  "Geloravani", "Havelunari", "Ivarumelo", "Jelavorani", "Kezumarali", "Lovanerika",
+  "Mezarunali", "Navelorumi", "Orelavuna", "Pevumarani", "Relazunori", "Sevarumali",
+  "Tevolanuri", "Uveramoli", "Valerunaki", "Welazorumi", "Yelavunora", "Zeramoluni",
+  "Ameluvora", "Bravelunari", "Drelavorumi", "Evelunaki", "Ilavemori", "Kavunelora",
+  "Lumazorevi", "Neravulomi",
 ];
 export const TRIBE_COLORS = ["#e8662a", "#2f7fd6", "#e3c13b", "#3fae5a", "#c43d3d", "#8b5ad6", "#e45fa1", "#2bb5b0"];
 
@@ -411,9 +398,9 @@ export function randomTribeColor(avoid: string[] = []): string {
   return hslToHex(Math.floor(r() * 360), 72, 52);
 }
 
-const SYL_A = ["Ve", "Ka", "Zu", "Lo", "Ta", "Mi", "Ori", "Sa", "Nu", "Fe", "Ilo", "Ra", "Yu", "Ke", "Pa", "Ama"];
-const SYL_B = ["ly", "mo", "na", "ri", "ve", "ka", "lu", "zo", "te", "si", "wa", "re"];
-const SYL_C = ["ra", "ri", "kai", "lo", "na", "mu", "sa", "tu", "vi", "ko", "ne", "ta"];
+const SYL_A = ["Ve", "Ka", "Zu", "Lo", "Ta", "Mi", "Ori", "Sa", "Nu", "Fe", "Ilo", "Ra", "Yu", "Ke", "Pa", "Ama", "Bela", "Ce", "Dre", "Ela", "Ga", "He", "Je", "Me", "Ove", "Pe", "Se", "Uve", "Va", "We", "Xe", "Ze"];
+const SYL_B = ["ly", "mo", "na", "ri", "ve", "ka", "lu", "zo", "te", "si", "wa", "re", "va", "nu", "la", "ru", "ze", "ma", "vo", "le", "ne", "zu", "vi", "ro"];
+const SYL_C = ["ra", "ri", "kai", "lo", "na", "mu", "sa", "tu", "vi", "ko", "ne", "ta", "li", "ni", "no", "mi", "ru", "vo", "la", "re", "nari", "veli", "mori", "luna"];
 const REAL_TRIBES = [
   "Pagong",
   "Tagi",
