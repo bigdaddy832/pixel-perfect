@@ -21,6 +21,8 @@ import {
   amuletHolders,
   amuletDescription,
   kipItems,
+  TALK_TOPICS,
+  type TalkTopic,
   type Castaway,
   type Decision,
   type GameState,
@@ -636,7 +638,7 @@ function DecisionPanel({
           </label>
           {[0, 1].map((i) => {
             const t = dec.talks?.[i];
-            const set = (v?: { with: string }) => {
+            const set = (v?: { with: string; topic?: TalkTopic }) => {
               const arr = [...(dec.talks ?? [])];
               if (v) arr[i] = v;
               else arr.splice(i, 1);
@@ -650,7 +652,7 @@ function DecisionPanel({
                   aria-label={i === 0 ? "Conversation partner" : "Second conversation partner"}
                   className={sel}
                   value={t?.with ?? ""}
-                  onChange={(e) => set(e.target.value ? { with: e.target.value } : undefined)}
+                  onChange={(e) => set(e.target.value ? { with: e.target.value, topic: t?.topic } : undefined)}
                 >
                   <option value="">— Nobody —</option>
                   <option value="__random__">Randomize who I talk to</option>
@@ -660,6 +662,21 @@ function DecisionPanel({
                     </option>
                   ))}
                 </select>
+                {t?.with && (
+                  <select
+                    aria-label="Conversation topic"
+                    className={sel}
+                    value={t.topic ?? ""}
+                    onChange={(e) => set({ with: t.with, topic: (e.target.value || undefined) as TalkTopic | undefined })}
+                  >
+                    <option value="">Random topic</option>
+                    {(Object.keys(TALK_TOPICS) as TalkTopic[]).map((k) => (
+                      <option key={k} value={k}>
+                        {TALK_TOPICS[k].label}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             );
           })}
@@ -703,6 +720,17 @@ function DecisionPanel({
                 </label>
               )}
             </div>
+          )}
+          {!game.merged && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={dec.throwChallenge ?? false}
+                onChange={(e) => setDec({ ...dec, throwChallenge: e.target.checked })}
+                className="size-4 accent-primary"
+              />
+              Throw the upcoming challenge (your tribe may catch you)
+            </label>
           )}
           {pending.canSearchAtChallenge && (
             <label className="flex items-center gap-2 text-sm">
