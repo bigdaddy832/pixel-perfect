@@ -538,6 +538,23 @@ const NAMES = [
   "Skipper",
   "Sparks",
   "Pebbles",
+  "Alina", "Alistair", "Ansel", "Arden", "Arielle", "Asa", "Astrid", "Auden",
+  "Beatrice", "Bennett", "Blythe", "Brenna", "Bruno", "Cadence", "Cassian", "Cecily",
+  "Cedric", "Cleo", "Conrad", "Dahlia", "Daphne", "Dario", "Delia", "Desmond",
+  "Eden", "Elias", "Elodie", "Enzo", "Estelle", "Evander", "Farah", "Faye",
+  "Flora", "Frances", "Galen", "Gemma", "Greta", "Harlan", "Hattie", "Heath",
+  "Henrik", "Hollis", "Idris", "Ilana", "Indira", "Ingrid", "Ivo", "Jessa",
+  "Jonah", "Juniper", "Keaton", "Kendra", "Kit", "Lachlan", "Lara", "Laurel",
+  "Lennox", "Linnea", "Livia", "Lucian", "Mabel", "Magnus", "Malika", "Matteo",
+  "Merritt", "Mira", "Nadine", "Nell", "Nikhil", "Nolan", "Odette", "Orson",
+  "Paloma", "Pia", "Quentin", "Ramona", "Remy", "Rina", "Rosalie", "Rowena",
+  "Saira", "Selene", "Shiloh", "Soren", "Sullivan", "Talia", "Tamsin", "Tariq",
+  "Thalia", "Tristan", "Una", "Valentina", "Vaughn", "Veda", "Wesley", "Winnie",
+  "Xander", "Yara", "Zadie", "Zeke", "Amir", "Anaya", "Avni", "Belen",
+  "Dimitri", "Eleni", "Emilia", "Imani", "Kenji", "Laleh", "Mina", "Naveen",
+  "Nia", "Noor", "Priya", "Rami", "Reina", "Sana", "Soraya", "Yasmin",
+  "Zain", "Zip", "Cricket", "Doodle", "Gizmo", "Pip", "Tinker", "Scribbles",
+  "Flick", "Noodle", "Sprout", "Whiz", "Bix", "Jolt", "Moxie", "Tizzy",
 ];
 const ALLIANCE_NAMES = [
   "The Core",
@@ -816,6 +833,26 @@ const EP_TITLES = [
   "The Swing Vote",
   "Pecking Order",
   "Shifting Sands",
+  "Nobody Packed a Plan B", "The Shelter Has Ears", "A Smile and a Question",
+  "Keep the Sand Out", "Friends Until Further Notice", "Don't Borrow Trouble",
+  "Between Two Promises", "The Quietest Person Here", "Too Many Cooks, No Breakfast",
+  "Everybody Wants a Minute", "The View From the Hammock", "Not Quite a Handshake",
+  "The Rumor Takes a Lap", "Counting Without Paper", "What the Waves Didn't Cover",
+  "An Offer Before Breakfast", "Hold That Thought", "Who Moved the Goalposts?",
+  "The Space Between Us", "Good Morning, Bad Feeling", "Loose Ends and Wet Socks",
+  "A Seat in the Shade", "Let Them Finish Talking", "The Other Side of the Log",
+  "It's a Long Walk to Water", "Comfort Is a Rumor", "Polite Company",
+  "The Plan Beneath the Plan", "Almost on the Same Page", "A Little Too Quiet",
+  "No Such Thing as Off Duty", "All Roads Lead to the Shelter", "A Favor to Remember",
+  "Everybody Brought an Opinion", "The Price of Being Useful", "Take a Breath First",
+  "Borrowed Confidence", "The Afternoon Took a Turn", "Something Doesn't Add Up",
+  "A Better Question", "The Ocean Won't Tell", "The Last Word Can Wait",
+  "Dry Kindling, Wet Feet", "Permission to Worry", "The Long Way Around",
+  "Plans Written in Sand", "Not the Whole Story", "A Crack of Daylight",
+  "Don't Mistake the Smile", "Waiting for the Right Silence", "Two Conversations Ahead",
+  "The Island Keeps Office Hours", "Nothing Comes With Instructions", "Watch Who Listens",
+  "A Very Small Comfort", "Leave Something Unsaid", "The Trouble With Maybe",
+  "A Pocket Full of Questions", "We Can Talk After Rice", "One More Sunrise",
 ];
 
 let rand: (() => number) | null = null;
@@ -3387,6 +3424,12 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
     () => ["The Island Chose Me", `"I genuinely believe the island chose me. That idol was waiting for me."`],
     () => ["Insurance Policy", `"That's my insurance policy. Now I can play a little bit bolder."`],
     () => ["Finders Keepers", `"Finders keepers. I'm not telling a soul — not even my alliance."`],
+    () => ["Pocket-Sized Courage", `"Pocket-sized courage. That's what this idol gives me, but it doesn't tell me who to trust."`],
+    () => ["The Walk Back", `"The walk back to camp is the hard part. How do I look hungry and miserable when I want to celebrate?"`],
+    () => ["One More Door", `"Finding this idol opens one more door. I still have to choose the right moment to walk through it."`],
+    () => ["Buried Hope", `"I went looking for a way to stay, and I found buried hope. Now I have to keep it quiet."`],
+    () => ["A Very Heavy Secret", `"For something so small, this idol is a very heavy secret. Every glance feels like an interrogation."`],
+    () => ["Hide the Smile", `"Hide the smile, slow the breathing, go back to camp. That's my entire strategy for the next five minutes."`],
   ],
   advantage: [
     () => ["A Secret Weapon", `"This is a secret weapon. One play and the whole vote flips."`],
@@ -3396,6 +3439,10 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
       `"Everyone thinks I'm just along for the ride. This advantage says otherwise."`,
     ],
     () => ["Tools of the Trade", `"In this game you need tools of the trade. Today I picked one up."`],
+    () => ["Read the Fine Print", `"Before I get excited, I need to read the fine print. An advantage is only useful if I understand it."`],
+    () => ["Change in My Pocket", `"I've got a little change in my pocket now. I need to decide what this advantage is worth before I spend it."`],
+    () => ["Timing Is Everything", `"Timing is everything. Playing this too early could be worse than never finding it."`],
+    () => ["Quiet Leverage", `"This is quiet leverage. I don't need everybody knowing I have another option."`],
   ],
   clue: [
     () => [
@@ -3403,6 +3450,10 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
       `"It's basically a treasure map. I just have to get away from camp without anyone noticing."`,
     ],
     () => ["Hot on the Trail", `"I'm hot on the trail. That idol is close, I can feel it."`],
+    () => ["Follow the Breadcrumbs", `"I just have to follow the breadcrumbs without leading the whole tribe behind me."`],
+    () => ["Eyes on the Ground", `"Eyes on the ground, ears on the shelter. This clue is useless if somebody catches me following it."`],
+    () => ["The Missing Piece", `"This clue could be the missing piece. Or I could spend all afternoon staring at the wrong tree."`],
+    () => ["A Reason to Wander", `"Now I have a reason to wander. What I need is an excuse everybody else will believe."`],
   ],
   drama: [
     (o) => ["I'm Not Here for Your Drama", `"I'm not here for your drama, ${o}. Keep my name out of your mouth."`],
@@ -3410,6 +3461,12 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
     () => ["Camp Is a Pressure Cooker", `"Camp is a pressure cooker, and somebody's lid just blew off."`],
     (o) => ["Bite My Tongue", `"I had to bite my tongue so hard with ${o}. But I'll get the last word at Tribal."`],
     () => ["Pass the Popcorn", `"I just sat back and watched. Somebody pass the popcorn."`],
+    (o) => ["Smile Through the Static", `"I need to smile through the static with ${o}. Arguing louder won't make either of us safer."`],
+    () => ["Everybody Heard That", `"Everybody heard that. Once an argument becomes camp entertainment, you don't control the story anymore."`],
+    (o) => ["Not Taking the Bait", `"I'm not taking the bait from ${o}. I can be annoyed without handing anybody a reason to vote me out."`],
+    () => ["A Crack in the Shelter", `"There's a crack in the shelter, and I don't mean the roof. People are starting to say what they really think."`],
+    () => ["Volume Is Not a Strategy", `"Volume is not a strategy. While they're trying to win the argument, I'm trying to survive the vote."`],
+    (o) => ["Keep the Receipt", `"I'll be polite to ${o}, but I'll keep the receipt. This conversation tells me something about how we work together."`],
   ],
   alliance: [
     (o) => ["Shake On It", `"${o} and I shook on it. Whether that handshake means anything... we'll see."`],
@@ -3417,10 +3474,20 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
     () => ["Ride or Die", `"This is my ride or die crew. If one of us goes, we all go down swinging."`],
     () => ["A Pact Under the Stars", `"We made a pact under the stars. Feels a little dramatic, but I'm all in."`],
     (o) => ["Partners in Crime", `"${o} and I are partners in crime now. Nobody would ever suspect us."`],
+    () => ["Count the Handshakes", `"Count the handshakes, not just the promises. I want to know who's actually willing to work together."`],
+    () => ["Room at the Table", `"There's room at the table for me now. The next question is whether I get a say in the menu."`],
+    (o) => ["One Vote at a Time", `"${o} and I can build this one vote at a time. I'm not promising the finale on an empty stomach."`],
+    () => ["More Than a Headcount", `"An alliance has to be more than a headcount. If we can't agree on a name, the numbers won't save us."`],
+    () => ["A Bridge, Not a Cage", `"I want this alliance to be a bridge, not a cage. Working together doesn't mean giving up my own game."`],
+    (o) => ["Test the Knot", `"${o} and I have tied our games together for now. The first vote will test the knot."`],
   ],
   gift: [
     (o) => ["Ultimate Trust", `"I gave ${o} my most valuable thing. That's the ultimate trust in this game."`],
     () => ["Paying It Forward", `"Paying it forward. One day that favor comes back to me."`],
+    (o) => ["Trust Leaves My Hands", `"Trust leaves my hands when I give this to ${o}. I hope the relationship is worth the risk."`],
+    () => ["No Refunds", `"There are no refunds on a gift out here. I made my choice, and now I have to live with it."`],
+    () => ["A Favor With Weight", `"That's a favor with weight. I'm not buying loyalty, but I am showing I'm willing to take a risk."`],
+    (o) => ["Your Move Now", `"Your move now, ${o}. I showed you what trust looks like on my side."`],
   ],
   camp: [
     () => ["Fed the Tribe", `"I fed the tribe today. Nobody votes out the person keeping them alive."`],
@@ -3428,6 +3495,14 @@ const EVENT_QUOTES: Record<string, ((o: string) => [string, string])[]> = {
     (o) => ["A Real Friend", `"${o} might be a real friend. That's dangerous out here — and kind of beautiful."`],
     () => ["Mother Nature Hates Us", `"Mother Nature hates us. The shelter's gone and so is my patience."`],
     () => ["Small Wins", `"You take the small wins out here. Fire, fish, a dry shirt."`],
+    () => ["Sand in the Schedule", `"There's sand in the schedule. Nothing out here happens neatly, including whatever plan I had this morning."`],
+    () => ["The Longest Afternoon", `"This might be the longest afternoon of my life. I'm trying not to let my mood make decisions for me."`],
+    () => ["Camp Never Closes", `"Camp never closes. Even an ordinary conversation can become tomorrow's reason to trust someone."`],
+    () => ["Tiny Comforts", `"Tiny comforts matter out here. A laugh can get me through an hour that strategy can't."`],
+    () => ["Running on Stubborn", `"I'm running on stubborn at this point. It isn't a meal, but it's keeping me moving."`],
+    () => ["An Ordinary Kind of Chaos", `"It's an ordinary kind of chaos today. Everybody needs something, and nobody has much to give."`],
+    () => ["Listen Between the Waves", `"I try to listen between the waves. You learn a lot from the conversations people don't think matter."`],
+    () => ["Leave the Ego at Home", `"You have to leave the ego at home. Out here, everybody is uncomfortable and nobody needs a lecture."`],
   ],
 };
 const GENERIC_QUOTES = [
@@ -3469,6 +3544,54 @@ const GENERIC_QUOTES = [
   "The bigger they are, the louder the blindside.",
   "I haven't stopped shaking since the last Tribal. That was way too close.",
   "I'm a fan of this show, but nothing prepares you for the real thing.",
+  "I want to make a move I can explain later, not just a move that makes noise now.",
+  "The hardest part is looking relaxed when my brain won't stop doing the math.",
+  "Everybody has a plan. I'm trying to figure out whose plan has room for me.",
+  "Back home, silence is peaceful. Here, I wonder what I'm missing.",
+  "I don't need to win every conversation. I need people to want another one with me.",
+  "I'm measuring trust in actions, not promises made beside a palm tree.",
+  "There's a difference between being patient and being forgotten. I'm watching that line.",
+  "My face wants to tell the truth. I'm asking it very politely not to.",
+  "I rehearse conversations in my head and then forget every word when someone walks up.",
+  "I can be friendly without handing over the keys to my game.",
+  "A plan that depends on everyone keeping a secret is a very optimistic plan.",
+  "I'm trying to be useful without becoming everybody's unpaid camp assistant.",
+  "The ocean is beautiful. My feet would like to file a complaint.",
+  "I used to have strong opinions about breakfast. Now my opinion is yes.",
+  "I've started mentally ranking foods I can't have. It's a very competitive list.",
+  "If thinking about pizza burned calories, I'd be in even more trouble.",
+  "I never thought sitting down could feel like a reward, but here we are.",
+  "I miss clean socks in a way I did not know a person could miss clean socks.",
+  "My luxury item would be a pillow that doesn't have opinions or insects.",
+  "Somewhere back home, somebody is complaining about their commute. I envy them.",
+  "The version of me watching from the couch would have so many suggestions right now.",
+  "I want to leave proud of how hard I tried, even if my plans don't all work.",
+  "Some days courage is just getting up and having one more conversation.",
+  "I'm learning which parts of my personality work when I'm tired and which need supervision.",
+  "I can miss home and still want to stay. Both things are true.",
+  "Every day I find another thing I took for granted before coming here.",
+  "I don't want fear to write my whole story out here.",
+  "Being adaptable sounds impressive until you actually have to change your mind.",
+  "I came with a strategy. I didn't come with instructions for being this hungry.",
+  "I need to remember that other people are nervous too. I'm not the only one doing this.",
+  "If everyone gives me the same answer, I start listening for what nobody is saying.",
+  "You can ask the right question and still get a very convincing wrong answer.",
+  "I'm collecting little details. Eventually they have to add up to something.",
+  "I don't want to confuse being included in a conversation with being included in a plan.",
+  "There is no pause button. I'd really appreciate a pause button.",
+  "I keep reminding myself that a bad afternoon doesn't have to become a bad decision.",
+  "I'm saving my dramatic speech for the camera. Camp gets the polite version.",
+  "A raised eyebrow can do a lot of damage around here. Mine needs to behave.",
+  "I wish I could check the group chat. Unfortunately, the group chat is a shelter.",
+  "I need enough confidence to act and enough doubt to double-check.",
+  "Being everyone's sounding board means hearing plans that cannot possibly all happen.",
+  "I can't control what people think of me. I can control what I show them next.",
+  "Day {day}, and I still catch myself reaching for a phone that isn't here.",
+  "Day {day}. My standards for comfort are getting lower, but my reasons for staying aren't.",
+  "I want to be a person people choose to keep, not just a person they forget to remove.",
+  "Sometimes I need to stop planning my answer and actually hear the question.",
+  "A little humor buys us all a breath. I'm happy to be the person who finds it.",
+  "I don't have to become somebody else to play hard. I have to use what I've got.",
 ];
 const PERSONAL_QUOTES: ((
   s: GameState,
@@ -3529,6 +3652,34 @@ const PERSONAL_QUOTES: ((
     c.betrayedBy.length
       ? { key: "p-betray", text: `"I haven't forgotten what ${nm(s, c.betrayedBy[0])} did to me. Payback is coming."` }
       : null,
+  (_s, c) => c.idols > 0
+    ? { key: "p-idol-timing", text: `"Having an idol doesn't make me a mind reader. I still have to work out when I actually need it."` } : null,
+  (_s, c) => c.halfIdolWith
+    ? { key: "p-half-partner", text: `"Half an idol means I can't do this alone. I need my partner beside me when it matters."` } : null,
+  (_s, c) => c.advantages.length > 0
+    ? { key: "p-adv-patience", text: `"I have an advantage, not a guarantee. I need a plan that works even if I keep it in my pocket."` } : null,
+  (_s, _c, x) => x.al
+    ? { key: "p-al-voice", text: `"I want ${x.al.name} to hold together, but I also want my voice to count inside it."` } : null,
+  (_s, _c, x) => x.al && x.al.members.length > 4
+    ? { key: "p-big-alliance", text: `"${x.al.name} has numbers. With this many people, keeping everyone heard might be harder than counting votes."` } : null,
+  (s, c, x) => x.best && getRel(s, c.id, x.best.id) > 10
+    ? { key: "p-best-checkin", text: `"A conversation with ${x.best.name} settles my nerves. I still need to check that we're seeing the same game."` } : null,
+  (s, c, x) => x.worst && getRel(s, c.id, x.worst.id) < -8
+    ? { key: "p-worst-restraint", text: `"${x.worst.name} gets under my skin, but irritation isn't a good enough reason to abandon a smart plan."` } : null,
+  (_s, c) => c.mood < 35
+    ? { key: "p-low-reset", text: `"I need a reset. Being this worn down makes every little problem feel like the whole game."` } : null,
+  (_s, c) => c.mood > 80
+    ? { key: "p-high-grounded", text: `"I'm feeling good today. The trick is not mistaking a good mood for being untouchable."` } : null,
+  (_s, c) => c.immunityWins > 1
+    ? { key: "p-repeat-winner", text: `"I've won immunity more than once now. I need relationships that protect me when the necklace doesn't."` } : null,
+  (s, c) => s.immune.includes(c.id)
+    ? { key: "p-safe-tonight", text: `"I'm immune tonight, so I can breathe. That doesn't mean tomorrow's vote will be easy."` } : null,
+  (s) => s.merged
+    ? { key: "p-merge-room", text: `"At the merge, every conversation feels like part of a bigger conversation I'm not in yet."` } : null,
+  (s) => !s.merged
+    ? { key: "p-premerge-balance", text: `"We need a tribe that can win, and I need a tribe that will keep me. Those aren't always the same thing."` } : null,
+  (s) => s.merged && alive(s).length <= 6
+    ? { key: "p-endgame-space", text: `"There aren't many places left to hide. I need to think about who stays, not just who goes."` } : null,
 ];
 function eventKind(e: LogEntry): string | null {
   if (e.kind === "confessional") return null;
