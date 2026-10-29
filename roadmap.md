@@ -1,4 +1,5 @@
 # Survivor updates
+- [ ] Expand generated castaway names, episode titles, and context-aware confessionals; verify season generation.
 - [x] Reduce scattered Tribal votes throughout the season while preserving intentional splits; make larger alliances more common; regression tests pass (live browser season not checked).
 - [x] Fix two-tribe double Tribals with one individual immunity winner per tribe; restrict new amulet awards to three-starting-tribe seasons; verify both rules.
 - [ ] Match FTC answers to each juror’s question and verify with regression tests and a full-season finale.
