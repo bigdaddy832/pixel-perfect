@@ -5,6 +5,7 @@ import { Game } from "@/components/survivor/Game";
 import type { GameState } from "@/lib/survivor/engine";
 import { AccountBar } from "@/components/survivor/AccountBar";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
 const SAVE_KEY = "survivor-sim-season";
 const BACKUP_KEY = "survivor-sim-backup";
@@ -49,14 +50,23 @@ function Season() {
     }
   });
 
+  const [lastSeason, setLastSeason] = useState<GameState | null>(() => {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(BACKUP_KEY);
+      return raw ? (JSON.parse(raw) as GameState) : null;
+    } catch {
+      return null;
+    }
+  });
+
   // Always keep localStorage strictly in sync with the active game
   useEffect(() => {
     try {
       if (game) {
         const serialized = JSON.stringify(game);
         localStorage.setItem(SAVE_KEY, serialized);
-        // Clean out legacy backup key so it never desyncs
         localStorage.removeItem(BACKUP_KEY);
+        setLastSeason(game);
       } else {
         localStorage.removeItem(SAVE_KEY);
         localStorage.removeItem(BACKUP_KEY);
@@ -90,7 +100,13 @@ function Season() {
     })();
   }, [game]);
 
-    const handleDismissLastSeason = () => {
+  const handleResumeLastSeason = () => {
+    if (lastSeason) {
+      setGameState(lastSeason);
+    }
+  };
+
+  const handleDismissLastSeason = () => {
     try {
       localStorage.removeItem(SAVE_KEY);
       localStorage.removeItem(BACKUP_KEY);
@@ -154,3 +170,4 @@ function Season() {
       )}
     </>
   );
+}
