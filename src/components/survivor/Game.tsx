@@ -616,9 +616,7 @@ function DecisionPanel({
               ))}
             </select>
           </label>
-        </div>
-      )}
-      <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm">
         🤫 Whisper to swing revote onto:
         <select
           className={sel}
@@ -635,6 +633,8 @@ function DecisionPanel({
           ))}
         </select>
       </label>
+        </div>
+      )}
       {pending.kind === "camp" && (
         <div className="mt-2 space-y-3">
           <label className="flex flex-wrap items-center gap-2 text-sm">
