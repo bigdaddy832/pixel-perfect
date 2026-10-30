@@ -4341,10 +4341,6 @@ function addConfessionals(s: GameState) {
     if (!opts.length) continue;
     const o = pick(opts);
     say(actor, { key: `${k}-${o.i}`, text: o.r[1], phrase: o.r[0] });
-    if (ep && !titled) {
-      ep.title = o.r[0];
-      titled = true;
-    }
     if (speakers.length >= 2) break;
   }
   // 2) Fill with personal or generic confessionals.
