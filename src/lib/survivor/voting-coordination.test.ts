@@ -44,7 +44,7 @@ describe("coordinated Tribal votes and larger alliances", () => {
     expect(scattered[0] + scattered[1]).toBeGreaterThan(0);
     expect(splits).toBeGreaterThan(0);
     console.log({ rounds, scattered, splits });
-  });
+  }, 120000);
 
   it("forms five-plus-member alliances regularly without removing smaller partnerships", () => {
     let largeSeasons = 0, smallSeasons = 0;

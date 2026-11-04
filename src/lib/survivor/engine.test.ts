@@ -45,7 +45,18 @@ describe("Survivor decisions and tribes", () => {
       let g = season();
       while (g.phase !== "done") {
         g = step(g, { searchIdol: true });
-        for (const c of g.castaways) { expect(c.idols).toBeLessThanOrEqual(1); expect(new Set(c.advantages).size).toBe(c.advantages.length); }
+        const inPlay: Record<string, number> = {};
+        for (const c of g.castaways) {
+          const origs = c.idolOrigins ?? [];
+          expect(origs.length).toBe(c.idols);
+          expect(new Set(origs).size).toBe(origs.length);
+          // A castaway may carry an OG/swap idol plus the merge idol, never more.
+          expect(c.idols).toBeLessThanOrEqual(2);
+          expect(new Set(c.advantages).size).toBe(c.advantages.length);
+          for (const o of origs) inPlay[o] = (inPlay[o] ?? 0) + 1;
+        }
+        // At most one idol per origin is ever in play.
+        for (const n of Object.values(inPlay)) expect(n).toBe(1);
       }
     }
   });
