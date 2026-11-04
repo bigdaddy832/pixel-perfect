@@ -1483,7 +1483,7 @@ export function pendingDecision(s: GameState): Pending {
       noVote: !!me.lostVote,
       advantages: alive(s).length <= 5 ? [] : [...(me.advantages ?? [])],
       idolTargets: att.filter((c) => !s.immune.includes(c.id)).sort(byName),
-      canGiveImmunity: s.merged && s.immune.includes(me.id),
+      canGiveImmunity: s.merged && !s.demergeActive && s.immune.includes(me.id),
       canShoot:
         s.config.shotInTheDark !== false &&
         !me.shotUsed &&
@@ -2864,7 +2864,7 @@ function doTribal(s: GameState, d: Decision) {
   const ctrl = s.config.controlledId;
   const immLog: string[] = [];
   // giving up individual immunity
-  const holderId = s.merged ? s.immune.find((id) => att.some((c) => c.id === id)) : undefined;
+  const holderId = s.merged && !s.demergeActive ? s.immune.find((id) => att.some((c) => c.id === id)) : undefined;
   if (holderId && att.some((c) => c.id === holderId)) {
     const holder = byId(s, holderId);
     let to: string | undefined;
@@ -3330,7 +3330,13 @@ function doTribal(s: GameState, d: Decision) {
   let rocks = false;
   if (tied.length > 1) {
     details.push(`Tie between ${tied.map((x) => nm(s, x)).join(" and ")}. Revote!`);
-    if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl) && !tied.includes(ctrl)) {
+    if (
+      ctrl &&
+      d.pauseOnRevote &&
+      voters.some((v) => v.id === ctrl) &&
+      !tied.includes(ctrl) &&
+      (!d.revoteDecided || !d.revoteVote || !tied.includes(d.revoteVote))
+    ) {
       const e = Object.entries(t).sort((a, b) => b[1] - a[1]);
       throw new RevotePause(tied, votes, [
         `Count: ${e.map(([, n]) => n).join("-")} (${e.map(([k, n]) => `${nm(s, k)}: ${n}`).join(", ")})`,
