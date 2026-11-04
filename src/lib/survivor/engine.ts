@@ -47,6 +47,7 @@ export interface Castaway {
   madeMerge?: boolean;
   rewardWins?: number;
   amulet?: boolean;
+  idolOrigins?: string[];
   /** Idols received as a gift (Idol Halves twist); these are playable. */
   idolsGifted?: number;
   /** Idol Halves twist: id of the castaway holding the matching half. */
