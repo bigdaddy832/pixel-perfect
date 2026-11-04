@@ -417,6 +417,7 @@ function getIdolTooltip(c: Castaway, g: GameState) {
 function Card({ g, c }: { g: GameState; c: Castaway }) {
   const als = g.alliances.filter((a) => a.members.includes(c.id));
   const me = g.config.controlledId === c.id;
+  const halfPartner = c.halfIdolWith ? g.castaways.find((x) => x.id === c.halfIdolWith) : undefined;
   return (
     <div
       className={`rounded-lg border bg-card p-3 ${me ? "border-primary torch-glow" : ""} ${g.immune.includes(c.id) ? "ring-2 ring-idol" : ""}`}
@@ -430,6 +431,15 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
         <span className="flex flex-wrap items-center justify-end gap-1 text-sm">
           {g.immune.includes(c.id) && "🛡️"}
           {c.idols > 0 && (
+          {c.halfIdolWith && (
+            <span
+              className="inline-flex items-center gap-0.5 cursor-help"
+              title={`Half Hidden Immunity Idol (partner: ${halfPartner?.name ?? "Unknown"})`}
+            >
+              <span>🗿</span>
+              <span className="text-xs font-bold text-idol">½</span>
+            </span>
+          )}
             <span className="inline-flex items-center gap-0.5 cursor-help" title={getIdolTooltip(c, g)}>
               <span>🗿</span>
               {c.idols > 1 && <span className="text-xs font-bold text-idol">×{c.idols}</span>}
