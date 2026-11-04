@@ -243,7 +243,10 @@ export function Game({
             if (!t) return null;
             return (
               <section key={tid}>
-                <h2 className="mb-2 rounded-md px-3 py-1 text-2xl" style={{ backgroundColor: t.color, color: "#111" }}>
+                <h2
+                  className="mb-2 rounded-md px-3 py-1 text-2xl font-display"
+                  style={{ backgroundColor: t.color, color: t.textColor || "#111111" }}
+                >
                   {t.name}
                 </h2>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -1179,10 +1182,34 @@ function EditModal({
               if (m) {
                 g.config.mergedName = m.name;
                 g.config.mergedColor = m.color;
+                g.config.mergedTextColor = m.textColor;
               }
             })
           }
         />
+        {!game.merged && (
+          <div className="mt-3">
+            <h3 className="mb-2 text-xl text-accent">Future merge tribe</h3>
+            <TribeEditor
+              label="Future merge tribe"
+              tribes={[
+                {
+                  id: "merged",
+                  name: game.config.mergedName,
+                  color: game.config.mergedColor,
+                  textColor: game.config.mergedTextColor,
+                },
+              ]}
+              onChange={(t) =>
+                upd((g) => {
+                  g.config.mergedName = t[0].name;
+                  g.config.mergedColor = t[0].color;
+                  g.config.mergedTextColor = t[0].textColor;
+                })
+              }
+            />
+          </div>
+        )}
         {!game.merged && (
           <div className="mt-3">
             <h3 className="mb-2 text-xl text-accent">Future merge tribe</h3>

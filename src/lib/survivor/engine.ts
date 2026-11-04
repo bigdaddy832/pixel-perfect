@@ -92,6 +92,7 @@ export interface Tribe {
   id: string;
   name: string;
   color: string;
+  textColor?: string;
 }
 export interface Alliance {
   id: string;
@@ -109,6 +110,7 @@ export interface Config {
   mergeAt: number;
   mergedName: string;
   mergedColor: string;
+  mergedTextColor?: string;
   swapTribe?: Tribe;
   jointTribals?: boolean;
   doubleTribals?: boolean;
@@ -3814,7 +3816,12 @@ function earnTheMergeRound(s: GameState, ms: Castaway[], ch: { name: string; typ
 
 function doMerge(s: GameState) {
   s.merged = true;
-  const t: Tribe = { id: "merged", name: s.config.mergedName, color: s.config.mergedColor };
+  const t: Tribe = {
+    id: "merged",
+    name: s.config.mergedName,
+    color: s.config.mergedColor,
+    textColor: s.config.mergedTextColor,
+  };
   if (!s.tribes.some((x) => x.id === "merged")) s.tribes.push(t);
   const edgers = s.castaways.filter((c) => c.out && c.edge);
   if (edgers.length && !s.edgeDone) {

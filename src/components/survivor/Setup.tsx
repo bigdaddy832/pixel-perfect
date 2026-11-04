@@ -188,6 +188,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
       mergeAt: Math.min(mergeAt, count - 2),
       mergedName: mergeTribe.name,
       mergedColor: mergeTribe.color,
+      mergedTextColor: mergeTribe.textColor,
       swapTribe: swap && tribeCount === 2 && addSwapTribe ? { ...swapTribe } : undefined,
       jointTribals: joint,
       doubleTribals: double,
@@ -489,7 +490,7 @@ export function Setup({ onStart }: { onStart: (g: GameState) => void }) {
             <div key={ti} className="space-y-3">
               <div
                 className="rounded-md px-3 py-1.5 font-display text-2xl tracking-wider"
-                style={{ backgroundColor: activeTribes[ti].color, color: "#111" }}
+                style={{ backgroundColor: activeTribes[ti].color, color: activeTribes[ti].textColor || "#111111" }}
               >
                 {activeTribes[ti].name}
               </div>

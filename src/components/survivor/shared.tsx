@@ -58,13 +58,49 @@ export function TribeEditor({ tribes, onChange, label = "Tribe" }: { tribes: Tri
             <input aria-label={`${label} ${i + 1} name`} list="tribe-names" value={t.name} onChange={(e) => set(i, { name: e.target.value })} className="w-full min-w-0 rounded-md border border-input bg-secondary px-2 py-1.5 text-sm" />
             <Button variant="ghost" onClick={() => set(i, { name: randomTribeName(tribes.map((x) => x.name)) })} aria-label={`${label} ${i + 1} random name`} title="Random name" className="h-8 w-8 shrink-0 rounded-md border border-input bg-secondary p-0 text-sm hover:bg-muted">🎲</Button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
             <TribeColorPicker color={t.color} onChange={(color) => set(i, { color })} label={`${label} ${i + 1}`} />
             <div className="flex gap-1">
-              {TRIBE_COLORS.slice(0, 5).map((c) => <Button variant="ghost" key={c} onClick={() => set(i, { color: c })} className="h-4 w-4 rounded-full border border-border p-0" style={{ backgroundColor: c }} aria-label={`${label} ${i + 1} color ${c}`} />)}
+              {TRIBE_COLORS.slice(0, 5).map((c) => (
+                <Button variant="ghost" key={c} onClick={() => set(i, { color: c })} className="h-4 w-4 rounded-full border border-border p-0" style={{ backgroundColor: c }} aria-label={`${label} ${i + 1} color ${c}`} />
+              ))}
             </div>
           </div>
-        </div>
+          {/* Add this font color row right here: */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Font color:</span>
+            <input
+              type="color"
+              aria-label={`${label} ${i + 1} text color`}
+              value={t.textColor || "#111111"}
+              onChange={(e) => set(i, { textColor: e.target.value })}
+              className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => set(i, { textColor: "#111111" })}
+              className="h-6 px-1.5 text-[11px] bg-secondary border border-border"
+            >
+              Dark
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => set(i, { textColor: "#ffffff" })}
+              className="h-6 px-1.5 text-[11px] bg-secondary border border-border"
+            >
+              Light
+            </Button>
+            <div
+              className="ml-auto rounded px-2 py-0.5 text-xs font-semibold"
+              style={{ backgroundColor: t.color, color: t.textColor || "#111111" }}
+            >
+              Preview
+            </div>
+          </div> 
       ))}
       <datalist id="tribe-names">{TRIBE_NAMES.map((n) => <option key={n} value={n} />)}</datalist>
     </div>
