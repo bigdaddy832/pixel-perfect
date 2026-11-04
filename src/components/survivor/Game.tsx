@@ -430,7 +430,6 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
         </span>
         <span className="flex flex-wrap items-center justify-end gap-1 text-sm">
           {g.immune.includes(c.id) && "🛡️"}
-          {c.idols > 0 && (
           {c.halfIdolWith && (
             <span
               className="inline-flex items-center gap-0.5 cursor-help"
@@ -440,6 +439,7 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
               <span className="text-xs font-bold text-idol">½</span>
             </span>
           )}
+          {c.idols > 0 && (
             <span className="inline-flex items-center gap-0.5 cursor-help" title={getIdolTooltip(c, g)}>
               <span>🗿</span>
               {c.idols > 1 && <span className="text-xs font-bold text-idol">×{c.idols}</span>}
@@ -627,22 +627,22 @@ function DecisionPanel({
             </select>
           </label>
           <label className="flex items-center gap-2 text-sm">
-        🤫 Whisper to swing revote onto:
-        <select
-          className={sel}
-          value={dec.revoteWhisper ?? dec.whisper ?? ""}
-          onChange={(e) =>
-            setDec({ ...dec, revoteWhisper: e.target.value || undefined, whisper: e.target.value || undefined })
-          }
-        >
-          <option value="">Stay quiet</option>
-          {pending.options.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
-      </label>
+            🤫 Whisper to swing revote onto:
+            <select
+              className={sel}
+              value={dec.revoteWhisper ?? dec.whisper ?? ""}
+              onChange={(e) =>
+                setDec({ ...dec, revoteWhisper: e.target.value || undefined, whisper: e.target.value || undefined })
+              }
+            >
+              <option value="">Stay quiet</option>
+              {pending.options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       )}
       {pending.kind === "camp" && (
