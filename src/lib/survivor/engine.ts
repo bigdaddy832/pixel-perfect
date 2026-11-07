@@ -2400,7 +2400,7 @@ function rewardAdvantage(s: GameState, winners: Castaway[]) {
       text: `Along with the reward, ${c.name} was handed a sealed clue to the hidden immunity idol.`,
     });
   }
-  if (s.rewardAdvantageGiven || !(r() < 0.25)) return;
+  if (s.rewardAdvantageGiven || !(r() < 0.12)) return;
   const eligible = alive(s).length > 5 ? winners.filter((c) => missingAdv(c).length) : [];
   if (!eligible.length) return;
   const c = pick(eligible);
