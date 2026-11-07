@@ -29,7 +29,7 @@ describe("Survivor decisions and tribes", () => {
     expect(makeRoster(20, 2, [{ ...custom, name: "My nickname" }])[0]?.name).toBe("My nickname");
   });
 
-  it.each([[0.1, true, "Idol Found!", 1, 0], [0.1, false, "Advantage Found!", 0, 1], [0.5, true, "Nothing", 0, 0], [0.5, false, "Nothing", 0, 0]])("handles search roll %s (idol hidden: %s)", (roll, idolHidden, title, idols, advantages) => {
+  it.each([[0.1, true, "Idol Found!", 1, 0], [0.05, false, "Advantage Found!", 0, 1], [0.5, true, "Nothing", 0, 0], [0.5, false, "Nothing", 0, 0]])("handles search roll %s (idol hidden: %s)", (roll, idolHidden, title, idols, advantages) => {
     const g = season();
     if (!idolHidden) g.hiddenIdols["t0"] = 0;
     g.castaways.forEach((c) => { c.stats.strategy = 1; });
@@ -61,7 +61,8 @@ describe("Survivor decisions and tribes", () => {
     }
   });
 
-  it("never repeats challenges, keeps endurance post-merge, and hands out a reward advantage", () => {
+  it("never repeats challenges, keeps endurance post-merge, and sometimes hands out a reward advantage", () => {
+    let rewardGiven = 0;
     for (let k = 0; k < 10; k++) {
       const g = simulateToEnd(season());
       const titles = g.episodes.flatMap((ep) => ep.entries.map((e) => ({ e, merged: false })));
@@ -69,9 +70,12 @@ describe("Survivor decisions and tribes", () => {
       const names = ch.map((e) => e.title.split(": ")[1]?.replace(/ \(.*\)$/, ""));
       expect(new Set(names).size).toBe(names.length);
       for (const e of ch) if (e.title.startsWith("Immunity Challenge") || (e.title.startsWith("Reward Challenge") && e.text.includes("win reward"))) expect(e.title).not.toContain("(Endurance)");
-      expect(g.rewardAdvantageGiven).toBe(true);
+      if (g.rewardAdvantageGiven) rewardGiven++;
       expect(titles.length).toBeGreaterThan(0);
     }
+    // The reward advantage is now a rare surprise, not a guarantee — it should show up in some seasons but not all.
+    expect(rewardGiven).toBeGreaterThan(0);
+    expect(rewardGiven).toBeLessThan(10);
   });
 
   it("randomizes an approach within the player's tribe", () => {
