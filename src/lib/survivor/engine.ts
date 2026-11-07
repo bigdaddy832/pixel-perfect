@@ -3303,7 +3303,7 @@ function doTribal(s: GameState, d: Decision) {
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
     const ask = (o: string[]) => {
-      if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl))
+      if (ctrl && d.pauseOnRevote && !d.revoteDecided && o.length && voters.some((v) => v.id === ctrl))
         throw new RevotePause(o, votes, [
           ...details,
           `Votes cast: ${votes.length} — all ${votes.length} negated by idols.`,
