@@ -44,9 +44,9 @@ describe("season agency rules", () => {
   });
 
   it("reduces incidental advantage odds slightly", () => {
-    expect(advantageSearchChance(1)).toBeCloseTo(0.009);
-    expect(advantageSearchChance(5)).toBeCloseTo(0.029);
-    expect(advantageSearchChance(5)).toBeLessThan(0.035);
+    expect(advantageSearchChance(1)).toBeCloseTo(0.0045);
+    expect(advantageSearchChance(5)).toBeCloseTo(0.0145);
+    expect(advantageSearchChance(5)).toBeLessThan(0.02);
   });
 
   it("offers at least 120 distinct non-numbered alliance names without fallback", () => {

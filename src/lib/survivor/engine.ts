@@ -1310,7 +1310,7 @@ export const isIdolInPlay = (s: GameState, tid: string) =>
         ? false
         : !s.merged && c.tribeId === tid && (c.idols || 0) > 0,
   );
-export const advantageSearchChance = (strategy: number) => 0.004 + strategy * 0.005;
+export const advantageSearchChance = (strategy: number) => 0.002 + strategy * 0.0025;
 export const byId = (s: GameState, id: string) => s.castaways.find((c) => c.id === id)!;
 const nm = (s: GameState, id: string) => byId(s, id).name;
 const groups = (s: GameState) => {
@@ -1853,7 +1853,7 @@ function doCamp(s: GameState, d: Decision) {
           title: "Your Search: Idol Found!",
           text: `You slipped away to search ${spot} — and found a Hidden Immunity Idol ${hidingPlace}!`,
         });
-    } else if (!idolHere && roll < 0.15 && (adv = giveAdvantage(meC, s))) {
+    } else if (!idolHere && roll < 0.07 && (adv = giveAdvantage(meC, s))) {
       log(s, {
         kind: "idol",
         title: "Your Search: Advantage Found!",
@@ -2400,7 +2400,7 @@ function rewardAdvantage(s: GameState, winners: Castaway[]) {
       text: `Along with the reward, ${c.name} was handed a sealed clue to the hidden immunity idol.`,
     });
   }
-  if (s.rewardAdvantageGiven || !(s.merged || r() < 0.3)) return;
+  if (s.rewardAdvantageGiven || !(r() < 0.12)) return;
   const eligible = alive(s).length > 5 ? winners.filter((c) => missingAdv(c).length) : [];
   if (!eligible.length) return;
   const c = pick(eligible);
@@ -3303,7 +3303,7 @@ function doTribal(s: GameState, d: Decision) {
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
     const ask = (o: string[]) => {
-      if (ctrl && d.pauseOnRevote && !d.revoteDecided && voters.some((v) => v.id === ctrl))
+      if (ctrl && d.pauseOnRevote && !d.revoteDecided && o.length && voters.some((v) => v.id === ctrl))
         throw new RevotePause(o, votes, [
           ...details,
           `Votes cast: ${votes.length} — all ${votes.length} negated by idols.`,
