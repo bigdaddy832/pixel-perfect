@@ -50,9 +50,13 @@ export interface Castaway {
   idolOrigins?: string[];
   /** Idols received as a gift (Idol Halves twist); these are playable. */
   idolsGifted?: number;
-  /** Idol Halves twist: id of the castaway holding the matching half. */
+    /** Idol Halves twist: id of the castaway holding the matching half. */
   halfIdolWith?: string;
-}
+  /** Idol Halves twist: original tribe where the half idol originated. */
+  halfIdolOrigin?: string;
+  /** History of tribes this castaway belonged to (starting tribe, swap tribes). */
+  pastTribeIds?: string[];
+} 
 export type AdvantageKey =
   "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power" | "fifty_fifty";
 export const ADVANTAGES: AdvantageKey[] = [
@@ -1235,20 +1239,39 @@ export function newGame(
     config.doubleTribals = true;
     config.jointTribals = false;
   }
-  const castaways: Castaway[] = roster.map((p, i) => ({
-    id: `c${i}`,
-    name: p.name,
-    tribeId: tribes[p.tribeIndex].id,
-    originalTribeId: tribes[p.tribeIndex].id,
-    stats: { ...p.stats },
-    out: false,
-    juror: false,
-    idols: 0,
-    advantages: [],
-    mood: 70,
-    immunityWins: 0,
-    betrayedBy: [],
-  }));
+   // Duplicate name resolution: 1st stays normal, subsequent players get last initials (e.g. "John", "John A.", "John B.")
+  const nameCounts: Record<string, number> = {};
+  roster.forEach((p) => {
+    const base = p.name.trim();
+    nameCounts[base] = (nameCounts[base] ?? 0) + 1;
+  });
+  const INITIALS = ["A.", "B.", "C.", "D.", "E.", "J.", "K.", "M.", "P.", "R.", "S.", "T."];
+  const seenCount: Record<string, number> = {};
+
+  const castaways: Castaway[] = roster.map((p, i) => {
+    const base = p.name.trim();
+    seenCount[base] = (seenCount[base] ?? 0) + 1;
+    let finalName = base;
+    if (nameCounts[base] > 1 && seenCount[base] > 1) {
+      const init = INITIALS[(seenCount[base] - 2) % INITIALS.length];
+      finalName = `${base} ${init}`;
+    }
+    return {
+      id: `c${i}`,
+      name: finalName,
+      tribeId: tribes[p.tribeIndex].id,
+      originalTribeId: tribes[p.tribeIndex].id,
+      pastTribeIds: [tribes[p.tribeIndex].id],
+      stats: { ...p.stats },
+      out: false,
+      juror: false,
+      idols: 0,
+      advantages: [],
+      mood: 70,
+      immunityWins: 0,
+      betrayedBy: [],
+    };
+  }); 
   const rel: Record<string, number> = {};
   for (const a of castaways)
     for (const b of castaways)
@@ -1303,13 +1326,14 @@ const addRel = (s: GameState, a: string, b: string, d: number) => {
 export const alive = (s: GameState) => s.castaways.filter((c) => !c.out);
 export const canDiscoverIdol = (s: GameState) => alive(s).length > 4;
 export const isIdolInPlay = (s: GameState, tid: string) =>
-  alive(s).some((c) =>
-    c.idolOrigins?.length
+  alive(s).some((c) => {
+    if (c.halfIdolWith && c.halfIdolOrigin === tid) return true;
+    return c.idolOrigins?.length
       ? c.idolOrigins.includes(tid)
       : tid === "merged"
         ? false
-        : !s.merged && c.tribeId === tid && (c.idols || 0) > 0,
-  );
+        : c.idols > 0 && c.tribeId === tid;
+  }); 
 export const advantageSearchChance = (strategy: number) => 0.002 + strategy * 0.0025;
 export const byId = (s: GameState, id: string) => s.castaways.find((c) => c.id === id)!;
 const nm = (s: GameState, id: string) => byId(s, id).name;
@@ -1664,16 +1688,21 @@ function doCamp(s: GameState, d: Decision) {
           .filter((x) => x.id !== a.id)
           .sort((x, y) => allianceRecruitmentScore(s, a.id, y.id) - allianceRecruitmentScore(s, a.id, x.id))
           .slice(0, size);
-        if (!partners.length || getRel(s, a.id, partners[0].id) < 0) continue;
-        const al: Alliance = {
-          id: `a${s.alliances.length}${Date.now() % 1000}`,
-          name: allianceName(
-            partners.length + 1,
-            s.alliances.map((x) => x.name),
-          ),
-          members: [a.id, ...partners.map((p) => p.id)],
-        };
-        s.alliances.push(al);
+            if (!partners.length || getRel(s, a.id, partners[0].id) < 0) continue;
+      const memberIds = [a.id, ...partners.map((p) => p.id)];
+      const alreadyExists = s.alliances.some(
+        (al) => al.members.length === memberIds.length && memberIds.every((m) => al.members.includes(m)),
+      );
+      if (alreadyExists) continue;
+      const al: Alliance = {
+        id: `a${s.alliances.length}${Date.now() % 1000}`,
+        name: allianceName(
+          partners.length + 1,
+          s.alliances.map((x) => x.name),
+        ),
+        members: memberIds,
+      };
+      s.alliances.push(al);;
         for (const x of al.members) for (const y of al.members) if (x < y) addRel(s, x, y, 6);
         log(s, {
           kind: "alliance",
@@ -2860,6 +2889,7 @@ function tally(votes: Vote[]) {
 }
 
 function doTribal(s: GameState, d: Decision) {
+  const splitVoters = new Set<string>();
   const att = attendees(s);
   // Freeze the camp plan before Tribal events alter relationships or eligibility.
   const planned = tribalTargets(s).individual;
@@ -3114,6 +3144,11 @@ function doTribal(s: GameState, d: Decision) {
       });
       addRel(s, tg.id, ctrl, -8);
       liveLog.push(
+       if (B && k >= 1 && Math.min(ranked[0][1] - k, (t1[B.id] ?? 0) + k) >= others) {
+        grp.vs.slice(0, k).forEach((v) => (v.target = B.id));
+        grp.a.members.forEach((m) => splitVoters.add(m));
+        liveLog.push(`${grp.a.name} splits their votes between ${P.name} and ${B.name} to flush out a possible idol.`);
+      }
         `You start whispering at Tribal, pushing votes onto ${tg.name}. ${flipped.length ? `${flipped.map((f) => f.name).join(", ")} ${flipped.length === 1 ? "nods" : "nod"} along.` : "Nobody seems to bite."}`,
       );
     }
@@ -3239,10 +3274,20 @@ function doTribal(s: GameState, d: Decision) {
       const mine = t0[threatened.id] ?? 0;
       if (mine > 0 && mine >= max - 1 && r() < 0.7) target = threatened.id;
     }
-    if (!target) continue;
+       if (!target) continue;
+    const playedOrig = a.halfIdolOrigin || b.halfIdolOrigin || (s.merged ? "merged" : a.tribeId);
     a.halfIdolWith = undefined;
+    a.halfIdolOrigin = undefined;
     b.halfIdolWith = undefined;
+    b.halfIdolOrigin = undefined;
     a.idolsPlayed = (a.idolsPlayed ?? 0) + 1;
+    if (canDiscoverIdol(s)) {
+      if (s.merged) {
+        if (playedOrig === "merged" && !isIdolInPlay(s, "merged")) s.hiddenIdols.merged = 1;
+      } else if (!isIdolInPlay(s, playedOrig)) {
+        s.hiddenIdols[playedOrig] = 1;
+      }
+    }
     addRel(s, a.id, b.id, 15);
     idolLog.push(
       `${a.name} and ${b.name} stand up together and join their two idol halves into one Hidden Immunity Idol — played for ${nm(s, target)}!`,
@@ -3787,11 +3832,13 @@ export function giftFoundIdols(s: GameState) {
     const mates = alive(s).filter((x) => x.id !== c.id && x.tribeId === c.tribeId && !x.halfIdolWith);
     if (!mates.length) continue;
     const to = [...mates].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
-    c.idolOrigins?.pop();
+    const orig = c.idolOrigins?.pop() ?? c.tribeId;
     c.idols--;
     c.idolsGifted = c.idols;
     c.halfIdolWith = to.id;
+    c.halfIdolOrigin = orig;
     to.halfIdolWith = c.id;
+    to.halfIdolOrigin = orig;
     s.halfIdolsMade = (s.halfIdolsMade ?? 0) + 1;
     addRel(s, c.id, to.id, 10);
     log(s, {
