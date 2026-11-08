@@ -205,12 +205,6 @@ export function answerJuryQuestion(s: GameState, f: Castaway, j: Castaway, quest
       evidenceCount = danger?.count ?? 0;
       break;
   }
-  const reaction =
-    relation(j) > 6
-      ? `${j.name} nods approvingly`
-      : j.betrayedBy.includes(f.id) && j.stats.temperament <= 2
-        ? `${j.name} rolls their eyes skeptically`
-        : `${j.name} listens intently`;
   const directlyAnswered = question.topic === "betrayed" ? Boolean(jurorExit) : true;
 
   const answerQuality: "strong" | "mixed" | "weak" =
@@ -219,6 +213,13 @@ export function answerJuryQuestion(s: GameState, f: Castaway, j: Castaway, quest
       : directlyAnswered
         ? "mixed"
         : "weak";
+
+  const reaction =
+    answerQuality === "strong"
+      ? `${j.name} smiles and nods approvingly`
+      : answerQuality === "weak"
+        ? `${j.name} frowns and rolls their eyes skeptically`
+        : `${j.name} listens intently with a neutral expression`;
 
   return {
     reply,

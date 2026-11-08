@@ -816,7 +816,7 @@ function DecisionPanel({
               Throw the upcoming challenge (your tribe may catch you)
             </label>
           )}
-          {pending.canSearchAtChallenge && (
+          {alive(game).length > 4 && pending.canSearchAtChallenge && (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -870,7 +870,7 @@ function DecisionPanel({
             />
             Choose to quit the game
           </label>
-          {!pending.fakeStatus && (
+          {alive(game).length > 4 && !pending.fakeStatus && (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -881,24 +881,26 @@ function DecisionPanel({
               Craft a fake idol
             </label>
           )}
-          {(pending.fakeStatus === "own" || dec.craftFake) && pending.plantTargets.length > 0 && (
-            <label className="flex flex-wrap items-center gap-2 text-sm">
-              Plant fake idol on:
-              <select
-                className={sel}
-                value={dec.fakeTarget ?? ""}
-                onChange={(e) => setDec({ ...dec, fakeTarget: e.target.value || undefined })}
-              >
-                <option value="">Keep it for now</option>
-                <option value="__random__">Random person</option>
-                {az(pending.plantTargets).map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          {alive(game).length > 4 &&
+            (pending.fakeStatus === "own" || dec.craftFake) &&
+            pending.plantTargets.length > 0 && (
+              <label className="flex flex-wrap items-center gap-2 text-sm">
+                Plant fake idol on:
+                <select
+                  className={sel}
+                  value={dec.fakeTarget ?? ""}
+                  onChange={(e) => setDec({ ...dec, fakeTarget: e.target.value || undefined })}
+                >
+                  <option value="">Keep it for now</option>
+                  <option value="__random__">Random person</option>
+                  {az(pending.plantTargets).map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
         </div>
       )}
       {pending.kind === "cut" && (

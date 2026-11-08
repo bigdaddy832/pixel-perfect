@@ -1490,7 +1490,7 @@ export function pendingDecision(s: GameState): Pending {
     return {
       kind: "camp",
       options,
-      canSearchAtChallenge: (s.hiddenIdols[me.tribeId] ?? 0) > 0 && !isIdolInPlay(s, me.tribeId),
+      canSearchAtChallenge: alive(s).length > 4 && (s.hiddenIdols[me.tribeId] ?? 0) > 0 && !isIdolInPlay(s, me.tribeId),
       fakeStatus: me.fakeIdol,
       plantTargets: options.filter((c) => c.idols === 0 && !c.fakeIdol),
       bewareTask: me.bewareTribals ? me.bewareTask : undefined,
@@ -1940,7 +1940,7 @@ function doCamp(s: GameState, d: Decision) {
         });
       }
     }
-    if (d.craftFake && !meC.fakeIdol) {
+    if (d.craftFake && alive(s).length > 4 && !meC.fakeIdol) {
       meC.fakeIdol = "own";
       log(s, {
         kind: "idol",
@@ -2861,21 +2861,39 @@ export function tribalTargets(s: GameState): { individual: TargetPlan[]; groups:
   }
   const individual = att
     .map((v) => {
-      const g = groups.filter((x) => x.members.includes(v.id)).sort((a, b) => b.members.length - a.members.length)[0];
-      if (g && v.stats.loyalty >= 3 && g.target !== v.id)
+      const myGroups = groups.filter((x) => x.members.includes(v.id));
+      const g = myGroups.sort((a, b) => b.members.length - a.members.length)[0];
+      if (g && v.stats.loyalty >= 3 && g.target !== v.id) {
+        const matching = myGroups.filter((x) => x.target === g.target);
+        const allNames = matching.map((x) => x.alliance).join(" & ");
         return {
           voter: v.id,
           target: g.target,
-          alliance: g.alliance,
-          reason: `sticking with ${g.alliance}: ${g.reason}`,
+          alliance: allNames,
+          reason: `sticking with ${allNames}: ${g.reason}`,
         };
+      }
       const cs = cands(v);
       if (!cs.length) return null;
       const best = cs.sort((a, b) => sc(v, b) - sc(v, a))[0];
+      const agreedGroup = myGroups.find((x) => x.target === best.id);
+      if (agreedGroup) {
+        const matching = myGroups.filter((x) => x.target === best.id);
+        const allNames = matching.map((x) => x.alliance).join(" & ");
+        return {
+          voter: v.id,
+          target: best.id,
+          alliance: allNames,
+          reason: `sticking with ${allNames}: ${agreedGroup.reason}`,
+        };
+      }
+      const rogueFrom = myGroups.filter((x) => x.target !== best.id);
       return {
         voter: v.id,
         target: best.id,
-        reason: g ? `going rogue from ${g.alliance}: ${why(v, best)}` : why(v, best),
+        reason: rogueFrom.length
+          ? `going rogue from ${rogueFrom.map((x) => x.alliance).join(" & ")}: ${why(v, best)}`
+          : why(v, best),
       };
     })
     .filter(Boolean) as TargetPlan[];
@@ -3536,9 +3554,15 @@ function doTribal(s: GameState, d: Decision) {
   const idolPlayed = votes.some((v) => v.nullified);
   for (const c of att.filter((x) => x.id !== out)) {
     const closeToBoot = sharedAlliance(s, c.id, out) || getRel(s, c.id, out) > 8;
+    const isBlockedSurvivor =
+      blocked.includes(c.id) &&
+      (allVotes.some((v) => v.target === c.id) || planned.find((p) => p.voter === c.id)?.target === out);
     if (splitVoters.has(c.id)) {
       // In on the alliance split plan: not left out or angry
       mood(c, 2);
+    } else if (isBlockedSurvivor) {
+      // Vote blocked/stolen but would have voted for boot or survived: relieved, not left out
+      mood(c, 4);
     } else if (idolPlayed) {
       // An idol decided the boot: nobody feels betrayed by allies voting
       mood(c, -2);
@@ -3601,6 +3625,7 @@ function doTribal(s: GameState, d: Decision) {
     splitVoters,
     votes.some((v) => v.nullified),
     planned,
+    blocked,
   );
   if (loser.juror && !loser.edge) ponderosa(s, loser);
   // Keep immunity while another Tribal is queued tonight (e.g. demerge Group B still has to vote).
@@ -3617,6 +3642,7 @@ export function blindsideAftermath(
   splitVoters?: Set<string>,
   idolPlayed?: boolean,
   planned?: TargetPlan[],
+  blocked?: string[],
 ) {
   // If an idol was played, nobody gets mad at allies over the vote
   if (idolPlayed) return;
@@ -3624,24 +3650,27 @@ export function blindsideAftermath(
   const majority = counted.filter((v) => v.target === loser.id).map((v) => v.voter);
   if (!majority.length) return;
   const survivors = att.filter((c) => c.id !== loser.id && !c.out);
-  // Left out = didn't vote with the majority while an ally did (excluding intentional vote-splitters).
+  // Left out = didn't vote with the majority while an ally did (excluding intentional vote-splitters and blocked voters targeting the boot).
+  const isProtectedBlocked = (id: string) =>
+    blocked?.includes(id) &&
+    (allVotes.some((v) => v.target === id) || planned?.find((p) => p.voter === id)?.target === loser.id);
   const leftOut = survivors.filter(
     (c) =>
       !splitVoters?.has(c.id) &&
+      !isProtectedBlocked(c.id) &&
       !majority.includes(c.id) &&
       majority.some((m) => m !== c.id && (sharedAlliance(s, c.id, m) || getRel(s, c.id, m) > 10)),
   );
-  // Close to the boot and felt blindsided (excluding intentional vote-splitters).
+  // Close to the boot and felt blindsided (excluding intentional vote-splitters and blocked survivors).
   const grieving = survivors.filter(
     (c) =>
       !splitVoters?.has(c.id) &&
+      !isProtectedBlocked(c.id) &&
       !majority.includes(c.id) &&
       (sharedAlliance(s, c.id, loser.id) || getRel(s, c.id, loser.id) > 8),
   );
-  const aggrieved = [...new Set([...leftOut, ...grieving])].sort(
-    (a, b) => b.stats.temperament - a.stats.temperament || a.id.localeCompare(b.id),
-  );
-  if (!aggrieved.length) return;
+  const upset = [...new Set([...leftOut, ...grieving])];
+  if (!upset.length) return;
   const confrontations = Math.min(aggrieved.length, r() < 0.35 ? 2 : 1);
   const used = new Set<string>();
   for (const angry of aggrieved.slice(0, confrontations)) {
@@ -4640,7 +4669,7 @@ export function finalistSpeeches(s: GameState): string[] {
 function prepareFTC(s: GameState) {
   if (s.episodes.some((e) => e.entries.some((entry) => entry.title === "Opening Statements"))) return;
   const fin = (s.finalists ?? alive(s).map((c) => c.id)).map((id) => byId(s, id));
-  const jury = s.castaways.filter((c) => c.juror);
+  const jury = s.castaways.filter((c) => c.juror).sort((a, b) => a.name.localeCompare(b.name));
   log(s, {
     kind: "finale",
     title: "Opening Statements",
