@@ -64,6 +64,27 @@ describe("coordinated Tribal votes and larger alliances", () => {
     expect(checked).toBeGreaterThan(0);
   });
 
+  it("records who changed from the displayed plan instead of silently introducing a new target", () => {
+    let changed = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      seedRandom(seed);
+      const g = season(); g.phase = "tribal"; g.tribalTribe = "t0";
+      const plans = tribalTargets(g).individual;
+      const result = step(g);
+      const entry = result.episodes.flatMap((e) => e.entries).find((e) => e.kind === "tribal");
+      if (!entry) throw new Error("Missing Tribal");
+      for (const ballot of entry.votes ?? []) {
+        const plan = plans.find((p) => p.voter === ballot.voter);
+        if (!plan || plan.target === ballot.target) continue;
+        const voter = g.castaways.find((c) => c.id === ballot.voter);
+        if (!voter) throw new Error("Missing voter");
+        expect(entry.details?.some((line) => line.startsWith(`${voter.name} changes from `))).toBe(true);
+        changed++;
+      }
+    }
+    expect(changed).toBeGreaterThan(0);
+  });
+
   it("keeps most premerge and merge tallies on at most two targets, while allowing occasional scattered votes and deliberate splits", () => {
     const rounds: [number, number] = [0, 0], scattered: [number, number] = [0, 0];
     let splits = 0;
