@@ -3529,13 +3529,23 @@ function doTribal(s: GameState, d: Decision) {
   }
   for (const a of against) for (const b of against) if (a < b) addRel(s, a, b, 3);
   // tribal fallout on everyone's mental state
+  const idolPlayed = votes.some((v) => v.nullified);
   for (const c of att.filter((x) => x.id !== out)) {
     const closeToBoot = sharedAlliance(s, c.id, out) || getRel(s, c.id, out) > 8;
-    if (closeToBoot) {
+    if (splitVoters.has(c.id)) {
+      // In on the alliance split plan: not left out or angry
+      mood(c, 2);
+    } else if (idolPlayed) {
+      // An idol decided the boot: nobody feels betrayed by allies voting
+      mood(c, -2);
+    } else if (closeToBoot) {
       mood(c, -10);
       for (const v of against) if (v !== c.id) addRel(s, c.id, v, -6);
-    } else if (against.includes(c.id)) mood(c, 4);
-    else mood(c, -5);
+    } else if (against.includes(c.id)) {
+      mood(c, 4);
+    } else {
+      mood(c, -5);
+    }
   }
   const blindside = loser.idols > 0 && !allVotes.some((v) => v.voter === out && against.includes(v.target));
   eliminate(s, loser, `voted out`);
@@ -3573,7 +3583,14 @@ function doTribal(s: GameState, d: Decision) {
     revote,
     out: loser.id,
   });
-  blindsideAftermath(s, att, loser, allVotes);
+  blindsideAftermath(
+    s,
+    att,
+    loser,
+    allVotes,
+    splitVoters,
+    votes.some((v) => v.nullified),
+  );
   if (loser.juror && !loser.edge) ponderosa(s, loser);
   // Keep immunity while another Tribal is queued tonight (e.g. demerge Group B still has to vote).
   if (!s.tribalQueue?.length) s.immune = [];
@@ -3581,20 +3598,33 @@ function doTribal(s: GameState, d: Decision) {
 
 // Back at camp after a vote: castaways left out of the plan (or close to the boot) confront the people who
 // orchestrated it. Each confrontation resolves as an apology, a doubled-down feud, or a late-night scramble.
-export function blindsideAftermath(s: GameState, att: Castaway[], loser: Castaway, allVotes: Vote[]) {
+export function blindsideAftermath(
+  s: GameState,
+  att: Castaway[],
+  loser: Castaway,
+  allVotes: Vote[],
+  splitVoters?: Set<string>,
+  idolPlayed?: boolean,
+) {
+  // If an idol was played, nobody gets mad at allies over the vote
+  if (idolPlayed) return;
   const counted = allVotes.filter((v) => !v.nullified);
   const majority = counted.filter((v) => v.target === loser.id).map((v) => v.voter);
   if (!majority.length) return;
   const survivors = att.filter((c) => c.id !== loser.id && !c.out);
-  // Left out = didn't vote with the majority while an ally/close friend did.
+  // Left out = didn't vote with the majority while an ally did (excluding intentional vote-splitters).
   const leftOut = survivors.filter(
     (c) =>
+      !splitVoters?.has(c.id) &&
       !majority.includes(c.id) &&
       majority.some((m) => m !== c.id && (sharedAlliance(s, c.id, m) || getRel(s, c.id, m) > 10)),
   );
-  // Close to the boot and felt blindsided.
+  // Close to the boot and felt blindsided (excluding intentional vote-splitters).
   const grieving = survivors.filter(
-    (c) => !majority.includes(c.id) && (sharedAlliance(s, c.id, loser.id) || getRel(s, c.id, loser.id) > 8),
+    (c) =>
+      !splitVoters?.has(c.id) &&
+      !majority.includes(c.id) &&
+      (sharedAlliance(s, c.id, loser.id) || getRel(s, c.id, loser.id) > 8),
   );
   const aggrieved = [...new Set([...leftOut, ...grieving])].sort(
     (a, b) => b.stats.temperament - a.stats.temperament || a.id.localeCompare(b.id),
@@ -3662,7 +3692,7 @@ function eliminate(s: GameState, c: Castaway, _how: string) {
   c.out = true;
   c.placement = left;
   if (_how === "voted out" && s.config.edgeOfExtinction && !s.merged && !s.edgeDone) c.edge = true;
-  c.juror = left <= s.config.finalSize + s.config.jurySize;
+  c.juror = s.merged && left <= s.config.finalSize + s.config.jurySize;
   s.alliances.forEach((a) => (a.members = a.members.filter((m) => m !== c.id)));
   s.alliances = s.alliances.filter((a) => a.members.length >= 2);
   c.alliances = s.alliances.filter((a) => a.members.length >= 2);
@@ -3803,6 +3833,8 @@ function doSwap(s: GameState) {
   alive(s).forEach((c) => (prev[c.id] = c.tribeId));
   shuffle(alive(s)).forEach((c, i) => {
     c.tribeId = tids[i % tids.length];
+    if (!c.pastTribeIds) c.pastTribeIds = [prev[c.id]];
+    if (!c.pastTribeIds.includes(c.tribeId)) c.pastTribeIds.push(c.tribeId);
     c.clue = false;
   });
   const details = tids.map(
@@ -3926,6 +3958,10 @@ function doMerge(s: GameState) {
     c.madeMerge = !c.out;
   });
   alive(s).forEach((c) => {
+    if (!c.pastTribeIds) c.pastTribeIds = [c.originalTribeId];
+    if (!c.pastTribeIds.includes(c.tribeId) && c.tribeId !== "merged") {
+      c.pastTribeIds.push(c.tribeId);
+    }
     c.tribeId = "merged";
     c.clue = false;
   });

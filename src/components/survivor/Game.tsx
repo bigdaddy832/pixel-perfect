@@ -468,6 +468,24 @@ function Card({ g, c }: { g: GameState; c: Castaway }) {
           {c.immunityWins > 0 && <span className="ml-1 text-xs text-idol">{c.immunityWins}×🏆</span>}
         </span>
       </div>
+      {(g.swapped || g.merged) && (
+        <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+          <span className="text-muted-foreground text-[10px]">Past:</span>
+          {(c.pastTribeIds ?? [c.originalTribeId]).map((tid) => {
+            const tr = g.tribes.find((t) => t.id === tid);
+            if (!tr) return null;
+            return (
+              <span
+                key={tid}
+                className="rounded px-1.5 py-0.5 font-medium shadow-xs"
+                style={{ backgroundColor: tr.color, color: tr.textColor || "#111111" }}
+              >
+                {tr.name}
+              </span>
+            );
+          })}
+        </div>
+      )}
       <div className="mt-1 h-1.5 overflow-hidden rounded bg-muted" title={`Mood ${c.mood}`}>
         <div className="h-full bg-success" style={{ width: `${c.mood}%` }} />
       </div>
