@@ -19,6 +19,46 @@ function season(): GameState {
 }
 
 describe("coordinated Tribal votes and larger alliances", () => {
+  it("keeps eligible revote ballots on their original target instead of randomly changing sides", () => {
+    let checked = 0;
+    for (let seed = 1; seed <= 100; seed++) {
+      seedRandom(seed);
+      const g = season();
+      g.phase = "tribal"; g.tribalTribe = "t0";
+      g.castaways.forEach((c) => { c.idols = 0; c.advantages = []; c.shotUsed = true; });
+      const result = step(g);
+      const entry = result.episodes.flatMap((e) => e.entries).find((e) => e.kind === "tribal");
+      if (!entry?.revote) continue;
+      for (const ballot of entry.revote) {
+        const old = entry.votes?.find((v) => v.voter === ballot.voter);
+        if (!old) throw new Error("Missing initial ballot");
+        expect(ballot.target).toBe(old.target);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it("an idol only negates its existing ballots and cannot redirect the other side's votes", () => {
+    let checked = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      seedRandom(seed);
+      const g = season();
+      g.phase = "tribal"; g.tribalTribe = "t0"; g.config.controlledId = "c0";
+      g.castaways.forEach((c) => { c.idols = 0; c.advantages = []; c.shotUsed = true; });
+      const me = g.castaways.find((c) => c.id === "c0");
+      if (!me) throw new Error("Missing idol holder");
+      me.idols = 1; me.idolOrigins = ["t0"];
+      const result = step(g, { idol: "c0", vote: "c2" });
+      const entry = result.episodes.flatMap((e) => e.entries).find((e) => e.kind === "tribal");
+      if (!entry) throw new Error("Missing Tribal");
+      expect(entry.votes?.filter((v) => v.target === "c0").every((v) => v.nullified)).toBe(true);
+      if (entry.votes?.some((v) => v.target === "c0")) checked++;
+      if (!entry.revote) expect(entry.out).not.toBe("c0");
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
   it("keeps most premerge and merge tallies on at most two targets, while allowing occasional scattered votes and deliberate splits", () => {
     const rounds: [number, number] = [0, 0], scattered: [number, number] = [0, 0];
     let splits = 0;
