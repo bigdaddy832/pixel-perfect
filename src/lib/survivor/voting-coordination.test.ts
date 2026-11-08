@@ -29,9 +29,14 @@ describe("coordinated Tribal votes and larger alliances", () => {
       const result = step(g);
       const entry = result.episodes.flatMap((e) => e.entries).find((e) => e.kind === "tribal");
       if (!entry?.revote) continue;
+      const counts: Record<string, number> = {};
+      entry.votes?.forEach((v) => { if (!v.nullified) counts[v.target] = (counts[v.target] ?? 0) + 1; });
+      const highest = Math.max(...Object.values(counts));
+      const tied = Object.keys(counts).filter((id) => counts[id] === highest);
       for (const ballot of entry.revote) {
         const old = entry.votes?.find((v) => v.voter === ballot.voter);
         if (!old) throw new Error("Missing initial ballot");
+        if (!tied.includes(old.target)) continue;
         expect(ballot.target).toBe(old.target);
         checked++;
       }
