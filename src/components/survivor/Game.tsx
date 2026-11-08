@@ -347,7 +347,10 @@ function getArchetype(s: Castaway["stats"]) {
 }
 function getThreatBadge(c: Castaway, g?: GameState) {
   if (!g || !g.alliances) return null;
-  const allianceCount = g.alliances.filter((a) => a.members.includes(c.id)).length;
+  const allianceCount = g.alliances.filter(
+    (a) =>
+      a.members.includes(c.id) && a.members.length >= 2 && a.members.every((m) => byId(g, m)?.tribeId === c.tribeId),
+  ).length;
   const immWins = c.immunityWins ?? 0;
   const rewWins = c.rewardWins ?? 0;
   const correctVotes = c.correctVotes ?? 0;
@@ -418,7 +421,10 @@ function getIdolTooltip(c: Castaway, g: GameState) {
 }
 
 function Card({ g, c }: { g: GameState; c: Castaway }) {
-  const als = g.alliances.filter((a) => a.members.includes(c.id));
+  const als = g.alliances.filter(
+    (a) =>
+      a.members.includes(c.id) && a.members.length >= 2 && a.members.every((m) => byId(g, m)?.tribeId === c.tribeId),
+  );
   const me = g.config.controlledId === c.id;
   const halfPartner = c.halfIdolWith ? g.castaways.find((x) => x.id === c.halfIdolWith) : undefined;
   return (
@@ -1299,7 +1305,9 @@ function AlliancesPanel({ game }: { game: GameState }) {
       <h2 className="text-2xl text-accent">Alliances</h2>
       {tribes.map((tid) => {
         const t = tribeOf(game, tid);
-        const als = game.alliances.filter((a) => a.members.some((m) => byId(game, m).tribeId === tid));
+        const als = game.alliances.filter(
+          (a) => a.members.length >= 2 && a.members.every((m) => byId(game, m)?.tribeId === tid),
+        );
         if (!t || !als.length) return null;
         return (
           <div key={tid} className="mt-2">

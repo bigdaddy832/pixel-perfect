@@ -2848,10 +2848,10 @@ export function tribalTargets(s: GameState): { individual: TargetPlan[]; groups:
           : `${c.name} is a jury threat`;
     return `${c.name} is the weakest link in challenges`;
   };
-  const groups: GroupPlan[] = [];
+    const groups: GroupPlan[] = [];
   for (const a of s.alliances) {
     const present = a.members.filter((m) => att.some((x) => x.id === m));
-    if (present.length < 2) continue;
+    if (present.length < 2 || !a.members.every((m) => att.some((x) => x.id === m))) continue;
     const tc = att.filter((c) => !a.members.includes(c.id) && slate.includes(c.id));
     if (!tc.length) continue;
     const best = tc
@@ -3521,11 +3521,19 @@ function doTribal(s: GameState, d: Decision) {
       c.votesAgainst = (c.votesAgainst ?? 0) + 1;
     }
   for (const c of att) c.lostVote = false;
-  // relationship fallout
+    // relationship fallout
   const against = allVotes.filter((v) => v.target === out && !v.nullified).map((v) => v.voter);
+  const loserVoted = allVotes.filter((x) => x.voter === out).map((x) => x.target);
+  const loserPlanned = planned.find((p) => p.voter === out)?.target;
   for (const v of against) {
     addRel(s, out, v, -12);
-    if (sharedAlliance(s, out, v) || getRel(s, out, v) > 5) loser.betrayedBy.push(v);
+    if (
+      (sharedAlliance(s, out, v) || getRel(s, out, v) > 5) &&
+      !loserVoted.includes(v) &&
+      loserPlanned !== v
+    ) {
+      loser.betrayedBy.push(v);
+    }
   }
   for (const a of against) for (const b of against) if (a < b) addRel(s, a, b, 3);
   // tribal fallout on everyone's mental state
@@ -3540,7 +3548,13 @@ function doTribal(s: GameState, d: Decision) {
       mood(c, -2);
     } else if (closeToBoot) {
       mood(c, -10);
-      for (const v of against) if (v !== c.id) addRel(s, c.id, v, -6);
+      const cVoted = allVotes.filter((x) => x.voter === c.id).map((x) => x.target);
+      const cPlanned = planned.find((p) => p.voter === c.id)?.target;
+      for (const v of against) {
+        if (v !== c.id && !cVoted.includes(v) && cPlanned !== v) {
+          addRel(s, c.id, v, -6);
+        }
+      }
     } else if (against.includes(c.id)) {
       mood(c, 4);
     } else {
@@ -3590,6 +3604,14 @@ function doTribal(s: GameState, d: Decision) {
     allVotes,
     splitVoters,
     votes.some((v) => v.nullified),
+      blindsideAftermath(
+    s,
+    att,
+    loser,
+    allVotes,
+    splitVoters,
+    votes.some((v) => v.nullified),
+    planned,
   );
   if (loser.juror && !loser.edge) ponderosa(s, loser);
   // Keep immunity while another Tribal is queued tonight (e.g. demerge Group B still has to vote).
@@ -3605,6 +3627,7 @@ export function blindsideAftermath(
   allVotes: Vote[],
   splitVoters?: Set<string>,
   idolPlayed?: boolean,
+  planned?: TargetPlan[],
 ) {
   // If an idol was played, nobody gets mad at allies over the vote
   if (idolPlayed) return;
@@ -3632,9 +3655,17 @@ export function blindsideAftermath(
   if (!aggrieved.length) return;
   const confrontations = Math.min(aggrieved.length, r() < 0.35 ? 2 : 1);
   const used = new Set<string>();
-  for (const angry of aggrieved.slice(0, confrontations)) {
+    for (const angry of aggrieved.slice(0, confrontations)) {
+    const angryVoted = allVotes.filter((v) => v.voter === angry.id).map((v) => v.target);
+    const angryPlanned = planned?.find((p) => p.voter === angry.id)?.target;
     const targets = majority
-      .filter((id) => id !== angry.id && !used.has(id))
+      .filter(
+        (id) =>
+          id !== angry.id &&
+          !used.has(id) &&
+          !angryVoted.includes(id) &&
+          angryPlanned !== id,
+      )
       .map((id) => byId(s, id))
       .filter((c) => c && !c.out)
       .sort((a, b) => getRel(s, angry.id, b.id) - getRel(s, angry.id, a.id));
