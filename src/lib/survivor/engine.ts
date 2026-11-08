@@ -2861,6 +2861,8 @@ function tally(votes: Vote[]) {
 
 function doTribal(s: GameState, d: Decision) {
   const att = attendees(s);
+  // Freeze the camp plan before Tribal events alter relationships or eligibility.
+  const planned = tribalTargets(s).individual;
   const tname = tribalGroup(s)
     .map((id) => tribeOf(s, id)?.name ?? "")
     .join(" & ");
@@ -3123,12 +3125,15 @@ function doTribal(s: GameState, d: Decision) {
     att.filter((c) => !s.immune.includes(c.id) && !safe.includes(c.id)),
   );
   const scatteredNight = r() < 0.1;
+  const plannedTarget = (v: Castaway) => planned.find((p) => p.voter === v.id)?.target;
   const castFor = (v: Castaway) =>
     v.id === ctrl && d.vote && cands(v).some((c) => c.id === d.vote)
       ? d.vote
       : overrides[v.id] && canVoteFor(v, overrides[v.id])
         ? overrides[v.id]
-        : aiVote(s, v, cands(v), att, scatteredNight ? undefined : slate);
+        : !scatteredNight && cands(v).some((c) => c.id === plannedTarget(v))
+          ? (plannedTarget(v) ?? aiVote(s, v, cands(v), att, slate))
+          : aiVote(s, v, cands(v), att, scatteredNight ? undefined : slate);
   let votes: Vote[] = voters.filter((v) => !blocked.includes(v.id)).map((v) => ({ voter: v.id, target: castFor(v) }));
   for (const p of plays)
     if ((p.adv === "extra_vote" || p.adv === "steal_vote") && !safe.includes(p.who.id)) {
@@ -3174,6 +3179,28 @@ function doTribal(s: GameState, d: Decision) {
         grp.vs.slice(0, k).forEach((v) => (v.target = B.id));
         liveLog.push(`${grp.a.name} splits their votes between ${P.name} and ${B.name} to flush out a possible idol.`);
       }
+    }
+  }
+  // Explain actual departures from the displayed plan, including deliberate split ballots.
+  for (const v of voters) {
+    const plan = planned.find((p) => p.voter === v.id);
+    if (!plan) continue;
+    const changed = [...new Set(votes.filter((b) => b.voter === v.id && b.target !== plan.target).map((b) => b.target))];
+    for (const target of changed) {
+      const reason = v.id === ctrl
+        ? "your chosen ballot"
+        : overrides[v.id] === target
+          ? "the live-Tribal whispering described above"
+          : !canVoteFor(v, plan.target)
+            ? `${nm(s, plan.target)} is now safe and cannot receive votes`
+            : liveLog.some((line) => line.includes("splits their votes") && s.alliances.some((a) => line.startsWith(a.name) && a.members.includes(v.id)))
+              ? "their alliance's idol-backup split described above"
+              : getRel(s, v.id, target) < 0
+                ? `bad blood with ${nm(s, target)} outweighs the original plan`
+                : s.merged
+                  ? `they prioritize ${nm(s, target)} as a jury threat over the original plan`
+                  : `they prioritize challenge strength by targeting ${nm(s, target)}`;
+      liveLog.push(`${v.name} changes from ${nm(s, plan.target)} to ${nm(s, target)}: ${reason}.`);
     }
   }
   // idol plays
@@ -3299,6 +3326,27 @@ function doTribal(s: GameState, d: Decision) {
     ...liveLog,
     ...idolLog,
   ];
+  const revoteFor = (v: Castaway, cs: Castaway[], previous: Vote[], fallbackSlate: string[], override?: string) => {
+    const old = previous.find((b) => b.voter === v.id)?.target;
+    const choice = v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote)
+      ? d.revoteVote
+      : override && cs.some((c) => c.id === override)
+        ? override
+        : old && cs.some((c) => c.id === old)
+          ? old
+          : aiVote(s, v, cs, att, fallbackSlate);
+    if (old && choice !== old) {
+      const reason = v.id === ctrl && choice === d.revoteVote
+        ? "your revote choice"
+        : choice === override
+          ? "the revote whisper persuaded them"
+          : protectedIds.includes(old)
+            ? `${nm(s, old)} is idol-protected; they move to the remaining plan or agreed backup`
+            : `${nm(s, old)} is not in the tie; they choose between the tied players using alliance loyalty and relationships`;
+      details.push(`${v.name} changes their revote from ${nm(s, old)} to ${nm(s, choice)}: ${reason}.`);
+    }
+    return choice;
+  };
   let revote: Vote[] | undefined;
   if (!Object.keys(t).length) {
     details.push("Every vote was nullified! A revote is held.");
@@ -3319,10 +3367,7 @@ function doTribal(s: GameState, d: Decision) {
       const cs = cands(v, protectedIds);
       return {
         voter: v.id,
-        target:
-          v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote)
-            ? d.revoteVote
-            : aiVote(s, v, cs, att, revoteSlate),
+        target: revoteFor(v, cs, votes, revoteSlate),
       };
     });
     t = tally(revote);
@@ -3368,40 +3413,12 @@ function doTribal(s: GameState, d: Decision) {
       );
     }
 
+    const previousBallots = revote ?? votes;
     revote = voters
       .filter((v) => !tied.includes(v.id))
       .map((v) => ({
         voter: v.id,
-        target:
-          v.id === ctrl && d.revoteVote && tied.includes(d.revoteVote)
-            ? d.revoteVote
-            : (revoteOverrides[v.id] ??
-              (v.id === ctrl && !d.revoteDecided && d.vote && tied.includes(d.vote)
-                ? d.vote
-                : aiVote(
-                    s,
-                    v,
-                    att.filter((c) => tied.includes(c.id)),
-                    att,
-                    tied,
-                  ))),
-      }));
-    revote = voters
-      .filter((v) => !tied.includes(v.id))
-      .map((v) => ({
-        voter: v.id,
-        target:
-          v.id === ctrl && d.revoteVote && tied.includes(d.revoteVote)
-            ? d.revoteVote
-            : v.id === ctrl && !d.revoteDecided && d.vote && tied.includes(d.vote)
-              ? d.vote
-              : aiVote(
-                  s,
-                  v,
-                  att.filter((c) => tied.includes(c.id)),
-                  att,
-                  tied,
-                ),
+        target: revoteFor(v, att.filter((c) => tied.includes(c.id)), previousBallots, tied, revoteOverrides[v.id]),
       }));
     const rt = tally(revote);
     const rtop = Math.max(0, ...Object.values(rt));
