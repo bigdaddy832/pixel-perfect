@@ -50,13 +50,13 @@ export interface Castaway {
   idolOrigins?: string[];
   /** Idols received as a gift (Idol Halves twist); these are playable. */
   idolsGifted?: number;
-    /** Idol Halves twist: id of the castaway holding the matching half. */
+  /** Idol Halves twist: id of the castaway holding the matching half. */
   halfIdolWith?: string;
   /** Idol Halves twist: original tribe where the half idol originated. */
   halfIdolOrigin?: string;
   /** History of tribes this castaway belonged to (starting tribe, swap tribes). */
   pastTribeIds?: string[];
-} 
+}
 export type AdvantageKey =
   "extra_vote" | "steal_vote" | "vote_blocker" | "safety" | "idol_nullifier" | "knowledge_is_power" | "fifty_fifty";
 export const ADVANTAGES: AdvantageKey[] = [
@@ -1239,7 +1239,7 @@ export function newGame(
     config.doubleTribals = true;
     config.jointTribals = false;
   }
-   // Duplicate name resolution: 1st stays normal, subsequent players get last initials (e.g. "John", "John A.", "John B.")
+  // Duplicate name resolution: 1st stays normal, subsequent players get last initials (e.g. "John", "John A.", "John B.")
   const nameCounts: Record<string, number> = {};
   roster.forEach((p) => {
     const base = p.name.trim();
@@ -1271,7 +1271,7 @@ export function newGame(
       immunityWins: 0,
       betrayedBy: [],
     };
-  }); 
+  });
   const rel: Record<string, number> = {};
   for (const a of castaways)
     for (const b of castaways)
@@ -1333,7 +1333,7 @@ export const isIdolInPlay = (s: GameState, tid: string) =>
       : tid === "merged"
         ? false
         : c.idols > 0 && c.tribeId === tid;
-  }); 
+  });
 export const advantageSearchChance = (strategy: number) => 0.002 + strategy * 0.0025;
 export const byId = (s: GameState, id: string) => s.castaways.find((c) => c.id === id)!;
 const nm = (s: GameState, id: string) => byId(s, id).name;
@@ -1688,21 +1688,21 @@ function doCamp(s: GameState, d: Decision) {
           .filter((x) => x.id !== a.id)
           .sort((x, y) => allianceRecruitmentScore(s, a.id, y.id) - allianceRecruitmentScore(s, a.id, x.id))
           .slice(0, size);
-            if (!partners.length || getRel(s, a.id, partners[0].id) < 0) continue;
-      const memberIds = [a.id, ...partners.map((p) => p.id)];
-      const alreadyExists = s.alliances.some(
-        (al) => al.members.length === memberIds.length && memberIds.every((m) => al.members.includes(m)),
-      );
-      if (alreadyExists) continue;
-      const al: Alliance = {
-        id: `a${s.alliances.length}${Date.now() % 1000}`,
-        name: allianceName(
-          partners.length + 1,
-          s.alliances.map((x) => x.name),
-        ),
-        members: memberIds,
-      };
-      s.alliances.push(al);;
+        if (!partners.length || getRel(s, a.id, partners[0].id) < 0) continue;
+        const memberIds = [a.id, ...partners.map((p) => p.id)];
+        const alreadyExists = s.alliances.some(
+          (al) => al.members.length === memberIds.length && memberIds.every((m) => al.members.includes(m)),
+        );
+        if (alreadyExists) continue;
+        const al: Alliance = {
+          id: `a${s.alliances.length}${Date.now() % 1000}`,
+          name: allianceName(
+            partners.length + 1,
+            s.alliances.map((x) => x.name),
+          ),
+          members: memberIds,
+        };
+        s.alliances.push(al);
         for (const x of al.members) for (const y of al.members) if (x < y) addRel(s, x, y, 6);
         log(s, {
           kind: "alliance",
@@ -3144,11 +3144,6 @@ function doTribal(s: GameState, d: Decision) {
       });
       addRel(s, tg.id, ctrl, -8);
       liveLog.push(
-       if (B && k >= 1 && Math.min(ranked[0][1] - k, (t1[B.id] ?? 0) + k) >= others) {
-        grp.vs.slice(0, k).forEach((v) => (v.target = B.id));
-        grp.a.members.forEach((m) => splitVoters.add(m));
-        liveLog.push(`${grp.a.name} splits their votes between ${P.name} and ${B.name} to flush out a possible idol.`);
-      }
         `You start whispering at Tribal, pushing votes onto ${tg.name}. ${flipped.length ? `${flipped.map((f) => f.name).join(", ")} ${flipped.length === 1 ? "nods" : "nod"} along.` : "Nobody seems to bite."}`,
       );
     }
@@ -3212,6 +3207,7 @@ function doTribal(s: GameState, d: Decision) {
       // Allow split if alliance still ties or beats opposition (e.g. 2-2 vs 2 or 3-2 vs 2)
       if (B && k >= 1 && Math.min(ranked[0][1] - k, (t1[B.id] ?? 0) + k) >= others) {
         grp.vs.slice(0, k).forEach((v) => (v.target = B.id));
+        grp.a.members.forEach((m) => splitVoters.add(m));
         liveLog.push(`${grp.a.name} splits their votes between ${P.name} and ${B.name} to flush out a possible idol.`);
       }
     }
@@ -3220,21 +3216,28 @@ function doTribal(s: GameState, d: Decision) {
   for (const v of voters) {
     const plan = planned.find((p) => p.voter === v.id);
     if (!plan) continue;
-    const changed = [...new Set(votes.filter((b) => b.voter === v.id && b.target !== plan.target).map((b) => b.target))];
+    const changed = [
+      ...new Set(votes.filter((b) => b.voter === v.id && b.target !== plan.target).map((b) => b.target)),
+    ];
     for (const target of changed) {
-      const reason = v.id === ctrl
-        ? "your chosen ballot"
-        : overrides[v.id] === target
-          ? "the live-Tribal whispering described above"
-          : !canVoteFor(v, plan.target)
-            ? `${nm(s, plan.target)} is now safe and cannot receive votes`
-            : liveLog.some((line) => line.includes("splits their votes") && s.alliances.some((a) => line.startsWith(a.name) && a.members.includes(v.id)))
-              ? "their alliance's idol-backup split described above"
-              : getRel(s, v.id, target) < 0
-                ? `bad blood with ${nm(s, target)} outweighs the original plan`
-                : s.merged
-                  ? `they prioritize ${nm(s, target)} as a jury threat over the original plan`
-                  : `they prioritize challenge strength by targeting ${nm(s, target)}`;
+      const reason =
+        v.id === ctrl
+          ? "your chosen ballot"
+          : overrides[v.id] === target
+            ? "the live-Tribal whispering described above"
+            : !canVoteFor(v, plan.target)
+              ? `${nm(s, plan.target)} is now safe and cannot receive votes`
+              : liveLog.some(
+                    (line) =>
+                      line.includes("splits their votes") &&
+                      s.alliances.some((a) => line.startsWith(a.name) && a.members.includes(v.id)),
+                  )
+                ? "their alliance's idol-backup split described above"
+                : getRel(s, v.id, target) < 0
+                  ? `bad blood with ${nm(s, target)} outweighs the original plan`
+                  : s.merged
+                    ? `they prioritize ${nm(s, target)} as a jury threat over the original plan`
+                    : `they prioritize challenge strength by targeting ${nm(s, target)}`;
       liveLog.push(`${v.name} changes from ${nm(s, plan.target)} to ${nm(s, target)}: ${reason}.`);
     }
   }
@@ -3274,7 +3277,7 @@ function doTribal(s: GameState, d: Decision) {
       const mine = t0[threatened.id] ?? 0;
       if (mine > 0 && mine >= max - 1 && r() < 0.7) target = threatened.id;
     }
-       if (!target) continue;
+    if (!target) continue;
     const playedOrig = a.halfIdolOrigin || b.halfIdolOrigin || (s.merged ? "merged" : a.tribeId);
     a.halfIdolWith = undefined;
     a.halfIdolOrigin = undefined;
@@ -3373,21 +3376,23 @@ function doTribal(s: GameState, d: Decision) {
   ];
   const revoteFor = (v: Castaway, cs: Castaway[], previous: Vote[], fallbackSlate: string[], override?: string) => {
     const old = previous.find((b) => b.voter === v.id)?.target;
-    const choice = v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote)
-      ? d.revoteVote
-      : override && cs.some((c) => c.id === override)
-        ? override
-        : old && cs.some((c) => c.id === old)
-          ? old
-          : aiVote(s, v, cs, att, fallbackSlate);
+    const choice =
+      v.id === ctrl && d.revoteVote && cs.some((c) => c.id === d.revoteVote)
+        ? d.revoteVote
+        : override && cs.some((c) => c.id === override)
+          ? override
+          : old && cs.some((c) => c.id === old)
+            ? old
+            : aiVote(s, v, cs, att, fallbackSlate);
     if (old && choice !== old) {
-      const reason = v.id === ctrl && choice === d.revoteVote
-        ? "your revote choice"
-        : choice === override
-          ? "the revote whisper persuaded them"
-          : protectedIds.includes(old)
-            ? `${nm(s, old)} is idol-protected; they move to the remaining plan or agreed backup`
-            : `${nm(s, old)} is not in the tie; they choose between the tied players using alliance loyalty and relationships`;
+      const reason =
+        v.id === ctrl && choice === d.revoteVote
+          ? "your revote choice"
+          : choice === override
+            ? "the revote whisper persuaded them"
+            : protectedIds.includes(old)
+              ? `${nm(s, old)} is idol-protected; they move to the remaining plan or agreed backup`
+              : `${nm(s, old)} is not in the tie; they choose between the tied players using alliance loyalty and relationships`;
       details.push(`${v.name} changes their revote from ${nm(s, old)} to ${nm(s, choice)}: ${reason}.`);
     }
     return choice;
@@ -3463,7 +3468,13 @@ function doTribal(s: GameState, d: Decision) {
       .filter((v) => !tied.includes(v.id))
       .map((v) => ({
         voter: v.id,
-        target: revoteFor(v, att.filter((c) => tied.includes(c.id)), previousBallots, tied, revoteOverrides[v.id]),
+        target: revoteFor(
+          v,
+          att.filter((c) => tied.includes(c.id)),
+          previousBallots,
+          tied,
+          revoteOverrides[v.id],
+        ),
       }));
     const rt = tally(revote);
     const rtop = Math.max(0, ...Object.values(rt));
