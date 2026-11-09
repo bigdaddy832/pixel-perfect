@@ -3,6 +3,15 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import type { GameState } from "@/lib/survivor/engine";
+import {
+  clearLocalSeason,
+  clearRemoteSeason,
+  pickNewest,
+  readLocalSeason,
+  readRemoteSeason,
+  stashPreviousSeason,
+  writeLocalSeason,
+} from "@/lib/survivor/season-autosave";
 
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({
@@ -33,23 +42,22 @@ function History() {
 
   useEffect(() => {
     load();
-    try {
-      const raw = localStorage.getItem("survivor-sim-season");
-      if (raw) {
-        const parsed = JSON.parse(raw) as GameState;
-        if (parsed && parsed.phase !== "done") {
-          setActiveSeason(parsed);
-        }
+    const local = readLocalSeason();
+    if (local && local.game.phase !== "done") setActiveSeason(local.game);
+    void readRemoteSeason().then((remote) => {
+      const newest = pickNewest(local, remote);
+      if (newest && newest.game.phase !== "done") {
+        if (newest === remote) writeLocalSeason(newest);
+        setActiveSeason(newest.game);
       }
-    } catch {}
+    });
   }, []);
 
   const handleDiscardActive = () => {
     if (!window.confirm("Discard current in-progress season?")) return;
-    try {
-      localStorage.removeItem("survivor-sim-season");
-      localStorage.removeItem("survivor-sim-backup");
-    } catch {}
+    if (activeSeason) stashPreviousSeason(activeSeason);
+    clearLocalSeason();
+    void clearRemoteSeason();
     setActiveSeason(null);
   };
 
