@@ -22,3 +22,4 @@
 - Named settings presets use a validated format separate from saved seasons, cached in the browser and synced to the signed-in account (account copy wins on name conflicts); they exclude cast and controlled-player choices so loading a format does not overwrite a customized cast.
 - Season titles are generated for flavor only; twists come solely from the settings toggles (swap, joint/double tribals, Edge of Extinction, journeys, Exile, Beware). Legacy themeTwist remains readable for existing saved seasons only.
 - Keep KIP item eligibility in a shared pure selector and encode opt-in instinct in tribal decisions so controls, transfers, and deterministic revote replay agree.
+- The in-progress season autosaves to the browser and, when signed in, to the account's single active-season row (newest copy wins); saves are removed only by explicit discard/new-season actions so seasons never vanish on load or storage loss.

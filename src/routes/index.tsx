@@ -1,14 +1,22 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Setup } from "@/components/survivor/Setup";
 import { Game } from "@/components/survivor/Game";
 import type { GameState } from "@/lib/survivor/engine";
 import { AccountBar } from "@/components/survivor/AccountBar";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-
-const SAVE_KEY = "survivor-sim-season";
-const BACKUP_KEY = "survivor-sim-backup";
+import {
+  clearLocalSeason,
+  clearRemoteSeason,
+  pickNewest,
+  readLocalSeason,
+  readRemoteSeason,
+  stashPreviousSeason,
+  writeLocalSeason,
+  writeRemoteSeason,
+  type SavedSeason,
+} from "@/lib/survivor/season-autosave";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,40 +48,72 @@ function Index() {
 }
 
 function Season() {
-  const [game, setGameState] = useState<GameState | null>(() => {
-    try {
-      const raw = localStorage.getItem(SAVE_KEY);
-      const parsed = raw ? (JSON.parse(raw) as GameState) : null;
-      return parsed && parsed.phase !== "done" ? parsed : null;
-    } catch {
-      return null;
-    }
-  });
+  const initial = useRef<SavedSeason | null>(readLocalSeason());
+  const [game, setGameState] = useState<GameState | null>(() =>
+    initial.current && initial.current.game.phase !== "done" ? initial.current.game : null,
+  );
+  const [lastSeason, setLastSeason] = useState<GameState | null>(() => initial.current?.game ?? null);
+  const [saveWarning, setSaveWarning] = useState(false);
+  // True once the player has acted this visit, so a background account sync never overrides their moves.
+  const touched = useRef(false);
+  const pendingRemote = useRef<SavedSeason | null>(null);
+  const remoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [lastSeason, setLastSeason] = useState<GameState | null>(() => {
-    try {
-      const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(BACKUP_KEY);
-      return raw ? (JSON.parse(raw) as GameState) : null;
-    } catch {
-      return null;
-    }
-  });
+  const setGame = (g: GameState | null) => {
+    touched.current = true;
+    setGameState(g);
+  };
 
-  // Always keep localStorage strictly in sync with the active game
+  const flushRemote = () => {
+    if (remoteTimer.current) clearTimeout(remoteTimer.current);
+    remoteTimer.current = null;
+    const p = pendingRemote.current;
+    pendingRemote.current = null;
+    if (p) void writeRemoteSeason(p);
+  };
+
+  // Reconcile the browser copy with the account copy (on load and whenever the player signs in).
   useEffect(() => {
-    try {
-      if (game) {
-        const serialized = JSON.stringify(game);
-        localStorage.setItem(SAVE_KEY, serialized);
-        localStorage.removeItem(BACKUP_KEY);
-        setLastSeason(game);
-      } else {
-        localStorage.removeItem(SAVE_KEY);
-        localStorage.removeItem(BACKUP_KEY);
+    const reconcile = async () => {
+      const local = readLocalSeason();
+      const remote = await readRemoteSeason();
+      const newest = pickNewest(local, remote);
+      if (!newest) return;
+      if (newest === remote && remote && !touched.current) {
+        writeLocalSeason(remote);
+        setLastSeason(remote.game);
+        if (remote.game.phase !== "done") setGameState(remote.game);
+      } else if (newest === local && local && (!remote || local.savedAt > remote.savedAt)) {
+        void writeRemoteSeason(local);
       }
-    } catch {
-      /* storage full or blocked */
-    }
+    };
+    void reconcile();
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") void reconcile();
+    });
+    const onHide = () => flushRemote();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      sub.subscription.unsubscribe();
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+      flushRemote();
+    };
+  }, []);
+
+  // Save every change. Clearing a save only ever happens through an explicit player action below.
+  useEffect(() => {
+    if (!game) return;
+    const saved: SavedSeason = { game, savedAt: Date.now() };
+    const ok = writeLocalSeason(saved);
+    setLastSeason(game);
+    pendingRemote.current = saved;
+    if (remoteTimer.current) clearTimeout(remoteTimer.current);
+    remoteTimer.current = setTimeout(flushRemote, 1200);
+    if (!ok) {
+      void supabase.auth.getSession().then(({ data }) => setSaveWarning(!data.session));
+    } else setSaveWarning(false);
   }, [game]);
 
   // Save finished seasons to the signed-in user's history
@@ -100,17 +140,36 @@ function Season() {
     })();
   }, [game]);
 
-  const handleResumeLastSeason = () => {
-    if (lastSeason) {
-      setGameState(lastSeason);
+  const clearSave = () => {
+    pendingRemote.current = null;
+    if (remoteTimer.current) clearTimeout(remoteTimer.current);
+    clearLocalSeason();
+    void clearRemoteSeason();
+  };
+
+  const handleReset = () => {
+    if (game) stashPreviousSeason(game);
+    clearSave();
+    setGame(null);
+    setLastSeason(null);
+  };
+
+  const handleStart = (g: GameState) => {
+    if (lastSeason && lastSeason.phase !== "done") {
+      if (!window.confirm("You have a season in progress. Starting a new one will replace it. Continue?")) return;
+      stashPreviousSeason(lastSeason);
     }
+    setGame(g);
+  };
+
+  const handleResumeLastSeason = () => {
+    if (lastSeason) setGame(lastSeason);
   };
 
   const handleDismissLastSeason = () => {
-    try {
-      localStorage.removeItem(SAVE_KEY);
-      localStorage.removeItem(BACKUP_KEY);
-    } catch {}
+    if (lastSeason && lastSeason.phase !== "done" && !window.confirm("Discard your in-progress season?")) return;
+    if (lastSeason) stashPreviousSeason(lastSeason);
+    clearSave();
     setLastSeason(null);
   };
 
@@ -118,7 +177,14 @@ function Season() {
     <>
       <AccountBar />
 
-      {/* Unified Season Banner */}
+      {saveWarning && (
+        <div className="mx-auto mt-4 max-w-4xl px-4">
+          <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm">
+            Your browser couldn't save this season. Sign in so your progress is kept safely in your account.
+          </div>
+        </div>
+      )}
+
       {!game && lastSeason && (
         <div className="mx-auto mt-4 max-w-4xl px-4">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-card/90 p-4 shadow-lg backdrop-blur">
@@ -164,9 +230,9 @@ function Season() {
       )}
 
       {game ? (
-        <Game game={game} setGame={setGameState} onReset={() => setGameState(null)} />
+        <Game game={game} setGame={setGame} onReset={handleReset} />
       ) : (
-        <Setup onStart={setGameState} />
+        <Setup onStart={handleStart} />
       )}
     </>
   );

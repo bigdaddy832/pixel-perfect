@@ -3671,9 +3671,9 @@ export function blindsideAftermath(
   );
   const upset = [...new Set([...leftOut, ...grieving])];
   if (!upset.length) return;
-  const confrontations = Math.min(aggrieved.length, r() < 0.35 ? 2 : 1);
+  const confrontations = Math.min(upset.length, r() < 0.35 ? 2 : 1);
   const used = new Set<string>();
-  for (const angry of aggrieved.slice(0, confrontations)) {
+  for (const angry of upset.slice(0, confrontations)) {
     const angryVoted = allVotes.filter((v) => v.voter === angry.id).map((v) => v.target);
     const angryPlanned = planned?.find((p) => p.voter === angry.id)?.target;
     const targets = majority
