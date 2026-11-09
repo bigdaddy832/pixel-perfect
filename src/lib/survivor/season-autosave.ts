@@ -21,10 +21,28 @@ export function isSeason(v: unknown): v is GameState {
   );
 }
 
-/** Pick the most recently saved copy; ties keep the browser copy. */
+function seasonProgress(g: GameState): number {
+  if (g.phase === "done") return 999999;
+  return (g.episodes?.length ?? 0) * 1000 + (g.day ?? 0);
+}
+
+/** Pick the most recently saved copy; ties keep the browser copy. Never rewinds an earlier episode over a later one. */
 export function pickNewest(local: SavedSeason | null, remote: SavedSeason | null): SavedSeason | null {
   if (!local) return remote;
   if (!remote) return local;
+
+  const sameSeason =
+    local.game.config?.seasonTitle &&
+    remote.game.config?.seasonTitle &&
+    local.game.config.seasonTitle === remote.game.config.seasonTitle;
+
+  if (sameSeason) {
+    const localProg = seasonProgress(local.game);
+    const remoteProg = seasonProgress(remote.game);
+    if (localProg > remoteProg) return local;
+    if (remoteProg > localProg) return remote;
+  }
+
   return remote.savedAt > local.savedAt ? remote : local;
 }
 

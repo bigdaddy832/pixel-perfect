@@ -80,9 +80,18 @@ function Season() {
       const newest = pickNewest(local, remote);
       if (!newest) return;
       if (newest === remote && remote && !touched.current) {
-        writeLocalSeason(remote);
-        setLastSeason(remote.game);
-        if (remote.game.phase !== "done") setGameState(remote.game);
+        const localProg = local
+          ? local.game.phase === "done"
+            ? 999999
+            : (local.game.episodes?.length ?? 0) * 1000 + (local.game.day ?? 0)
+          : 0;
+        const remoteProg =
+          remote.game.phase === "done" ? 999999 : (remote.game.episodes?.length ?? 0) * 1000 + (remote.game.day ?? 0);
+        if (remoteProg >= localProg) {
+          writeLocalSeason(remote);
+          setLastSeason(remote.game);
+          if (remote.game.phase !== "done") setGameState(remote.game);
+        }
       } else if (newest === local && local && (!remote || local.savedAt > remote.savedAt)) {
         void writeRemoteSeason(local);
       }
@@ -136,7 +145,10 @@ function Season() {
         cast_size: game.castaways.length,
         data: marked as any,
       });
-      if (!error) setGameState(marked);
+      if (!error) {
+        setGameState(marked);
+        void clearRemoteSeason();
+      }
     })();
   }, [game]);
 
@@ -229,11 +241,7 @@ function Season() {
         </div>
       )}
 
-      {game ? (
-        <Game game={game} setGame={setGame} onReset={handleReset} />
-      ) : (
-        <Setup onStart={handleStart} />
-      )}
+      {game ? <Game game={game} setGame={setGame} onReset={handleReset} /> : <Setup onStart={handleStart} />}
     </>
   );
 }
