@@ -22,6 +22,13 @@
       "when": 1792723661974,
       "tag": "0002_create_settings_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794188869932,
+      "tag": "0003_create_active_seasons",
+      "breakpoints": true
     }
   ]
 }

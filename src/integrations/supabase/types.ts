@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_seasons: {
+        Row: {
+          data: Json
+          saved_at: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          data: Json
+          saved_at?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          data?: Json
+          saved_at?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
