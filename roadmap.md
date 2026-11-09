@@ -13,6 +13,7 @@
 - [x] Save and load named season-settings presets, including four starting tribes; verify persistence and loading.
 - [x] Earlier: alliances, idols, advantages, tribe colors, naming.
 - [x] Fix sim jumping back to start page mid-season (season saved locally).
+- [x] In-progress seasons never disappear: account backup, no automatic clearing, confirm before replacing.
 - [x] Randomize tribe names (each + all).
 - [x] Unique episode titles.
 - [x] More camp events; quits and medevacs.
