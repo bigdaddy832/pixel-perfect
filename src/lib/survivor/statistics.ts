@@ -6,6 +6,13 @@ export function reachedMerge(game: GameState, player: Castaway): boolean {
   return game.episodes.flatMap((e) => e.entries).some((e) => e.title.startsWith("The Merge —") && e.details?.some((d) => d.includes(`${player.name} (`)));
 }
 
+// "1st", "2nd", "3rd", "11th", "21st" ...
+export function ordinal(n: number) {
+  const v = Math.abs(n) % 100;
+  const suffix = v >= 11 && v <= 13 ? "th" : (["th", "st", "nd", "rd"][Math.abs(n) % 10] ?? "th");
+  return `${n}${suffix}`;
+}
+
 // Final ranking for a finished season: winner first, then the other finalists by
 // jury votes received, then everyone else by the placement recorded when they
 // were voted out. Every castaway gets a unique 1-based placement.

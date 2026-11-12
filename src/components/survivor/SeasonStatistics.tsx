@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { GameState } from "@/lib/survivor/engine";
-import { seasonStatistics, type SeasonStatistic } from "@/lib/survivor/statistics";
+import { seasonStatistics, ordinal, type SeasonStatistic } from "@/lib/survivor/statistics";
 import { Button } from "@/components/ui/button";
 
 const columns: { key: keyof Omit<SeasonStatistic, "id" | "name">; label: string }[] = [
