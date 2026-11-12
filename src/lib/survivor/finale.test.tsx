@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, cleanup } from "@testing-library/react";
+import { fireEvent, render, screen, cleanup, within } from "@testing-library/react";
 import { Game } from "@/components/survivor/Game";
 import { finalistSpeeches, IDOL_HIDING_PLACES, SEARCH_SPOTS, makeRoster, newGame, pendingDecision, simulateToEnd, step } from "./engine";
 import { reachedMerge, seasonStatistics, ordinal } from "./statistics";
@@ -91,6 +91,34 @@ describe("finale detail and decisions", () => {
     finalist.immunityWins = 2;
     g.episodes[0]?.entries.push({ kind: "challenge", title: "Reward Challenge: Test", text: `${finalist.name} wins reward.` }, { kind: "tribal", title: "Vote", text: "", votes: [{ voter: "c4", target: "c1", nullified: true }, { voter: "c5", target: "c1" }], revote: [{ voter: "c4", target: "c1" }] });
     expect(seasonStatistics(g).find((r) => r.id === "c1")).toMatchObject({ rewards: 1, immunity: 2, totalWins: 3, votesAgainst: 3, countedAgainst: 2, negated: 1 });
+  });
+
+  it("ranks every castaway by final placement with the winner first", () => {
+    const done = simulateToEnd(season());
+    const stats = seasonStatistics(done).sort((a, b) => a.placement - b.placement);
+    expect(stats.map((s) => s.placement)).toEqual(done.castaways.map((_, i) => i + 1));
+    expect(stats[0]?.id).toBe(done.winner);
+    const counts: Record<string, number> = {};
+    done.juryVotes?.forEach((v) => (counts[v.finalist] = (counts[v.finalist] ?? 0) + 1));
+    const otherFinalists = (done.finalists ?? []).filter((id) => id !== done.winner);
+    const best = Math.max(...otherFinalists.map((id) => counts[id] ?? 0));
+    expect(otherFinalists.filter((id) => (counts[id] ?? 0) === best)).toContain(stats[1]?.id);
+    const firstOut = done.castaways.filter((c) => c.out).sort((a, b) => (b.placement ?? 0) - (a.placement ?? 0))[0];
+    expect(stats.at(-1)?.id).toBe(firstOut?.id);
+    for (const [n, label] of [[1, "1st"], [2, "2nd"], [3, "3rd"], [11, "11th"], [21, "21st"]] as const)
+      expect(ordinal(n)).toBe(label);
+  });
+
+  it("shows the finished season's stats table and placement list winner-first", () => {
+    const done = simulateToEnd(season());
+    const winnerName = done.castaways.find((c) => c.id === done.winner)?.name;
+    if (!winnerName) throw new Error("Missing winner");
+    render(<Game game={done} setGame={vi.fn()} onReset={() => {}} readOnly />);
+    const statsSection = screen.getByText("Season Statistics").closest("section");
+    const placementSection = screen.getByText("Final Placement").closest("section");
+    if (!statsSection || !placementSection) throw new Error("Missing stats or placement section");
+    expect(within(statsSection).getAllByRole("row")[1]?.textContent).toContain(winnerName);
+    expect(within(placementSection).getAllByRole("listitem")[0]?.textContent).toContain(winnerName);
   });
 
   it("awards fan favorite only to a merge player after the winner", () => {
