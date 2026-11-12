@@ -3282,20 +3282,25 @@ function doTribal(s: GameState, d: Decision) {
     const b = att.find((c) => c.id === a.halfIdolWith && !c.out);
     if (!b || a.id > b.id) continue;
     const ctrlIn = a.id === ctrl || b.id === ctrl;
+    const ctrlHasReg = ctrlIn && (byId(s, ctrl)?.idols ?? 0) > 0 && !(byId(s, ctrl)?.bewareTribals > 0);
     let target: string | null = null;
     if (ctrlIn && d.idol && d.idol !== "__instinct__") {
-      target =
-        d.idol === "__random__"
-          ? (pick(att.filter((c) => !s.immune.includes(c.id)))?.id ?? null)
-          : att.some((c) => c.id === d.idol && !s.immune.includes(c.id))
-            ? d.idol
-            : null;
+      if (!ctrlHasReg) {
+        target =
+          d.idol === "__random__"
+            ? (pick(att.filter((c) => !s.immune.includes(c.id) && !protectedIds.includes(c.id)))?.id ?? null)
+            : att.some((c) => c.id === d.idol && !s.immune.includes(c.id) && !protectedIds.includes(c.id))
+              ? d.idol
+              : null;
+      }
     } else if (!ctrlIn || d.idol === "__instinct__") {
       const threatened = (t0[a.id] ?? 0) >= (t0[b.id] ?? 0) ? a : b;
       const mine = t0[threatened.id] ?? 0;
-      if (mine > 0 && mine >= max - 1 && r() < 0.7) target = threatened.id;
+      if (mine > 0 && mine >= max - 1 && r() < 0.7 && !protectedIds.includes(threatened.id)) {
+        target = threatened.id;
+      }
     }
-    if (!target) continue;
+    if (!target || protectedIds.includes(target)) continue;
     const playedOrig = a.halfIdolOrigin || b.halfIdolOrigin || (s.merged ? "merged" : a.tribeId);
     a.halfIdolWith = undefined;
     a.halfIdolOrigin = undefined;
@@ -3322,8 +3327,8 @@ function doTribal(s: GameState, d: Decision) {
     if (h.id === ctrl && d.idol !== "__instinct__")
       target =
         d.idol === "__random__"
-          ? (pick(att.filter((c) => !s.immune.includes(c.id)))?.id ?? null)
-          : att.some((c) => c.id === d.idol && !s.immune.includes(c.id))
+          ? (pick(att.filter((c) => !s.immune.includes(c.id) && !protectedIds.includes(c.id)))?.id ?? null)
+          : att.some((c) => c.id === d.idol && !s.immune.includes(c.id) && !protectedIds.includes(c.id))
             ? d.idol
             : null;
     else {
@@ -3332,18 +3337,24 @@ function doTribal(s: GameState, d: Decision) {
       // Realistic chance of feeling safe or saving the idol for later (going out with it in pocket)
       const playChance = 0.18 + h.stats.strategy * 0.08; // ~26% to 58% play rate instead of ~95%
       const shouldPlaySelf =
-        (mine >= max - 1 && mine > 0 && r() < playChance) || (finalTribal && mine > 0 && r() < 0.82);
+        !protectedIds.includes(h.id) &&
+        ((mine >= max - 1 && mine > 0 && r() < playChance) || (finalTribal && mine > 0 && r() < 0.82));
       if (shouldPlaySelf) target = h.id;
       else {
         const ally = att
           .filter(
-            (c) => c.id !== h.id && getRel(s, h.id, c.id) > 8 && (t0[c.id] ?? 0) >= max - 1 && (t0[c.id] ?? 0) > 0,
+            (c) =>
+              c.id !== h.id &&
+              !protectedIds.includes(c.id) &&
+              getRel(s, h.id, c.id) > 8 &&
+              (t0[c.id] ?? 0) >= max - 1 &&
+              (t0[c.id] ?? 0) > 0,
           )
           .sort((a, b) => getRel(s, h.id, b.id) - getRel(s, h.id, a.id))[0];
         if (ally && r() < 0.22 + h.stats.strategy * 0.06) target = ally.id;
       }
     }
-    if (target) {
+    if (target && !protectedIds.includes(target)) {
       h.idols--;
       h.idolsPlayed = (h.idolsPlayed ?? 0) + 1;
       const playedOrig = (h.idolOrigins && h.idolOrigins.pop()) || (s.merged ? "merged" : h.tribeId);
@@ -3711,7 +3722,13 @@ export function blindsideAftermath(
     } else {
       mood(angry, -4);
       const tribe = angry.tribeId;
-      const found = canDiscoverIdol(s) && (s.hiddenIdols[tribe] ?? 0) > 0 && r() < 0.15 + angry.stats.strategy * 0.03;
+      const found =
+        canDiscoverIdol(s) &&
+        (s.hiddenIdols[tribe] ?? 0) > 0 &&
+        !isIdolInPlay(s, tribe) &&
+        angry.idols === 0 &&
+        !angry.halfIdolWith &&
+        r() < 0.15 + angry.stats.strategy * 0.03;
       if (found) {
         s.hiddenIdols[tribe] = 0;
         angry.idols += 1;
@@ -3914,8 +3931,11 @@ export function giftFoundIdols(s: GameState) {
     }
     // Mark this idol as reviewed so it is only considered once.
     c.idolsGifted = c.idols;
-    if ((s.halfIdolsMade ?? 0) >= MAX_HALF_IDOLS || c.halfIdolWith) continue;
-    const mates = alive(s).filter((x) => x.id !== c.id && x.tribeId === c.tribeId && !x.halfIdolWith);
+    if ((s.halfIdolsMade ?? 0) >= MAX_HALF_IDOLS || c.halfIdolWith || (c.bewareTribals ?? 0) > 0) continue;
+    const mates = alive(s).filter(
+      (x) =>
+        x.id !== c.id && x.tribeId === c.tribeId && !x.halfIdolWith && (x.idols ?? 0) === 0 && !(x.bewareTribals > 0),
+    );
     if (!mates.length) continue;
     const to = [...mates].sort((a, b) => getRel(s, c.id, b.id) - getRel(s, c.id, a.id))[0];
     const orig = c.idolOrigins?.pop() ?? c.tribeId;
