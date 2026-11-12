@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import { Game } from "@/components/survivor/Game";
 import { finalistSpeeches, IDOL_HIDING_PLACES, SEARCH_SPOTS, makeRoster, newGame, pendingDecision, simulateToEnd, step } from "./engine";
-import { reachedMerge, seasonStatistics } from "./statistics";
+import { reachedMerge, seasonStatistics, ordinal } from "./statistics";
 
 function season() {
   return newGame({ playerCount: 12, tribeCount: 2, jurySize: 6, finalSize: 3, fireAtF4: true, swapEnabled: false, swapAt: 10, mergeAt: 8, mergedName: "Final Tribe", mergedColor: "#123456", controlledId: "c0", jointTribals: false, doubleTribals: false }, [{ id: "t0", name: "First", color: "#123456" }, { id: "t1", name: "Second", color: "#654321" }], makeRoster(12, 2).map((c, i) => ({ ...c, name: c.name ?? `Player ${i}` })));
