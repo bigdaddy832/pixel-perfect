@@ -12,9 +12,17 @@ const columns: { key: keyof Omit<SeasonStatistic, "id" | "name">; label: string 
   { key: "juryVotes", label: "Jury votes" },
 ];
 
+function ordinal(n: number) {
+  const v = Math.abs(n) % 100;
+  const suffix = v >= 11 && v <= 13 ? "th" : (["th", "st", "nd", "rd"][Math.abs(n) % 10] ?? "th");
+  return `${n}${suffix}`;
+}
+
 export function SeasonStatistics({ game }: { game: GameState }) {
-  const [sort, setSort] = useState<keyof SeasonStatistic>("totalWins");
-  const rows = seasonStatistics(game).sort((a, b) => Number(b[sort]) - Number(a[sort]) || a.name.localeCompare(b.name));
+  const [sort, setSort] = useState<keyof SeasonStatistic>("placement");
+  const rows = seasonStatistics(game).sort((a, b) =>
+    sort === "placement" ? a.placement - b.placement : Number(b[sort]) - Number(a[sort]) || a.placement - b.placement,
+  );
   const favorite = game.castaways.find((c) => c.id === game.fanFavorite);
   return (
     <section className="mb-8 border-y py-5">
