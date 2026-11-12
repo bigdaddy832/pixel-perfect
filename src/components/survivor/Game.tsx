@@ -32,6 +32,7 @@ import {
 import { StatPicker, TribeEditor } from "./shared";
 import { Button } from "@/components/ui/button";
 import { SeasonStatistics } from "./SeasonStatistics";
+import { finalPlacements, ordinal } from "@/lib/survivor/statistics";
 
 const PHASE_LABEL: Record<string, string> = {
   camp: "Life at Camp",
@@ -147,6 +148,10 @@ export function Game({
   const groups = [...new Set(alive(game).map((c) => c.tribeId))];
   const jury = game.castaways.filter((c) => c.juror);
   const boots = game.castaways.filter((c) => c.out).sort((a, b) => (b.placement ?? 0) - (a.placement ?? 0));
+  const placements = finalPlacements(game);
+  const ranking = [...game.castaways].sort(
+    (a, b) => (placements[a.id] ?? 9999) - (placements[b.id] ?? 9999) || a.name.localeCompare(b.name),
+  );
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6">
@@ -276,30 +281,61 @@ export function Game({
               </div>
             </section>
           )}
-          {boots.length > 0 && (
+          {game.phase === "done" ? (
             <section className="rounded-xl border bg-card p-4">
-              <h2 className="text-2xl text-accent">Boot Order</h2>
+              <h2 className="text-2xl text-accent">Final Placement</h2>
               <ol className="mt-2 space-y-1 text-sm">
-                {boots.map((b) => (
+                {ranking.map((c) => (
                   <li
-                    key={b.id}
+                    key={c.id}
                     className="flex items-center justify-between border-b border-border/40 py-1 text-xs last:border-0"
                   >
                     <span className="font-medium text-foreground">
-                      {b.placement}th — {b.name}
+                      {ordinal(placements[c.id] ?? 0)} — {c.name}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      {b.juror && (
+                      {game.winner === c.id && (
+                        <span className="rounded bg-idol/20 px-1.5 py-0.5 text-[10px] font-semibold text-idol">
+                          👑 Sole Survivor
+                        </span>
+                      )}
+                      {c.juror && (
                         <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
                           ⚖️ Jury
                         </span>
                       )}
-                      <span className="text-muted-foreground">🕯️ Snuffed</span>
+                      {c.out && <span className="text-muted-foreground">🕯️ Snuffed</span>}
                     </span>
                   </li>
                 ))}
               </ol>
             </section>
+          ) : (
+            boots.length > 0 && (
+              <section className="rounded-xl border bg-card p-4">
+                <h2 className="text-2xl text-accent">Boot Order</h2>
+                <ol className="mt-2 space-y-1 text-sm">
+                  {boots.map((b) => (
+                    <li
+                      key={b.id}
+                      className="flex items-center justify-between border-b border-border/40 py-1 text-xs last:border-0"
+                    >
+                      <span className="font-medium text-foreground">
+                        {ordinal(b.placement ?? 0)} — {b.name}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        {b.juror && (
+                          <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                            ⚖️ Jury
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">🕯️ Snuffed</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )
           )}
         </div>
         <div className="space-y-4">
