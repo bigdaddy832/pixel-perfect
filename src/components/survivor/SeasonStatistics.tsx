@@ -12,12 +12,6 @@ const columns: { key: keyof Omit<SeasonStatistic, "id" | "name">; label: string 
   { key: "juryVotes", label: "Jury votes" },
 ];
 
-function ordinal(n: number) {
-  const v = Math.abs(n) % 100;
-  const suffix = v >= 11 && v <= 13 ? "th" : (["th", "st", "nd", "rd"][Math.abs(n) % 10] ?? "th");
-  return `${n}${suffix}`;
-}
-
 export function SeasonStatistics({ game }: { game: GameState }) {
   const [sort, setSort] = useState<keyof SeasonStatistic>("placement");
   const rows = seasonStatistics(game).sort((a, b) =>
