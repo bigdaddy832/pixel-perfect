@@ -48,6 +48,9 @@ export interface Castaway {
   rewardWins?: number;
   amulet?: boolean;
   idolOrigins?: string[];
+  /** Unplayed inventory captured before elimination clears active items. */
+  idolsAtExit?: number;
+  halfIdolAtExit?: boolean;
   /** Idols received as a gift (Idol Halves twist); these are playable. */
   idolsGifted?: number;
   /** Idol Halves twist: id of the castaway holding the matching half. */
@@ -1017,6 +1020,23 @@ export function allianceName(size: number, taken: string[]): string {
 }
 // Renames any numbered alliance whose member count no longer matches its number.
 export function fixAllianceNames(s: GameState) {
+  // Prefer the already-established smaller group when a larger group shrinks into it.
+  const survivingIds = new Set(alive(s).map((c) => c.id));
+  const groups = new Map<string, Alliance>();
+  for (const a of [...s.alliances].sort((a, b) => a.members.length - b.members.length)) {
+    a.members = [...new Set(a.members)].filter((id) => survivingIds.has(id));
+    if (a.members.length < 2) continue;
+    const signature = JSON.stringify([...a.members].sort());
+    const existing = groups.get(signature);
+    if (existing) {
+      if (s.episodes.length) log(s, {
+        kind: "alliance",
+        title: "Alliances Combined",
+        text: `"${a.name}" now has the same remaining members as "${existing.name}" and dissolves into it.`,
+      });
+    } else groups.set(signature, a);
+  }
+  s.alliances = [...groups.values()];
   for (const a of s.alliances) {
     const n = sizedFor(a.name);
     if (n && n !== a.members.length) {
@@ -1536,6 +1556,7 @@ export function pendingDecision(s: GameState): Pending {
 // ---------- step ----------
 export function step(prev: GameState, d: Decision = {}): GameState {
   const s: GameState = structuredClone(prev);
+  fixAllianceNames(s);
   switch (s.phase) {
     case "camp": {
       doCamp(s, d);
@@ -3592,7 +3613,9 @@ function doTribal(s: GameState, d: Decision) {
       mood(c, -5);
     }
   }
-  const blindside = loser.idols > 0 && !allVotes.some((v) => v.voter === out && against.includes(v.target));
+  const pocketIdols = loser.idols;
+  const pocketHalf = !!loser.halfIdolWith;
+  const blindside = pocketIdols > 0 && !allVotes.some((v) => v.voter === out && against.includes(v.target));
   eliminate(s, loser, `voted out`);
   const fmt = (tt: Record<string, number>) => {
     const e = Object.entries(tt).sort((a, b) => b[1] - a[1]);
@@ -3607,7 +3630,7 @@ function doTribal(s: GameState, d: Decision) {
   log(s, {
     kind: "tribal",
     title: `Tribal Council — ${tname}`,
-    text: `${loser.name} has been ${rocks ? "eliminated by drawing the wrong rock" : "voted out"}${loser.juror ? " and becomes a member of the jury" : ""}${loser.edge ? " — and heads to the Edge of Extinction, still fighting for a way back" : ""}. ${blindside ? "A massive blindside — with an idol in their pocket!" : ""} Jeff snuffs their torch: "The tribe has spoken." ${
+    text: `${loser.name} has been ${rocks ? "eliminated by drawing the wrong rock" : "voted out"}${loser.juror ? " and becomes a member of the jury" : ""}${loser.edge ? " — and heads to the Edge of Extinction, still fighting for a way back" : ""}. ${pocketIdols ? `They leave with ${pocketIdols} unplayed idol${pocketIdols === 1 ? "" : "s"} in their pocket. ` : ""}${pocketHalf ? "They also leave with an unplayed half idol. " : ""}${blindside ? "A massive blindside — with an idol in their pocket!" : ""} Jeff snuffs their torch: "The tribe has spoken." ${
       blindside
         ? `"${loser.name}: 'Ouch... I literally had an idol in my pocket. Good blindside guys!'"`
         : [
@@ -3749,34 +3772,22 @@ export function blindsideAftermath(
 
 function eliminate(s: GameState, c: Castaway, _how: string) {
   const left = alive(s).length;
+  c.idolsAtExit = c.idols;
+  c.halfIdolAtExit = !!c.halfIdolWith;
+  if (c.idolsAtExit || c.halfIdolAtExit) log(s, {
+    kind: "idol",
+    title: "Idols Left in Pocket",
+    text: `${c.name} leaves (${_how}) with ${[c.idolsAtExit ? `${c.idolsAtExit} unplayed idol${c.idolsAtExit === 1 ? "" : "s"}` : "", c.halfIdolAtExit ? "an unplayed half idol" : ""].filter(Boolean).join(" and ")} in their pocket.`,
+    out: c.id,
+  });
   c.out = true;
   c.placement = left;
   if (_how === "voted out" && s.config.edgeOfExtinction && !s.merged && !s.edgeDone) c.edge = true;
   c.juror = s.merged && left <= s.config.finalSize + s.config.jurySize;
-  s.alliances.forEach((a) => (a.members = a.members.filter((m) => m !== c.id)));
-  s.alliances = s.alliances.filter((a) => a.members.length >= 2);
-  c.alliances = s.alliances.filter((a) => a.members.length >= 2);
+  fixAllianceNames(s);
   if (c.idols > 0) {
     const origs = c.idolOrigins?.length ? c.idolOrigins : [s.merged ? "merged" : c.tribeId];
-    c.alliances = s.alliances.filter((a) => a.members.length >= 2);
-    if (c.idols > 0) {
-      const origs = c.idolOrigins?.length ? c.idolOrigins : [s.merged ? "merged" : c.tribeId];
-      c.idols = 0;
-      c.idolOrigins = [];
-      if (canDiscoverIdol(s)) {
-        origs.forEach((orig) => {
-          if (s.merged) {
-            if (orig === "merged" && !isIdolInPlay(s, "merged")) s.hiddenIdols.merged = 1;
-          } else if (!isIdolInPlay(s, orig)) {
-            s.hiddenIdols[orig] = 1;
-          }
-        });
-      }
-    } else {
-      c.idols = 0;
-      c.idolOrigins = [];
-    }
-    c.advantages = [];
+    c.idols = 0;
     c.idolOrigins = [];
     if (canDiscoverIdol(s)) {
       origs.forEach((orig) => {
@@ -3791,8 +3802,6 @@ function eliminate(s: GameState, c: Castaway, _how: string) {
     c.idols = 0;
     c.idolOrigins = [];
   }
-  c.advantages = [];
-
   c.advantages = [];
   c.amulet = false;
   noteAmuletStage(s);
@@ -4897,6 +4906,7 @@ function doFTC(s: GameState, d: Decision) {
   const allEntries = s.episodes.flatMap((e) => e.entries);
   const tribalEntries = allEntries.filter((e) => e.kind === "tribal");
   const blindsides = tribalEntries.filter((e) => e.text.includes("massive blindside")).length;
+  const pocketExits = s.castaways.filter((c) => (c.idolsAtExit ?? 0) > 0 || c.halfIdolAtExit).length;
   const idolsPlayedTotal = s.castaways.reduce((n, c) => n + (c.idolsPlayed ?? 0), 0);
   const advPlayedTotal = s.castaways.reduce((n, c) => n + (c.advPlayed ?? 0), 0);
   const quits = allEntries.filter((e) => e.title === "A Castaway Quits").length;
@@ -4906,7 +4916,7 @@ function doFTC(s: GameState, d: Decision) {
   const winnerC = byId(s, s.winner!);
   const details = [
     `${s.episodes.length} episodes, ${tribalEntries.length} Tribal Councils, ${s.castaways.length} castaways.`,
-    `${idolsPlayedTotal} idol${idolsPlayedTotal === 1 ? "" : "s"} played, ${advPlayedTotal} advantage${advPlayedTotal === 1 ? "" : "s"} used, ${blindsides} blindside${blindsides === 1 ? "" : "s"} with an idol in someone's pocket.`,
+    `${idolsPlayedTotal} idol${idolsPlayedTotal === 1 ? "" : "s"} played, ${advPlayedTotal} advantage${advPlayedTotal === 1 ? "" : "s"} used, ${blindsides} blindside${blindsides === 1 ? "" : "s"} with an idol in someone's pocket. ${pocketExits} castaway${pocketExits === 1 ? "" : "s"} left with unplayed idols or half idols.`,
     ...(quits || medevacs
       ? [
           `Unusual exits: ${[quits ? `${quits} quit${quits > 1 ? "s" : ""}` : "", medevacs ? `${medevacs} medevac${medevacs > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ")}.`,
@@ -4939,8 +4949,8 @@ export function superlatives(s: GameState): { award: string; id: string; why: st
   const blindsided = new Set(
     s.episodes
       .flatMap((e) => e.entries)
-      .filter((e) => e.kind === "tribal" && e.text.includes("massive blindside") && e.out)
-      .map((e) => e.out!),
+      .filter((e) => ((e.kind === "tribal" && e.text.includes("massive blindside")) || e.title === "Idols Left in Pocket") && e.out)
+      .flatMap((e) => e.out ? [e.out] : []),
   );
   const defs: [string, (c: Castaway) => number, (n: number) => string][] = [
     [
@@ -4959,7 +4969,7 @@ export function superlatives(s: GameState): { award: string; id: string; why: st
     ["Social Butterfly", (c) => Math.round(warmth(c)), () => "built the warmest bonds across the cast"],
     [
       "Blindside Victim of the Season",
-      (c) => (blindsided.has(c.id) ? 100 - (c.placement ?? 0) : 0),
+      (c) => (blindsided.has(c.id) || (c.idolsAtExit ?? 0) > 0 || c.halfIdolAtExit ? 100 - (c.placement ?? 0) : 0),
       () => "went home with an idol in their pocket",
     ],
   ];

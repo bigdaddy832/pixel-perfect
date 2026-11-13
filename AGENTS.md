@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 - Keep season mechanics in the pure Survivor state machine and controls in the Survivor components so season behavior stays independently testable.
+- Normalize alliance membership at state transitions and capture idol inventory before elimination clears it, so duplicate groups and exit summaries cannot depend on discarded state.
 - Derive a shared two-target voting slate for ordinary Tribal ballots and previews; resolve deliberate splits and player decisions afterward so coordination does not override agency.
 - Freeze displayed Tribal plans before live events; retain legal prior ballots on revotes and log departures with their actual trigger so idol protection cannot silently reroll commitments.
 - Track shared amulet ownership, consumption, and announced stages in season state, separately from randomly discoverable advantages, so shared powers and saved-season notes stay consistent.
