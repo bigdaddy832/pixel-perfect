@@ -1,5 +1,5 @@
 # Survivor updates
-- [ ] Record unplayed idols at every exit and collapse alliances with identical surviving members; verify regression tests.
+- [x] Record unplayed idols at every exit and collapse alliances with identical surviving members; 39 regression tests passed and live exit/alliance flow verified.
 - [x] Keep Tribal plans consistent, explain vote switches, and verify idol/revote scenarios.
 - [x] Expand castaway pool to 200 names, add 60 episode titles and more event/personal confessionals; 29 tests passed on recheck and a live full season completed without errors.
 - [x] Reduce scattered Tribal votes throughout the season while preserving intentional splits; make larger alliances more common; regression tests pass (live browser season not checked).
